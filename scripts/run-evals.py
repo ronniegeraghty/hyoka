@@ -2,7 +2,7 @@
 """
 Run doc-agent evaluate against all (or filtered) prompts in the repo.
 
-Evaluations run in parallel by default for faster execution.
+Evaluations run in parallel by default with inline-updating progress bars.
 
 Usage:
   python scripts/run-evals.py                                    # All prompts (parallel)
@@ -17,6 +17,7 @@ Usage:
   python scripts/run-evals.py --prompt-id storage-dp-dotnet-auth # Single by ID
   python scripts/run-evals.py --prompt prompts/storage/.../x.prompt.md  # Single by path
   python scripts/run-evals.py --service storage --dry-run        # List without running
+  python scripts/run-evals.py --debug                            # Stream subprocess output
 """
 
 import argparse
@@ -27,7 +28,7 @@ import subprocess
 import sys
 import threading
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 try:
@@ -40,6 +41,16 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = REPO_ROOT / "prompts"
 REPORTS_DIR = REPO_ROOT / "reports" / "runs"
 MANIFEST_PATH = REPO_ROOT / "manifest.yaml"
+
+# doc-agent evaluate output stages (ordered by file creation)
+EVAL_STAGES = [
+    ("task.md",        "Planning",   1),
+    ("execution.log",  "Executing",  3),
+    ("observations.md","Observing",  5),
+    ("report.html",    "Reporting",  7),
+    ("workspace",      "Complete",   8),
+]
+STAGE_TOTAL = 8
 
 
 def load_manifest():
@@ -102,17 +113,45 @@ def _build_eval_cmd(prompt_text, output_dir, model=None, timeout=None, verbose=F
     return cmd
 
 
+# ---------------------------------------------------------------------------
+# Stage detection by polling output directories
+# ---------------------------------------------------------------------------
+
+def _detect_stage(tmp_output_dir):
+    """
+    Detect the current stage of a doc-agent evaluate run by checking
+    which output files exist. Returns (stage_label, progress_filled).
+    """
+    tmp = Path(tmp_output_dir)
+    # doc-agent writes to eval-<timestamp>-<slug>/ inside the output dir
+    eval_dirs = sorted(tmp.glob("eval-*"))
+    if not eval_dirs:
+        return ("Starting", 0)
+
+    d = eval_dirs[-1]
+    label, filled = "Starting", 0
+    for filename, stage_label, stage_filled in EVAL_STAGES:
+        if (d / filename).exists():
+            label, filled = stage_label, stage_filled
+    return (label, filled)
+
+
+def _progress_bar(filled, total=STAGE_TOTAL, width=8):
+    """Render a block-style progress bar like ▓▓▓░░░░░."""
+    done = int(width * filled / total) if total else 0
+    return "▓" * done + "░" * (width - done)
+
+
+# ---------------------------------------------------------------------------
+# Worker functions
+# ---------------------------------------------------------------------------
+
 def run_single_eval_worker(prompt_id, prompt_text, tmp_output_dir, report_subdir,
                            model, timeout, verbose, eval_number=0, total=0):
     """
-    Run one eval in its own subprocess. Designed to be called from
-    ProcessPoolExecutor — all arguments are picklable primitives/Paths.
-
+    Run one eval in its own subprocess (ProcessPoolExecutor compatible).
     Returns a result dict with prompt_id, status, report_path, stdout, stderr.
     """
-    if eval_number and total:
-        print(f"▶️  [{eval_number}/{total}] Starting: {prompt_id}", flush=True)
-
     tmp_output = Path(tmp_output_dir)
     tmp_output.mkdir(parents=True, exist_ok=True)
 
@@ -139,7 +178,78 @@ def run_single_eval_worker(prompt_id, prompt_text, tmp_output_dir, report_subdir
         stdout = ""
         stderr = f"ERROR: Evaluation timed out after {effective_timeout}s"
 
-    # Reorganize output into the final report directory
+    target = Path(report_subdir)
+    _reorganize_eval_output(tmp_output, target)
+
+    status = "pass" if exit_code == 0 else "fail"
+    entry = {
+        "prompt_id": prompt_id,
+        "status": status,
+        "report_path": str(target.name),
+        "stdout": stdout,
+        "stderr": stderr,
+    }
+    if exit_code != 0:
+        entry["error"] = stderr[:500]
+    return entry
+
+
+def _run_debug_eval_worker(prompt_id, prompt_text, tmp_output_dir, report_subdir,
+                           model, timeout, verbose, print_lock):
+    """
+    Run one eval using Popen and stream stdout/stderr line-by-line,
+    prefixed with the eval ID.  Used in --debug mode.
+    """
+    tmp_output = Path(tmp_output_dir)
+    tmp_output.mkdir(parents=True, exist_ok=True)
+
+    cmd = _build_eval_cmd(prompt_text, tmp_output, model, timeout, verbose)
+    effective_timeout = timeout or 3600
+
+    stdout_lines, stderr_lines = [], []
+    exit_code = 0
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        def _stream(pipe, collector, label):
+            for raw_line in pipe:
+                line = raw_line.rstrip("\n")
+                collector.append(line)
+                with print_lock:
+                    print(f"  [{prompt_id}] {line}", flush=True)
+
+        t_out = threading.Thread(target=_stream,
+                                 args=(proc.stdout, stdout_lines, "out"))
+        t_err = threading.Thread(target=_stream,
+                                 args=(proc.stderr, stderr_lines, "err"))
+        t_out.start()
+        t_err.start()
+
+        proc.wait(timeout=effective_timeout)
+        t_out.join()
+        t_err.join()
+
+        exit_code = proc.returncode
+    except FileNotFoundError:
+        exit_code = 127
+        stderr_lines.append(
+            "ERROR: doc-agent command not found. "
+            "Install from https://github.com/coreai-microsoft/doc-review-agent")
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        exit_code = 124
+        stderr_lines.append(f"ERROR: Evaluation timed out after {effective_timeout}s")
+
+    stdout = "\n".join(stdout_lines)
+    stderr = "\n".join(stderr_lines)
+
     target = Path(report_subdir)
     _reorganize_eval_output(tmp_output, target)
 
@@ -186,6 +296,163 @@ def _default_workers():
     return min(cpus, 8)
 
 
+# ---------------------------------------------------------------------------
+# Progress display
+# ---------------------------------------------------------------------------
+
+class ProgressDisplay:
+    """
+    Inline-updating progress display using ANSI escape codes.
+
+    Manages N active eval lines + 1 summary line at the bottom.
+    When an eval completes, its line is updated to a final status and
+    frozen; new evals are appended below.
+
+    Falls back to simple line-by-line output when stdout is not a TTY.
+    """
+
+    def __init__(self, total_work, workers, use_ansi=True):
+        self._lock = threading.Lock()
+        self._total = total_work
+        self._workers = workers
+        self._use_ansi = use_ansi and sys.stdout.isatty()
+
+        # Tracking state
+        self._completed = 0
+        self._failed = 0
+        self._active = {}       # prompt_id → {num, start, tmp_dir, line_idx}
+        self._line_count = 0    # how many display lines we've printed
+        self._finished_ids = set()
+
+    # -- ANSI helpers -------------------------------------------------------
+
+    def _move_up(self, n):
+        if n > 0:
+            sys.stdout.write(f"\033[{n}A")
+
+    def _clear_line(self):
+        sys.stdout.write("\r\033[K")
+
+    def _write_at(self, line_idx, text):
+        """Overwrite a specific line (0-indexed from top of our display block)."""
+        up = self._line_count - line_idx
+        self._move_up(up)
+        self._clear_line()
+        sys.stdout.write(text)
+        # Move back to the bottom
+        down = up
+        if down > 0:
+            sys.stdout.write(f"\n\033[{down - 1}B" if down > 1 else "\n")
+        sys.stdout.flush()
+
+    # -- Public API ---------------------------------------------------------
+
+    def eval_started(self, prompt_id, eval_num, tmp_dir):
+        """Called when an eval is submitted to the executor."""
+        with self._lock:
+            line_idx = self._line_count
+            self._active[prompt_id] = {
+                "num": eval_num,
+                "start": time.monotonic(),
+                "tmp_dir": tmp_dir,
+                "line_idx": line_idx,
+            }
+            self._line_count += 1  # the eval line
+            # Print the initial line
+            if self._use_ansi:
+                text = self._format_active_line(prompt_id)
+                sys.stdout.write(text + "\n")
+                sys.stdout.flush()
+                self._refresh_summary()
+            else:
+                num = self._active[prompt_id]["num"]
+                print(f"▶️  [{num}/{self._total}] Starting: {prompt_id}",
+                      flush=True)
+
+    def eval_completed(self, prompt_id, entry):
+        """Called when an eval finishes (pass or fail)."""
+        with self._lock:
+            self._completed += 1
+            if entry["status"] == "fail":
+                self._failed += 1
+
+            info = self._active.pop(prompt_id, None)
+            self._finished_ids.add(prompt_id)
+
+            if info is None:
+                return
+
+            elapsed = int(time.monotonic() - info["start"])
+            num = info["num"]
+
+            if entry["status"] == "pass":
+                icon, word = "✅", "Passed"
+            else:
+                icon, word = "❌", "Failed"
+
+            if self._use_ansi:
+                line = f"  [{num}/{self._total}] {prompt_id:<35} {icon} {word} ({elapsed}s)"
+                self._write_at(info["line_idx"], line)
+                self._refresh_summary()
+            else:
+                print(f"{icon} [{num}/{self._total}] {word}: {prompt_id} ({elapsed}s)",
+                      flush=True)
+                self._print_plain_summary()
+
+    def refresh_stages(self):
+        """Poll output dirs and update stage display for active evals."""
+        if not self._use_ansi:
+            return
+        with self._lock:
+            for pid, info in list(self._active.items()):
+                text = self._format_active_line(pid)
+                self._write_at(info["line_idx"], text)
+
+    def finalize(self):
+        """Move cursor below our display block so summary table prints cleanly."""
+        if self._use_ansi:
+            # Make sure we're past the summary line
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+    # -- Internal -----------------------------------------------------------
+
+    def _format_active_line(self, prompt_id):
+        info = self._active.get(prompt_id)
+        if not info:
+            return ""
+        num = info["num"]
+        elapsed = int(time.monotonic() - info["start"])
+        stage_label, stage_filled = _detect_stage(info["tmp_dir"])
+        bar = _progress_bar(stage_filled)
+        return f"  [{num}/{self._total}] {prompt_id:<35} {bar} {stage_label:<12} {elapsed}s"
+
+    def _refresh_summary(self):
+        """Ensure summary line exists at the bottom and update it."""
+        # The summary line is always at self._line_count
+        running = len(self._active)
+        queued = max(0, self._total - self._completed - running)
+        text = (f"  📊 {self._completed}/{self._total} complete | "
+                f"{running} running | {queued} queued | "
+                f"{self._failed} failed")
+
+        # If summary line hasn't been allocated yet, add it
+        if not hasattr(self, "_summary_line"):
+            self._summary_line = self._line_count
+            self._line_count += 1
+            sys.stdout.write(text + "\n")
+            sys.stdout.flush()
+        else:
+            self._write_at(self._summary_line, text)
+
+    def _print_plain_summary(self):
+        running = len(self._active)
+        queued = max(0, self._total - self._completed - running)
+        print(f"📊 {self._completed}/{self._total} complete | "
+              f"{running} running | {queued} queued | "
+              f"{self._failed} failed", flush=True)
+
+
 def _print_summary_table(results, total, elapsed_secs):
     """Print a final summary table of all evaluation results."""
     pass_count = sum(1 for r in results if r["status"] == "pass")
@@ -223,6 +490,10 @@ def _print_summary_table(results, total, elapsed_secs):
     print("=" * 72, flush=True)
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run doc-agent evaluate against prompts.",
@@ -246,6 +517,9 @@ def main():
                         help="Timeout per evaluation in seconds (default: 3600)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose doc-agent output")
+    parser.add_argument("--debug", action="store_true",
+                        help="Stream doc-agent stdout/stderr with eval-ID prefixes "
+                             "(disables progress bars)")
 
     # Parallelism options
     parser.add_argument("--workers", "-w", type=int, default=_default_workers(),
@@ -279,9 +553,7 @@ def main():
     run_dir = REPORTS_DIR / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    # Thread-safe print lock for progress output
     print_lock = threading.Lock()
-    completed_count = 0
     start_time = time.monotonic()
 
     # Pre-extract prompt texts and build work items
@@ -298,15 +570,13 @@ def main():
                 "report_path": "",
                 "error": "No ## Prompt section found",
             })
-            with print_lock:
-                print(f"  ⏭️  Skipped {prompt_meta['id']} (no ## Prompt section)", flush=True)
+            print(f"  ⏭️  Skipped {prompt_meta['id']} (no ## Prompt section)", flush=True)
             continue
 
         prompt_rel = (prompt_meta["path"]
                       .replace("prompts/", "")
                       .replace(".prompt.md", ""))
         report_subdir = run_dir / prompt_rel
-        # Each worker gets its own temp dir to avoid collisions
         tmp_dir = run_dir / "_tmp_eval" / prompt_meta["id"]
 
         work_items.append({
@@ -320,56 +590,13 @@ def main():
     total_work = len(work_items)
 
     if work_items:
-        print(f"\n🚀 Starting evaluation: {total_work} prompts with {args.workers} workers\n", flush=True)
+        print(f"\n🚀 Starting evaluation: {total_work} prompts with {args.workers} workers\n",
+              flush=True)
 
-        eval_start_times = {}
-        eval_numbers = {}
-
-        with ProcessPoolExecutor(max_workers=args.workers) as executor:
-            future_to_id = {}
-            for idx, item in enumerate(work_items, 1):
-                eval_numbers[item["prompt_id"]] = idx
-                eval_start_times[item["prompt_id"]] = time.monotonic()
-                future = executor.submit(
-                    run_single_eval_worker,
-                    prompt_id=item["prompt_id"],
-                    prompt_text=item["prompt_text"],
-                    tmp_output_dir=item["tmp_dir"],
-                    report_subdir=item["report_subdir"],
-                    model=args.model,
-                    timeout=args.timeout,
-                    verbose=args.verbose,
-                    eval_number=idx,
-                    total=total_work,
-                )
-                future_to_id[future] = item["prompt_id"]
-
-            for future in as_completed(future_to_id):
-                prompt_id = future_to_id[future]
-                try:
-                    entry = future.result()
-                except Exception as exc:
-                    entry = {
-                        "prompt_id": prompt_id,
-                        "status": "fail",
-                        "report_path": "",
-                        "error": f"Worker exception: {exc}",
-                        "stdout": "",
-                        "stderr": str(exc),
-                    }
-
-                results.append(entry)
-                completed_count += 1
-                elapsed_item = time.monotonic() - eval_start_times[prompt_id]
-                num = eval_numbers[prompt_id]
-                icon = "✅" if entry["status"] == "pass" else "❌"
-                status_word = "Passed" if entry["status"] == "pass" else "Failed"
-                remaining = total_work - completed_count
-                running = min(args.workers, remaining)
-                queued = max(0, remaining - running)
-                with print_lock:
-                    print(f"{icon} [{num}/{total_work}] {status_word}:  {prompt_id} ({int(elapsed_item)}s)", flush=True)
-                    print(f"📊 Progress: {completed_count}/{total_work} complete ({running} running, {queued} queued)", flush=True)
+        if args.debug:
+            _run_debug_mode(args, work_items, total_work, results, print_lock)
+        else:
+            _run_progress_mode(args, work_items, total_work, results)
 
     # Clean up all temp dirs
     tmp_root = run_dir / "_tmp_eval"
@@ -418,6 +645,119 @@ def main():
 
     _print_summary_table(results, total, elapsed)
     print(f"Reports: {run_dir}", flush=True)
+
+
+def _run_progress_mode(args, work_items, total_work, results):
+    """
+    Run evals with inline-updating progress bars.
+    Uses ProcessPoolExecutor + a background monitor thread for stage polling.
+    """
+    display = ProgressDisplay(total_work, args.workers, use_ansi=True)
+    monitor_stop = threading.Event()
+
+    def _monitor_loop():
+        while not monitor_stop.is_set():
+            display.refresh_stages()
+            monitor_stop.wait(2.0)
+
+    monitor = threading.Thread(target=_monitor_loop, daemon=True)
+    monitor.start()
+
+    eval_start_times = {}
+
+    with ProcessPoolExecutor(max_workers=args.workers) as executor:
+        future_to_id = {}
+        for idx, item in enumerate(work_items, 1):
+            pid = item["prompt_id"]
+            eval_start_times[pid] = time.monotonic()
+            display.eval_started(pid, idx, item["tmp_dir"])
+
+            future = executor.submit(
+                run_single_eval_worker,
+                prompt_id=pid,
+                prompt_text=item["prompt_text"],
+                tmp_output_dir=item["tmp_dir"],
+                report_subdir=item["report_subdir"],
+                model=args.model,
+                timeout=args.timeout,
+                verbose=args.verbose,
+            )
+            future_to_id[future] = pid
+
+        for future in as_completed(future_to_id):
+            prompt_id = future_to_id[future]
+            try:
+                entry = future.result()
+            except Exception as exc:
+                entry = {
+                    "prompt_id": prompt_id,
+                    "status": "fail",
+                    "report_path": "",
+                    "error": f"Worker exception: {exc}",
+                    "stdout": "",
+                    "stderr": str(exc),
+                }
+
+            results.append(entry)
+            display.eval_completed(prompt_id, entry)
+
+    monitor_stop.set()
+    monitor.join(timeout=3)
+    display.finalize()
+
+
+def _run_debug_mode(args, work_items, total_work, results, print_lock):
+    """
+    Run evals in --debug mode: stream subprocess output with eval-ID prefixes.
+    Uses ThreadPoolExecutor so Popen streaming works in-process.
+    """
+    eval_start_times = {}
+
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        future_to_id = {}
+        for idx, item in enumerate(work_items, 1):
+            pid = item["prompt_id"]
+            eval_start_times[pid] = time.monotonic()
+            with print_lock:
+                print(f"▶️  [{idx}/{total_work}] Starting: {pid}", flush=True)
+
+            future = executor.submit(
+                _run_debug_eval_worker,
+                prompt_id=pid,
+                prompt_text=item["prompt_text"],
+                tmp_output_dir=item["tmp_dir"],
+                report_subdir=item["report_subdir"],
+                model=args.model,
+                timeout=args.timeout,
+                verbose=args.verbose,
+                print_lock=print_lock,
+            )
+            future_to_id[future] = pid
+
+        completed = 0
+        for future in as_completed(future_to_id):
+            prompt_id = future_to_id[future]
+            try:
+                entry = future.result()
+            except Exception as exc:
+                entry = {
+                    "prompt_id": prompt_id,
+                    "status": "fail",
+                    "report_path": "",
+                    "error": f"Worker exception: {exc}",
+                    "stdout": "",
+                    "stderr": str(exc),
+                }
+
+            results.append(entry)
+            completed += 1
+            elapsed_item = int(time.monotonic() - eval_start_times[prompt_id])
+            icon = "✅" if entry["status"] == "pass" else "❌"
+            word = "Passed" if entry["status"] == "pass" else "Failed"
+            running = len(future_to_id) - completed
+            with print_lock:
+                print(f"{icon} {word}: {prompt_id} ({elapsed_item}s)  "
+                      f"[{completed}/{total_work}]", flush=True)
 
 
 if __name__ == "__main__":
