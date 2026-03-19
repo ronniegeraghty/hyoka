@@ -191,33 +191,33 @@ def _print_summary_table(results, total, elapsed_secs):
 
     mins, secs = divmod(int(elapsed_secs), 60)
 
-    print("\n" + "=" * 72)
-    print("  EVALUATION SUMMARY")
-    print("=" * 72)
+    print("\n" + "=" * 72, flush=True)
+    print("  EVALUATION SUMMARY", flush=True)
+    print("=" * 72, flush=True)
     print(f"  Total: {total}   ✅ Passed: {pass_count}   "
-          f"❌ Failed: {fail_count}   ⏭️  Skipped: {skip_count}")
-    print(f"  Elapsed: {mins}m {secs}s")
-    print("-" * 72)
-    print(f"  {'ID':<45} {'Status':<10}")
-    print("-" * 72)
+          f"❌ Failed: {fail_count}   ⏭️  Skipped: {skip_count}", flush=True)
+    print(f"  Elapsed: {mins}m {secs}s", flush=True)
+    print("-" * 72, flush=True)
+    print(f"  {'ID':<45} {'Status':<10}", flush=True)
+    print("-" * 72, flush=True)
 
     for r in results:
         status = r["status"]
         icon = {"pass": "✅", "fail": "❌", "skipped": "⏭️"}.get(status, "?")
-        print(f"  {r['prompt_id']:<45} {icon} {status}")
+        print(f"  {r['prompt_id']:<45} {icon} {status}", flush=True)
 
     if fail_count:
-        print("\n" + "-" * 72)
-        print("  FAILURES:")
-        print("-" * 72)
+        print("\n" + "-" * 72, flush=True)
+        print("  FAILURES:", flush=True)
+        print("-" * 72, flush=True)
         for r in results:
             if r["status"] == "fail":
                 err = r.get("error", "unknown error")
-                print(f"  ❌ {r['prompt_id']}")
+                print(f"  ❌ {r['prompt_id']}", flush=True)
                 for line in err.strip().splitlines()[:5]:
-                    print(f"     {line}")
+                    print(f"     {line}", flush=True)
 
-    print("=" * 72)
+    print("=" * 72, flush=True)
 
 
 def main():
@@ -264,7 +264,7 @@ def main():
 
     total = len(prompts)
     mode = "sequentially" if args.workers == 1 else f"in parallel ({args.workers} workers)"
-    print(f"Found {total} prompt(s) to evaluate — running {mode}")
+    print(f"Found {total} prompt(s) to evaluate — running {mode}", flush=True)
 
     if args.dry_run:
         for p in prompts:
@@ -296,7 +296,7 @@ def main():
                 "error": "No ## Prompt section found",
             })
             with print_lock:
-                print(f"  ⏭️  Skipped {prompt_meta['id']} (no ## Prompt section)")
+                print(f"  ⏭️  Skipped {prompt_meta['id']} (no ## Prompt section)", flush=True)
             continue
 
         prompt_rel = (prompt_meta["path"]
@@ -314,11 +314,21 @@ def main():
         })
 
     results = list(skip_results)
+    total_work = len(work_items)
 
     if work_items:
+        print(f"\n🚀 Starting evaluation: {total_work} prompts with {args.workers} workers\n", flush=True)
+
+        eval_start_times = {}
+        eval_numbers = {}
+
         with ProcessPoolExecutor(max_workers=args.workers) as executor:
             future_to_id = {}
-            for item in work_items:
+            for idx, item in enumerate(work_items, 1):
+                eval_numbers[item["prompt_id"]] = idx
+                eval_start_times[item["prompt_id"]] = time.monotonic()
+                with print_lock:
+                    print(f"▶️  [{idx}/{total_work}] Starting: {item['prompt_id']}", flush=True)
                 future = executor.submit(
                     run_single_eval_worker,
                     prompt_id=item["prompt_id"],
@@ -346,12 +356,17 @@ def main():
                     }
 
                 results.append(entry)
-                completed_count = sum(1 for r in results
-                                      if r["status"] != "skipped")
+                completed_count += 1
+                elapsed_item = time.monotonic() - eval_start_times[prompt_id]
+                num = eval_numbers[prompt_id]
                 icon = "✅" if entry["status"] == "pass" else "❌"
+                status_word = "Passed" if entry["status"] == "pass" else "Failed"
+                remaining = total_work - completed_count
+                running = min(args.workers, remaining)
+                queued = max(0, remaining - running)
                 with print_lock:
-                    print(f"  {icon} [{completed_count}/{len(work_items)}] "
-                          f"{entry['prompt_id']} — {entry['status']}")
+                    print(f"{icon} [{num}/{total_work}] {status_word}:  {prompt_id} ({int(elapsed_item)}s)", flush=True)
+                    print(f"📊 Progress: {completed_count}/{total_work} complete ({running} running, {queued} queued)", flush=True)
 
     # Clean up all temp dirs
     tmp_root = run_dir / "_tmp_eval"
@@ -399,7 +414,7 @@ def main():
     os.symlink(timestamp, str(latest))
 
     _print_summary_table(results, total, elapsed)
-    print(f"Reports: {run_dir}")
+    print(f"Reports: {run_dir}", flush=True)
 
 
 if __name__ == "__main__":
