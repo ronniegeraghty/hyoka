@@ -195,11 +195,16 @@ def run_single_eval_worker(prompt_id, prompt_text, tmp_output_dir, report_subdir
 
 
 def _run_debug_eval_worker(prompt_id, prompt_text, tmp_output_dir, report_subdir,
-                           model, timeout, verbose, print_lock):
+                           model, timeout, verbose, print_lock,
+                           eval_number=0, total=0):
     """
     Run one eval using Popen and stream stdout/stderr line-by-line,
     prefixed with the eval ID.  Used in --debug mode.
     """
+    if eval_number and total:
+        with print_lock:
+            print(f"▶️  [{eval_number}/{total}] Starting: {prompt_id}", flush=True)
+
     tmp_output = Path(tmp_output_dir)
     tmp_output.mkdir(parents=True, exist_ok=True)
 
@@ -210,11 +215,16 @@ def _run_debug_eval_worker(prompt_id, prompt_text, tmp_output_dir, report_subdir
     exit_code = 0
 
     try:
+        import os as _os
+        env = _os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            bufsize=1,
+            env=env,
         )
 
         def _stream(pipe, collector, label):
@@ -718,12 +728,11 @@ def _run_debug_mode(args, work_items, total_work, results, print_lock):
         for idx, item in enumerate(work_items, 1):
             pid = item["prompt_id"]
             eval_start_times[pid] = time.monotonic()
-            with print_lock:
-                print(f"▶️  [{idx}/{total_work}] Starting: {pid}", flush=True)
-
             future = executor.submit(
                 _run_debug_eval_worker,
                 prompt_id=pid,
+                eval_number=idx,
+                total=total_work,
                 prompt_text=item["prompt_text"],
                 tmp_output_dir=item["tmp_dir"],
                 report_subdir=item["report_subdir"],
