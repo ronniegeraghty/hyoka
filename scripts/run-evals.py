@@ -2,8 +2,12 @@
 """
 Run doc-agent evaluate against all (or filtered) prompts in the repo.
 
+Evaluations run in parallel by default for faster execution.
+
 Usage:
-  python scripts/run-evals.py                                    # All prompts
+  python scripts/run-evals.py                                    # All prompts (parallel)
+  python scripts/run-evals.py --workers 10                       # 10 parallel workers
+  python scripts/run-evals.py --sequential                       # One at a time
   python scripts/run-evals.py --service storage                  # All Storage prompts
   python scripts/run-evals.py --language dotnet                  # All .NET prompts
   python scripts/run-evals.py --service storage --language dotnet # Storage + .NET
@@ -21,6 +25,9 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 try:
@@ -83,53 +90,81 @@ def extract_prompt_text(prompt_path):
     return "\n".join(lines).strip()
 
 
-def run_single_eval(prompt_text, output_dir, args):
-    """Run doc-agent evaluate for one prompt."""
+def _build_eval_cmd(prompt_text, output_dir, model=None, timeout=None, verbose=False):
+    """Build the doc-agent command list."""
     cmd = ["doc-agent", "evaluate", prompt_text, "-o", str(output_dir)]
-    if args.model:
-        cmd += ["-m", args.model]
-    if args.timeout:
-        cmd += ["-t", str(args.timeout)]
-    if args.verbose:
+    if model:
+        cmd += ["-m", model]
+    if timeout:
+        cmd += ["-t", str(timeout)]
+    if verbose:
         cmd.append("-v")
+    return cmd
+
+
+def run_single_eval_worker(prompt_id, prompt_text, tmp_output_dir, report_subdir,
+                           model, timeout, verbose):
+    """
+    Run one eval in its own subprocess. Designed to be called from
+    ProcessPoolExecutor — all arguments are picklable primitives/Paths.
+
+    Returns a result dict with prompt_id, status, report_path, stdout, stderr.
+    """
+    tmp_output = Path(tmp_output_dir)
+    tmp_output.mkdir(parents=True, exist_ok=True)
+
+    cmd = _build_eval_cmd(prompt_text, tmp_output, model, timeout, verbose)
+    effective_timeout = timeout or 3600
 
     try:
-        result = subprocess.run(
+        proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=args.timeout or 3600,
+            timeout=effective_timeout,
         )
-        return {
-            "exit_code": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-        }
+        exit_code = proc.returncode
+        stdout = proc.stdout
+        stderr = proc.stderr
     except FileNotFoundError:
-        return {
-            "exit_code": 127,
-            "stdout": "",
-            "stderr": "ERROR: doc-agent command not found. "
-                      "Install from https://github.com/coreai-microsoft/doc-review-agent",
-        }
+        exit_code = 127
+        stdout = ""
+        stderr = ("ERROR: doc-agent command not found. "
+                  "Install from https://github.com/coreai-microsoft/doc-review-agent")
     except subprocess.TimeoutExpired:
-        return {
-            "exit_code": 124,
-            "stdout": "",
-            "stderr": f"ERROR: Evaluation timed out after {args.timeout or 3600}s",
-        }
+        exit_code = 124
+        stdout = ""
+        stderr = f"ERROR: Evaluation timed out after {effective_timeout}s"
+
+    # Reorganize output into the final report directory
+    target = Path(report_subdir)
+    _reorganize_eval_output(tmp_output, target)
+
+    status = "pass" if exit_code == 0 else "fail"
+    entry = {
+        "prompt_id": prompt_id,
+        "status": status,
+        "report_path": str(target.name),
+        "stdout": stdout,
+        "stderr": stderr,
+    }
+    if exit_code != 0:
+        entry["error"] = stderr[:500]
+    return entry
 
 
-def reorganize_eval_output(raw_output_dir, target_dir):
+def _reorganize_eval_output(raw_output_dir, target_dir):
     """
     doc-agent writes to output/eval-<timestamp>-<slug>/.
     Move those files into our structured report directory.
     """
+    raw_output_dir = Path(raw_output_dir)
     eval_dirs = sorted(raw_output_dir.glob("eval-*"))
     if not eval_dirs:
         return
 
     src = eval_dirs[-1]
+    target_dir = Path(target_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
 
     for item in src.iterdir():
@@ -139,14 +174,56 @@ def reorganize_eval_output(raw_output_dir, target_dir):
         else:
             shutil.move(str(item), str(dest))
 
-    # Clean up the source eval directory
     shutil.rmtree(str(src), ignore_errors=True)
+
+
+def _default_workers():
+    """Pick a sensible default worker count."""
+    cpus = os.cpu_count() or 4
+    return min(cpus, 8)
+
+
+def _print_summary_table(results, total, elapsed_secs):
+    """Print a final summary table of all evaluation results."""
+    pass_count = sum(1 for r in results if r["status"] == "pass")
+    fail_count = sum(1 for r in results if r["status"] == "fail")
+    skip_count = sum(1 for r in results if r["status"] == "skipped")
+
+    mins, secs = divmod(int(elapsed_secs), 60)
+
+    print("\n" + "=" * 72)
+    print("  EVALUATION SUMMARY")
+    print("=" * 72)
+    print(f"  Total: {total}   ✅ Passed: {pass_count}   "
+          f"❌ Failed: {fail_count}   ⏭️  Skipped: {skip_count}")
+    print(f"  Elapsed: {mins}m {secs}s")
+    print("-" * 72)
+    print(f"  {'ID':<45} {'Status':<10}")
+    print("-" * 72)
+
+    for r in results:
+        status = r["status"]
+        icon = {"pass": "✅", "fail": "❌", "skipped": "⏭️"}.get(status, "?")
+        print(f"  {r['prompt_id']:<45} {icon} {status}")
+
+    if fail_count:
+        print("\n" + "-" * 72)
+        print("  FAILURES:")
+        print("-" * 72)
+        for r in results:
+            if r["status"] == "fail":
+                err = r.get("error", "unknown error")
+                print(f"  ❌ {r['prompt_id']}")
+                for line in err.strip().splitlines()[:5]:
+                    print(f"     {line}")
+
+    print("=" * 72)
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Run doc-agent evaluate against prompts.",
-        epilog="No arguments = run ALL prompts. Flags compose with AND logic.",
+        epilog="No arguments = run ALL prompts in parallel. Flags compose with AND logic.",
     )
 
     # Filter flags
@@ -167,7 +244,16 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Verbose doc-agent output")
 
+    # Parallelism options
+    parser.add_argument("--workers", "-w", type=int, default=_default_workers(),
+                        help=f"Number of parallel workers (default: {_default_workers()})")
+    parser.add_argument("--sequential", action="store_true",
+                        help="Run evaluations one at a time (equivalent to --workers 1)")
+
     args = parser.parse_args()
+
+    if args.sequential:
+        args.workers = 1
 
     manifest = load_manifest()
     prompts = filter_prompts(manifest, args)
@@ -176,7 +262,9 @@ def main():
         print("No prompts matched the given filters.")
         sys.exit(1)
 
-    print(f"Found {len(prompts)} prompt(s) to evaluate")
+    total = len(prompts)
+    mode = "sequentially" if args.workers == 1 else f"in parallel ({args.workers} workers)"
+    print(f"Found {total} prompt(s) to evaluate — running {mode}")
 
     if args.dry_run:
         for p in prompts:
@@ -188,52 +276,87 @@ def main():
     run_dir = REPORTS_DIR / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    results = []
-    for i, prompt_meta in enumerate(prompts, 1):
-        print(f"\n[{i}/{len(prompts)}] Evaluating {prompt_meta['id']}...")
+    # Thread-safe print lock for progress output
+    print_lock = threading.Lock()
+    completed_count = 0
+    start_time = time.monotonic()
 
+    # Pre-extract prompt texts and build work items
+    work_items = []
+    skip_results = []
+    for prompt_meta in prompts:
         prompt_path = REPO_ROOT / prompt_meta["path"]
         prompt_text = extract_prompt_text(prompt_path)
 
         if not prompt_text:
-            print(f"  WARNING: No prompt text found in {prompt_meta['path']}, skipping")
-            results.append({
+            skip_results.append({
                 "prompt_id": prompt_meta["id"],
                 "status": "skipped",
                 "report_path": "",
                 "error": "No ## Prompt section found",
             })
+            with print_lock:
+                print(f"  ⏭️  Skipped {prompt_meta['id']} (no ## Prompt section)")
             continue
 
-        # Determine per-prompt report directory
-        prompt_rel = prompt_meta["path"] \
-            .replace("prompts/", "") \
-            .replace(".prompt.md", "")
+        prompt_rel = (prompt_meta["path"]
+                      .replace("prompts/", "")
+                      .replace(".prompt.md", ""))
         report_subdir = run_dir / prompt_rel
+        # Each worker gets its own temp dir to avoid collisions
+        tmp_dir = run_dir / "_tmp_eval" / prompt_meta["id"]
 
-        # Run doc-agent evaluate into a temp output dir, then reorganize
-        tmp_output = run_dir / "_tmp_eval"
-        tmp_output.mkdir(exist_ok=True)
-
-        eval_result = run_single_eval(prompt_text, tmp_output, args)
-        reorganize_eval_output(tmp_output, report_subdir)
-
-        status = "pass" if eval_result["exit_code"] == 0 else "fail"
-        entry = {
+        work_items.append({
             "prompt_id": prompt_meta["id"],
-            "status": status,
-            "report_path": str(report_subdir.relative_to(run_dir)),
-        }
-        if eval_result["exit_code"] != 0:
-            entry["error"] = eval_result["stderr"][:500]
+            "prompt_text": prompt_text,
+            "tmp_dir": str(tmp_dir),
+            "report_subdir": str(report_subdir),
+        })
 
-        results.append(entry)
-        print(f"  Result: {status}")
+    results = list(skip_results)
 
-    # Clean up temp dir
-    tmp_output = run_dir / "_tmp_eval"
-    if tmp_output.exists():
-        shutil.rmtree(str(tmp_output), ignore_errors=True)
+    if work_items:
+        with ProcessPoolExecutor(max_workers=args.workers) as executor:
+            future_to_id = {}
+            for item in work_items:
+                future = executor.submit(
+                    run_single_eval_worker,
+                    prompt_id=item["prompt_id"],
+                    prompt_text=item["prompt_text"],
+                    tmp_output_dir=item["tmp_dir"],
+                    report_subdir=item["report_subdir"],
+                    model=args.model,
+                    timeout=args.timeout,
+                    verbose=args.verbose,
+                )
+                future_to_id[future] = item["prompt_id"]
+
+            for future in as_completed(future_to_id):
+                prompt_id = future_to_id[future]
+                try:
+                    entry = future.result()
+                except Exception as exc:
+                    entry = {
+                        "prompt_id": prompt_id,
+                        "status": "fail",
+                        "report_path": "",
+                        "error": f"Worker exception: {exc}",
+                        "stdout": "",
+                        "stderr": str(exc),
+                    }
+
+                results.append(entry)
+                completed_count = sum(1 for r in results
+                                      if r["status"] != "skipped")
+                icon = "✅" if entry["status"] == "pass" else "❌"
+                with print_lock:
+                    print(f"  {icon} [{completed_count}/{len(work_items)}] "
+                          f"{entry['prompt_id']} — {entry['status']}")
+
+    # Clean up all temp dirs
+    tmp_root = run_dir / "_tmp_eval"
+    if tmp_root.exists():
+        shutil.rmtree(str(tmp_root), ignore_errors=True)
 
     # Gather active filters for metadata
     active_filters = {}
@@ -247,14 +370,23 @@ def main():
     fail_count = sum(1 for r in results if r["status"] == "fail")
     skip_count = sum(1 for r in results if r["status"] == "skipped")
 
+    # Strip stdout/stderr from persisted metadata (keep reports lean)
+    clean_results = []
+    for r in results:
+        clean = {k: v for k, v in r.items() if k not in ("stdout", "stderr")}
+        clean_results.append(clean)
+
+    elapsed = time.monotonic() - start_time
     run_meta = {
         "timestamp": timestamp,
-        "prompt_count": len(prompts),
+        "prompt_count": total,
         "pass_count": pass_count,
         "fail_count": fail_count,
         "skip_count": skip_count,
+        "workers": args.workers,
+        "elapsed_seconds": round(elapsed, 1),
         "filters": active_filters if active_filters else "none (all prompts)",
-        "results": results,
+        "results": clean_results,
     }
 
     with open(run_dir / "run-metadata.yaml", "w") as f:
@@ -266,12 +398,8 @@ def main():
         latest.unlink()
     os.symlink(timestamp, str(latest))
 
-    print(f"\nRun complete: {pass_count}/{len(prompts)} passed", end="")
-    if skip_count:
-        print(f", {skip_count} skipped", end="")
-    if fail_count:
-        print(f", {fail_count} failed", end="")
-    print(f"\nReports: {run_dir}")
+    _print_summary_table(results, total, elapsed)
+    print(f"Reports: {run_dir}")
 
 
 if __name__ == "__main__":
