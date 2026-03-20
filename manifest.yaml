@@ -1,5 +1,5 @@
-generated_at: '2026-03-19T00:59:32.278518+00:00'
-prompt_count: 57
+generated_at: '2026-03-20T18:05:09.211245+00:00'
+prompt_count: 79
 services:
 - app-configuration
 - cosmos-db
@@ -20,9 +20,13 @@ languages:
 categories:
 - auth
 - authentication
+- batch
 - crud
+- error-handling
 - pagination
+- polling
 - provisioning
+- retries
 - streaming
 prompts:
 - id: app-configuration-dp-dotnet-crud
@@ -130,6 +134,44 @@ prompts:
   created: 2025-07-28
   author: ronniegeraghty
   path: prompts/cosmos-db/data-plane/dotnet/crud-items.prompt.md
+- id: cosmos-db-dp-dotnet-error-handling
+  service: cosmos-db
+  plane: data-plane
+  language: dotnet
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can the docs help a developer handle Cosmos DB errors including throttling
+    (429), conflicts (409), and not-found (404) in .NET?
+
+    '
+  sdk_package: Microsoft.Azure.Cosmos
+  tags:
+  - error-handling
+  - exceptions
+  - throttling
+  - request-units
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/cosmos-db/data-plane/dotnet/error-handling.prompt.md
+- id: cosmos-db-dp-dotnet-pagination
+  service: cosmos-db
+  plane: data-plane
+  language: dotnet
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer paginate through large Cosmos DB query results using
+    continuation tokens in .NET?
+
+    '
+  sdk_package: Microsoft.Azure.Cosmos
+  tags:
+  - pagination
+  - query
+  - continuation-token
+  - feed-iterator
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/cosmos-db/data-plane/dotnet/pagination-query-items.prompt.md
 - id: cosmos-db-dp-java-crud
   service: cosmos-db
   plane: data-plane
@@ -193,6 +235,62 @@ prompts:
   created: 2025-07-28
   author: ronniegeraghty
   path: prompts/cosmos-db/data-plane/python/crud-items.prompt.md
+- id: cosmos-db-dp-python-error-handling
+  service: cosmos-db
+  plane: data-plane
+  language: python
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can the docs help a developer handle Cosmos DB errors including throttling
+    (429), conflicts (409), and not-found (404) in Python?
+
+    '
+  sdk_package: azure-cosmos
+  tags:
+  - error-handling
+  - exceptions
+  - throttling
+  - request-units
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/cosmos-db/data-plane/python/error-handling.prompt.md
+- id: cosmos-db-dp-python-pagination
+  service: cosmos-db
+  plane: data-plane
+  language: python
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer paginate through large Cosmos DB query results using
+    continuation tokens in Python?
+
+    '
+  sdk_package: azure-cosmos
+  tags:
+  - pagination
+  - query
+  - continuation-token
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/cosmos-db/data-plane/python/pagination-query-items.prompt.md
+- id: cosmos-db-dp-python-retries
+  service: cosmos-db
+  plane: data-plane
+  language: python
+  category: retries
+  difficulty: advanced
+  description: 'Can a developer configure custom retry policies for Azure Cosmos DB
+    including 429 throttle handling and connection retry in Python?
+
+    '
+  sdk_package: azure-cosmos
+  tags:
+  - retries
+  - retry-policy
+  - throttling
+  - request-units
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/cosmos-db/data-plane/python/retry-configuration.prompt.md
 - id: event-hubs-dp-dotnet-streaming
   service: event-hubs
   plane: data-plane
@@ -737,6 +835,43 @@ prompts:
   created: 2025-07-28
   author: ronniegeraghty
   path: prompts/key-vault/data-plane/dotnet/crud-secrets.prompt.md
+- id: key-vault-dp-dotnet-error-handling
+  service: key-vault
+  plane: data-plane
+  language: dotnet
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can the docs help a developer handle Key Vault errors including access
+    denied (403), secret not found (404), and throttling (429) in .NET?
+
+    '
+  sdk_package: Azure.Security.KeyVault.Secrets
+  tags:
+  - error-handling
+  - exceptions
+  - access-policy
+  - throttling
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/key-vault/data-plane/dotnet/error-handling.prompt.md
+- id: key-vault-dp-dotnet-pagination
+  service: key-vault
+  plane: data-plane
+  language: dotnet
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer paginate through a large list of Key Vault secrets
+    using the .NET SDK documentation?
+
+    '
+  sdk_package: Azure.Security.KeyVault.Secrets
+  tags:
+  - pagination
+  - list-secrets
+  - async
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/key-vault/data-plane/dotnet/pagination-list-secrets.prompt.md
 - id: key-vault-dp-go-crud
   service: key-vault
   plane: data-plane
@@ -817,6 +952,43 @@ prompts:
   created: 2025-07-27
   author: ronniegeraghty
   path: prompts/key-vault/data-plane/python/crud-secrets.prompt.md
+- id: key-vault-dp-python-error-handling
+  service: key-vault
+  plane: data-plane
+  language: python
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can the docs help a developer handle Key Vault errors including access
+    denied (403), secret not found (404), and throttling (429) in Python?
+
+    '
+  sdk_package: azure-keyvault-secrets
+  tags:
+  - error-handling
+  - exceptions
+  - access-policy
+  - throttling
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/key-vault/data-plane/python/error-handling.prompt.md
+- id: key-vault-dp-python-pagination
+  service: key-vault
+  plane: data-plane
+  language: python
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer paginate through a large list of Key Vault secrets
+    using the Python SDK documentation?
+
+    '
+  sdk_package: azure-keyvault-secrets
+  tags:
+  - pagination
+  - list-secrets
+  - iteration
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/key-vault/data-plane/python/pagination-list-secrets.prompt.md
 - id: key-vault-dp-rust-crud
   service: key-vault
   plane: data-plane
@@ -837,6 +1009,44 @@ prompts:
   created: 2025-07-28
   author: ronniegeraghty
   path: prompts/key-vault/data-plane/rust/crud-secrets.prompt.md
+- id: key-vault-mp-dotnet-polling
+  service: key-vault
+  plane: management-plane
+  language: dotnet
+  category: polling
+  difficulty: intermediate
+  description: 'Can a developer use the LRO polling pattern to create a Key Vault
+    and wait for completion using the .NET management SDK?
+
+    '
+  sdk_package: Azure.ResourceManager.KeyVault
+  tags:
+  - polling
+  - lro
+  - long-running-operation
+  - management-plane
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/key-vault/management-plane/dotnet/polling-create-vault.prompt.md
+- id: key-vault-mp-python-polling
+  service: key-vault
+  plane: management-plane
+  language: python
+  category: polling
+  difficulty: intermediate
+  description: 'Can a developer use the LRO polling pattern to create a Key Vault
+    and wait for completion using the Python management SDK?
+
+    '
+  sdk_package: azure-mgmt-keyvault
+  tags:
+  - polling
+  - lro
+  - long-running-operation
+  - management-plane
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/key-vault/management-plane/python/polling-create-vault.prompt.md
 - id: resource-manager-mp-dotnet-rg-crud
   service: resource-manager
   plane: management-plane
@@ -1066,6 +1276,175 @@ prompts:
   created: 2025-07-27
   author: ronniegeraghty
   path: prompts/storage/data-plane/dotnet/authentication.prompt.md
+- id: storage-dp-dotnet-batch
+  service: storage
+  plane: data-plane
+  language: dotnet
+  category: batch
+  difficulty: advanced
+  description: 'Can a developer perform batch blob operations including bulk delete
+    and bulk set-tier using the .NET SDK?
+
+    '
+  sdk_package: Azure.Storage.Blobs
+  tags:
+  - batch
+  - bulk-operations
+  - delete
+  - set-tier
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/dotnet/batch-blob-operations.prompt.md
+- id: storage-dp-dotnet-error-handling
+  service: storage
+  plane: data-plane
+  language: dotnet
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can the docs help a developer handle common Azure Blob Storage errors
+    including 404, 403, and 429 responses in .NET?
+
+    '
+  sdk_package: Azure.Storage.Blobs
+  tags:
+  - error-handling
+  - exceptions
+  - retry
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/dotnet/error-handling.prompt.md
+- id: storage-dp-dotnet-retries
+  service: storage
+  plane: data-plane
+  language: dotnet
+  category: retries
+  difficulty: advanced
+  description: 'Can a developer configure custom retry policies for Azure Blob Storage
+    including exponential backoff and per-operation timeouts in .NET?
+
+    '
+  sdk_package: Azure.Storage.Blobs
+  tags:
+  - retries
+  - retry-policy
+  - resilience
+  - exponential-backoff
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/dotnet/retry-configuration.prompt.md
+- id: storage-dp-go-crud
+  service: storage
+  plane: data-plane
+  language: go
+  category: crud
+  difficulty: basic
+  description: 'Can a developer upload, download, list, and delete blobs in Azure
+    Blob Storage using the Go SDK documentation?
+
+    '
+  sdk_package: azblob
+  doc_url: https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-go-get-started
+  tags:
+  - blob
+  - crud
+  - getting-started
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/go/crud-blobs.prompt.md
+- id: storage-dp-java-crud
+  service: storage
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: basic
+  description: 'Can a developer upload, download, list, and delete blobs in Azure
+    Blob Storage using the Java SDK documentation?
+
+    '
+  sdk_package: azure-storage-blob
+  doc_url: https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-java-get-started
+  tags:
+  - blob
+  - crud
+  - getting-started
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/java/crud-blobs.prompt.md
+- id: storage-dp-js-ts-crud
+  service: storage
+  plane: data-plane
+  language: js-ts
+  category: crud
+  difficulty: basic
+  description: 'Can a developer upload, download, list, and delete blobs in Azure
+    Blob Storage using the JavaScript/TypeScript SDK documentation?
+
+    '
+  sdk_package: '@azure/storage-blob'
+  doc_url: https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-javascript-get-started
+  tags:
+  - blob
+  - crud
+  - getting-started
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/js-ts/crud-blobs.prompt.md
+- id: storage-dp-python-batch
+  service: storage
+  plane: data-plane
+  language: python
+  category: batch
+  difficulty: advanced
+  description: 'Can a developer perform batch blob operations including bulk delete
+    and bulk set-tier using the Python SDK?
+
+    '
+  sdk_package: azure-storage-blob
+  tags:
+  - batch
+  - bulk-operations
+  - delete
+  - set-tier
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/python/batch-blob-operations.prompt.md
+- id: storage-dp-python-crud
+  service: storage
+  plane: data-plane
+  language: python
+  category: crud
+  difficulty: basic
+  description: 'Can a developer upload, download, list, and delete blobs in Azure
+    Blob Storage using the Python SDK documentation?
+
+    '
+  sdk_package: azure-storage-blob
+  doc_url: https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-python-get-started
+  tags:
+  - blob
+  - crud
+  - getting-started
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/python/crud-blobs.prompt.md
+- id: storage-dp-python-error-handling
+  service: storage
+  plane: data-plane
+  language: python
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can the docs help a developer handle common Azure Blob Storage errors
+    including 404, 403, and 429 responses in Python?
+
+    '
+  sdk_package: azure-storage-blob
+  tags:
+  - error-handling
+  - exceptions
+  - retry
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/data-plane/python/error-handling.prompt.md
 - id: storage-dp-python-pagination
   service: storage
   plane: data-plane
@@ -1087,6 +1466,25 @@ prompts:
   created: 2025-07-27
   author: ronniegeraghty
   path: prompts/storage/data-plane/python/pagination-list-blobs.prompt.md
+- id: storage-mp-dotnet-polling
+  service: storage
+  plane: management-plane
+  language: dotnet
+  category: polling
+  difficulty: intermediate
+  description: 'Can a developer use the LRO polling pattern to create a Storage Account
+    and wait for completion using the .NET management SDK?
+
+    '
+  sdk_package: Azure.ResourceManager.Storage
+  tags:
+  - polling
+  - lro
+  - long-running-operation
+  - management-plane
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/management-plane/dotnet/polling-create-account.prompt.md
 - id: storage-mp-dotnet-account-mgmt
   service: storage
   plane: management-plane
@@ -1167,6 +1565,25 @@ prompts:
   created: 2025-07-28
   author: ronniegeraghty
   path: prompts/storage/management-plane/js-ts/storage-account-mgmt.prompt.md
+- id: storage-mp-python-polling
+  service: storage
+  plane: management-plane
+  language: python
+  category: polling
+  difficulty: intermediate
+  description: 'Can a developer use the LRO polling pattern to create a Storage Account
+    and wait for completion using the Python management SDK?
+
+    '
+  sdk_package: azure-mgmt-storage
+  tags:
+  - polling
+  - lro
+  - long-running-operation
+  - management-plane
+  created: 2025-07-27
+  author: ronniegeraghty
+  path: prompts/storage/management-plane/python/polling-create-account.prompt.md
 - id: storage-mp-python-account-mgmt
   service: storage
   plane: management-plane
