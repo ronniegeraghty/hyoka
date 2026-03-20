@@ -1,14 +1,6 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-dist/
-build/
-.eggs/
-*.egg
-venv/
-.venv/
+# Go
+/tool/sdk-eval
+/tool/sdk-eval.exe
 
 # IDE
 .vscode/

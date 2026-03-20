@@ -1,6 +1,6 @@
 ---
 id: <service>-<dp|mp>-<language>-<category-slug>
-service: # storage | key-vault | cosmos-db | event-hubs | app-configuration | purview | digital-twins | identity | resource-manager
+service: # storage | key-vault | cosmos-db | event-hubs | app-configuration | purview | digital-twins | identity | resource-manager | service-bus
 plane: # data-plane | management-plane
 language: # dotnet | java | js-ts | python | go | rust | cpp
 category: # authentication | pagination | polling | retries | error-handling | crud | batch | streaming | auth | provisioning
@@ -19,17 +19,17 @@ author: # GitHub username
 
 ## Prompt
 
-Write the exact prompt text here. This is what gets passed to `doc-agent evaluate`.
-Be specific about what you're asking the agent to accomplish using only the SDK documentation.
+Write the exact prompt text here. Be specific about what you're asking the agent
+to accomplish using the Azure SDK.
 
 ## Expected Coverage
 
-The documentation should cover:
-- Key concept or API the prompt tests
+The generated code should demonstrate:
+- Key API usage the prompt tests
 - Expected packages or imports
 - Configuration or setup steps
-- Error handling guidance
+- Error handling patterns
 
 ## Context
 
-Why this prompt matters and what documentation gap or quality aspect it evaluates.
+Why this prompt matters and what code generation quality aspect it evaluates.
