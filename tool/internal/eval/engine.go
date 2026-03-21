@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/build"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/config"
+	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/progress"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/prompt"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/report"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/review"
@@ -140,6 +143,9 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 
 	start := time.Now()
 
+	// Progress display (disabled in debug mode)
+	bar := progress.New(len(tasks), e.opts.Workers, e.opts.Debug)
+
 	sem := make(chan struct{}, e.opts.Workers)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -152,7 +158,13 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
+			taskName := t.Prompt.ID + "/" + t.Config.Name
+			bar.Start(taskName)
+			taskStart := time.Now()
+
 			evalReport := e.runSingleEval(ctx, t, runID)
+
+			bar.Complete(taskName, evalReport.Success, time.Since(taskStart), evalReport.Error != "")
 
 			mu.Lock()
 			defer mu.Unlock()
@@ -170,6 +182,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	}
 
 	wg.Wait()
+	bar.Done()
 
 	summary.Duration = time.Since(start).Seconds()
 
@@ -321,6 +334,15 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string)
 				log.Printf("[DEBUG] %s: Review score: %d/10", debugPrefix, reviewResult.OverallScore)
 			}
 		}
+
+		// Capture reviewed (annotated) files — the review session may have added REVIEW: comments
+		reviewedFiles, err := readReviewedFiles(ws.Dir)
+		if err == nil && len(reviewedFiles) > 0 {
+			evalReport.ReviewedFiles = reviewedFiles
+			if e.opts.Debug {
+				log.Printf("[DEBUG] %s: Captured %d reviewed files with annotations", debugPrefix, len(reviewedFiles))
+			}
+		}
 	}
 
 	// Tool usage evaluation (compare expected vs actual tools)
@@ -346,6 +368,18 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string)
 			}
 		} else if e.opts.Debug {
 			log.Printf("[DEBUG] %s: Copied %d generated files to %s", debugPrefix, len(generatedFiles), codeDir)
+		}
+	}
+
+	// Copy reviewed (annotated) files into report under reviewed-code/
+	if len(evalReport.ReviewedFiles) > 0 {
+		reviewedDir := filepath.Join(reportDir, "reviewed-code")
+		if err := writeReviewedFiles(reviewedDir, evalReport.ReviewedFiles); err != nil {
+			if e.opts.Debug {
+				log.Printf("[DEBUG] %s: ERROR: failed to write reviewed files: %v", debugPrefix, err)
+			}
+		} else if e.opts.Debug {
+			log.Printf("[DEBUG] %s: Wrote %d reviewed files to %s", debugPrefix, len(evalReport.ReviewedFiles), reviewedDir)
 		}
 	}
 
@@ -434,4 +468,52 @@ func evaluateToolUsage(expected, actual []string) *report.ToolUsageResult {
 		ExtraTools:    extra,
 		Match:         len(missing) == 0,
 	}
+}
+
+// readReviewedFiles reads all files from the workspace and returns them as ReviewedFile entries.
+// Files that contain "REVIEW:" comments are considered annotated.
+func readReviewedFiles(dir string) ([]report.ReviewedFile, error) {
+	var reviewed []report.ReviewedFile
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			if info != nil && info.IsDir() && strings.HasPrefix(info.Name(), ".") && path != dir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasPrefix(filepath.Base(path), ".") || info.Size() > 1<<20 {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		content := string(data)
+		if strings.Contains(content, "REVIEW:") {
+			reviewed = append(reviewed, report.ReviewedFile{
+				Path:    rel,
+				Content: content,
+			})
+		}
+		return nil
+	})
+	return reviewed, err
+}
+
+// writeReviewedFiles writes annotated files to the reviewed-code directory.
+func writeReviewedFiles(dir string, files []report.ReviewedFile) error {
+	for _, f := range files {
+		dst := filepath.Join(dir, f.Path)
+		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+			return fmt.Errorf("creating dir for %s: %w", f.Path, err)
+		}
+		if err := os.WriteFile(dst, []byte(f.Content), 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", f.Path, err)
+		}
+	}
+	return nil
 }

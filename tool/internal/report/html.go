@@ -252,6 +252,26 @@ func htmlFuncMap() template.FuncMap {
 			}
 			return s[:n] + "…"
 		},
+		"isReviewLine": func(line string) bool {
+			trimmed := strings.TrimSpace(line)
+			return strings.Contains(trimmed, "REVIEW:")
+		},
+		"highlightReviewLines": func(content string) template.HTML {
+			lines := strings.Split(content, "\n")
+			var b strings.Builder
+			for _, line := range lines {
+				trimmed := strings.TrimSpace(line)
+				if strings.Contains(trimmed, "REVIEW:") {
+					b.WriteString(`<span class="review-comment">`)
+					b.WriteString(template.HTMLEscapeString(line))
+					b.WriteString("</span>\n")
+				} else {
+					b.WriteString(template.HTMLEscapeString(line))
+					b.WriteString("\n")
+				}
+			}
+			return template.HTML(b.String())
+		},
 		"langClass": func(filename string) string {
 			ext := filepath.Ext(filename)
 			switch ext {
@@ -416,6 +436,10 @@ const reportTemplate = `<!DOCTYPE html>
   .verify-banner { padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; }
   .verify-pass { background: #f0fdf4; border: 1px solid #bbf7d0; }
   .verify-fail { background: #fef2f2; border: 1px solid #fecaca; }
+
+  /* Review comment highlighting */
+  .review-comment { background: #fef3c7; color: #92400e; display: block; border-left: 3px solid #f59e0b; padding-left: 0.5rem; margin: 1px 0; }
+  .reviewed-file pre { white-space: pre-wrap; word-break: break-word; }
 </style>
 </head>
 <body>
@@ -523,6 +547,22 @@ const reportTemplate = `<!DOCTYPE html>
     {{range .GeneratedFiles}}
     <div class="file-card">
       <div class="file-card-header"><span class="file-icon">📄</span> {{.}}</div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+<!-- ━━ Reviewed Code (Annotated) ━━ -->
+{{if .ReviewedFiles}}
+<div class="section">
+  <div class="section-header"><span class="icon">📝</span><h2>Reviewed Code ({{len .ReviewedFiles}} files with annotations)</h2></div>
+  <div class="section-body">
+    <p style="font-size:0.85rem;color:var(--text-muted)">Code with inline <code>REVIEW:</code> comments highlighted. Annotated files saved in <code>reviewed-code/</code>.</p>
+    {{range .ReviewedFiles}}
+    <div class="file-card reviewed-file">
+      <div class="file-card-header"><span class="file-icon">📝</span> {{.Path}}</div>
+      <pre>{{highlightReviewLines .Content}}</pre>
     </div>
     {{end}}
   </div>

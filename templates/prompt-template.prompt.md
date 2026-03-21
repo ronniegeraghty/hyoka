@@ -14,6 +14,8 @@ tags: []
 created: # YYYY-MM-DD
 author: # GitHub username
 # expected_tools: []  # Optional: tool names the generation session should use (e.g., create_file, run_terminal_command, azure_mcp)
+# starter_project: "" # Optional: path to starter project directory (relative to prompt file). Used with project_context: existing.
+# project_context:    # Optional: "blank" (default) starts from empty workspace; "existing" copies starter_project first.
 ---
 
 # <Title>: <Service> (<Language>)

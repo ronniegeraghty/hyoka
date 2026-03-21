@@ -846,24 +846,25 @@ All work happens in the `ronniegeraghty/azure-sdk-prompts` repo.
 - [x] Tool filtering per config
 - [x] Matrix execution (prompt × config cross-product)
 
-### Phase 4: Evaluation Quality
+### Phase 4: Evaluation Quality ✅
 - [x] Rename CLI to `azsdk-prompt-eval`
 - [x] `check-env` command — tests if language toolchains are installed (dotnet, python, go, node, java, rust, cargo, cmake, etc.) and reports availability
 - [x] `expected_tools` field in prompt frontmatter — reviewer checks if generation session used those tools
-- [ ] Reviewer build skill — a skill the reviewing Copilot session loads that knows how to set up build environments and attempt builds without modifying generated code
-- [ ] SDK version checking skill — skill for reviewer that checks if generated code uses latest Azure SDK package versions
-- [ ] Tool usage evaluation criteria — reviewer checks generation session tool calls against `expected_tools`
-- [ ] Historical trend command — `azsdk-prompt-eval trends --prompt-id X` uses Copilot SDK to analyze past runs and generate trend reports
+- [x] Reviewer build skill — a skill the reviewing Copilot session loads that knows how to set up build environments and attempt builds without modifying generated code
+- [x] SDK version checking skill — skill for reviewer that checks if generated code uses latest Azure SDK package versions
+- [x] Tool usage evaluation criteria — reviewer checks generation session tool calls against `expected_tools`
+- [x] Historical trend command — `azsdk-prompt-eval trends --prompt-id X` uses Copilot SDK to analyze past runs and generate trend reports
 
-> **Status:** In progress. CLI renamed, check-env implemented, expected_tools field added. Reviewer skills and trend command remain.
+> **Status:** Complete (v0.5.0).
 
-### Phase 5: Polish
-- [ ] `azsdk-prompt-eval report` command — re-render HTML/MD from existing report.json (no Copilot SDK, purely template-based)
-- [ ] Embedded CLI binary — use SDK bundler to embed Copilot CLI inside Go binary. Include `azsdk-prompt-eval auth login` and `auth status` commands that use the embedded CLI's OAuth device flow, so users never need to install the Copilot CLI separately. Single binary = full experience.
-- [ ] Progress bars and color output for terminal UX
-- [ ] Starter project support — `project_context: existing` + `starter_project:` in prompt frontmatter
+### Phase 5: Polish ✅
+- [x] Review comments on generated code — new `code-review-comments` skill instructs reviewer to add inline `REVIEW:` comments. Annotated files saved to `reviewed-code/` alongside `generated-code/`. HTML report highlights review comments in amber; Markdown report shows annotated code in fenced blocks.
+- [x] `azsdk-prompt-eval report` command — re-render HTML/MD from existing report.json (no Copilot SDK, purely template-based). Supports `report <run-id>` and `report --all`.
+- [x] Progress bars and color output for terminal UX — ANSI progress bar with pass/fail icons, duration, worker count. Auto-disabled in `--debug` mode to avoid conflict with verbose output.
+- [x] Starter project support — `project_context: existing` + `starter_project:` in prompt frontmatter. Already implemented in evaluator; documented in prompt template.
+- [ ] Embedded CLI binary with `auth login`/`auth status` commands — deferred. Use SDK bundler to embed Copilot CLI inside Go binary so users never need to install the Copilot CLI separately.
 
-> **Status:** Not started.
+> **Status:** Complete (v0.6.0). Embedded CLI binary deferred to future work.
 
 ---
 

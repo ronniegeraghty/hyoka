@@ -127,6 +127,17 @@ func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service,
 		b.WriteString("\n")
 	}
 
+	// Reviewed (annotated) files
+	if len(r.ReviewedFiles) > 0 {
+		b.WriteString("## Reviewed Code (Annotated)\n\n")
+		b.WriteString("Files with inline `REVIEW:` comments. Annotated files saved in `reviewed-code/`.\n\n")
+		for _, rf := range r.ReviewedFiles {
+			fmt.Fprintf(&b, "### %s\n\n", rf.Path)
+			lang := langFromPath(rf.Path)
+			fmt.Fprintf(&b, "```%s\n%s\n```\n\n", lang, rf.Content)
+		}
+	}
+
 	// Final reply
 	if d.FinalReply != "" {
 		b.WriteString("## Copilot Response\n\n")
@@ -368,4 +379,33 @@ func truncateStr(s string, n int) string {
 		return s
 	}
 	return s[:n] + "\n... (truncated)"
+}
+
+// langFromPath returns a markdown code fence language hint from a file path.
+func langFromPath(path string) string {
+	ext := filepath.Ext(path)
+	switch ext {
+	case ".py":
+		return "python"
+	case ".go":
+		return "go"
+	case ".cs":
+		return "csharp"
+	case ".js":
+		return "javascript"
+	case ".ts":
+		return "typescript"
+	case ".java":
+		return "java"
+	case ".rs":
+		return "rust"
+	case ".yaml", ".yml":
+		return "yaml"
+	case ".json":
+		return "json"
+	case ".sh":
+		return "bash"
+	default:
+		return ""
+	}
 }

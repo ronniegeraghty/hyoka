@@ -37,6 +37,12 @@ type ToolUsageResult struct {
 	Match         bool     `json:"tool_usage_match"`
 }
 
+// ReviewedFile holds an annotated code file with inline review comments.
+type ReviewedFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
 // EvalReport contains the results of a single prompt evaluation.
 type EvalReport struct {
 	PromptID       string               `json:"prompt_id"`
@@ -46,6 +52,7 @@ type EvalReport struct {
 	PromptMeta     map[string]any       `json:"prompt_metadata"`
 	ConfigUsed     map[string]any       `json:"config_used"`
 	GeneratedFiles []string             `json:"generated_files"`
+	ReviewedFiles  []ReviewedFile       `json:"reviewed_files,omitempty"`
 	Build          *build.BuildResult   `json:"build,omitempty"`
 	Verification   *VerifyResult        `json:"verification,omitempty"`
 	Review         *review.ReviewResult `json:"review,omitempty"`

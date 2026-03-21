@@ -13,6 +13,7 @@ import (
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/config"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/eval"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/prompt"
+	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/rerender"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/review"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/trends"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/validate"
@@ -20,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.5.0"
+var version = "0.6.0"
 
 func main() {
 	if err := rootCmd().Execute(); err != nil {
@@ -43,6 +44,7 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(validateCmd())
 	root.AddCommand(checkEnvCmd())
 	root.AddCommand(trendsCmd())
+	root.AddCommand(reportCmd())
 
 	return root
 }
@@ -463,6 +465,41 @@ func trendsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&language, "language", "", "Filter trends by programming language")
 	cmd.Flags().StringVar(&reportsDir, "reports-dir", "./reports", "Directory containing past evaluation reports")
 	cmd.Flags().StringVar(&output, "output", "./reports/trends", "Output directory for trend reports")
+
+	return cmd
+}
+
+func reportCmd() *cobra.Command {
+	var reportsDir string
+	var all bool
+
+	cmd := &cobra.Command{
+		Use:   "report [run-id]",
+		Short: "Re-render HTML/MD reports from existing report.json files",
+		Long:  "Re-generates report.html, report.md, summary.html, and summary.md using current templates without re-running evaluations. Useful after template improvements.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reportsDir = resolvePathFlag(cmd, "reports-dir", []string{"./reports", "../reports"})
+
+			var runID string
+			if len(args) > 0 {
+				runID = args[0]
+			}
+
+			if !all && runID == "" {
+				return fmt.Errorf("specify a run ID or use --all to re-render all runs")
+			}
+
+			return rerender.Run(rerender.Options{
+				ReportsDir: reportsDir,
+				RunID:      runID,
+				All:        all,
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&reportsDir, "reports-dir", "./reports", "Directory containing evaluation reports")
+	cmd.Flags().BoolVar(&all, "all", false, "Re-render all runs")
 
 	return cmd
 }
