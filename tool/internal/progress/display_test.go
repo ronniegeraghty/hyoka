@@ -27,19 +27,19 @@ func TestNewDisplay_Disabled(t *testing.T) {
 	}
 }
 
-func TestDisplay_SlotManagement(t *testing.T) {
+func TestDisplay_LineManagement(t *testing.T) {
 	var buf bytes.Buffer
 	d := &Display{
-		slots:     make([]slot, 2),
+		lines:     make([]evalLine, 0),
+		lineIndex: make(map[string]int),
 		total:     4,
 		w:         &buf,
 		disabled:  false,
-		evalSlots: make(map[string]int),
 		width:     120,
 		startTime: time.Now(),
 	}
 
-	// Start two evals — should claim slots 0 and 1
+	// Start two evals — should create lines 0 and 1
 	d.HandleEvent(ProgressEvent{
 		EvalID: "p1/c1", PromptID: "p1", ConfigName: "c1",
 		Type: EventStarting,
@@ -49,106 +49,106 @@ func TestDisplay_SlotManagement(t *testing.T) {
 		Type: EventStarting,
 	})
 
-	if len(d.evalSlots) != 2 {
-		t.Errorf("expected 2 active slots, got %d", len(d.evalSlots))
+	if len(d.lines) != 2 {
+		t.Errorf("expected 2 lines, got %d", len(d.lines))
 	}
-	if !d.slots[0].active || !d.slots[1].active {
-		t.Error("expected both slots to be active")
+	if len(d.lineIndex) != 2 {
+		t.Errorf("expected 2 active line entries, got %d", len(d.lineIndex))
 	}
 
-	// Complete first eval — slot should be released
+	// Complete first eval — line stays in list, marked completed
 	d.HandleEvent(ProgressEvent{
 		EvalID: "p1/c1", Type: EventPassed, FileCount: 3,
 	})
 	if d.completed != 1 || d.passed != 1 {
 		t.Errorf("expected 1 completed/passed, got %d/%d", d.completed, d.passed)
 	}
-	if d.slots[0].active {
-		t.Error("expected slot 0 to be inactive after completion")
+	if !d.lines[0].completed {
+		t.Error("expected line 0 to be completed")
 	}
-	if len(d.completedEvals) != 1 {
-		t.Errorf("expected 1 completed eval tracked, got %d", len(d.completedEvals))
+	if len(d.lines) != 2 {
+		t.Errorf("expected 2 lines (completed stays), got %d", len(d.lines))
 	}
 
-	// New eval should claim the released slot 0
+	// New eval should append as line 2 (not reuse old position)
 	d.HandleEvent(ProgressEvent{
 		EvalID: "p3/c3", PromptID: "p3", ConfigName: "c3",
 		Type: EventStarting,
 	})
-	if d.evalSlots["p3/c3"] != 0 {
-		t.Errorf("expected new eval to claim slot 0, got slot %d", d.evalSlots["p3/c3"])
+	if len(d.lines) != 3 {
+		t.Errorf("expected 3 lines, got %d", len(d.lines))
+	}
+	if d.lineIndex["p3/c3"] != 2 {
+		t.Errorf("expected new eval at line 2, got line %d", d.lineIndex["p3/c3"])
 	}
 }
 
 func TestDisplay_EventIcons_PhaseAware(t *testing.T) {
 	var buf bytes.Buffer
 	d := &Display{
-		slots:     make([]slot, 1),
+		lines:     make([]evalLine, 0),
+		lineIndex: make(map[string]int),
 		total:     1,
 		w:         &buf,
 		disabled:  false,
-		evalSlots: make(map[string]int),
 		width:     120,
 		startTime: time.Now(),
 	}
 
 	// Start eval
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", PromptID: "p", ConfigName: "c", Type: EventStarting})
-	if d.slots[0].icon != "⏳" {
-		t.Errorf("expected ⏳ after starting, got %q", d.slots[0].icon)
+	if d.lines[0].icon != "⏳" {
+		t.Errorf("expected ⏳ after starting, got %q", d.lines[0].icon)
 	}
-	if d.slots[0].phase != PhaseGenerating {
-		t.Errorf("expected phase generating after start, got %q", d.slots[0].phase)
+	if d.lines[0].phase != PhaseGenerating {
+		t.Errorf("expected phase generating after start, got %q", d.lines[0].phase)
 	}
 
 	// Tool start — should show ⚙
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventToolStart, Message: "bash → ls"})
-	if d.slots[0].icon != "⚙" {
-		t.Errorf("expected ⚙ after tool start, got %q", d.slots[0].icon)
+	if d.lines[0].icon != "⚙" {
+		t.Errorf("expected ⚙ after tool start, got %q", d.lines[0].icon)
 	}
 
-	// Tool complete — Issue 1: should revert to phase icon, NOT ✓
+	// Tool complete — Issue 1: should show ✓ and keep last action visible
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventToolComplete, Message: "bash"})
-	if d.slots[0].icon == "✓" {
-		t.Error("Issue 1: ToolComplete should NOT show ✓ — should revert to phase icon")
-	}
-	if d.slots[0].icon != "🔄" { // generating phase icon
-		t.Errorf("expected 🔄 (generating phase icon) after tool complete, got %q", d.slots[0].icon)
+	if d.lines[0].icon != "✓" {
+		t.Errorf("expected ✓ after tool complete (Issue 1), got %q", d.lines[0].icon)
 	}
 
 	// Phase change to verifying
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventPhaseChange, Phase: PhaseVerifying})
-	if d.slots[0].phase != PhaseVerifying {
-		t.Errorf("expected phase verifying, got %q", d.slots[0].phase)
+	if d.lines[0].phase != PhaseVerifying {
+		t.Errorf("expected phase verifying, got %q", d.lines[0].phase)
 	}
-	if d.slots[0].icon != "🔍" {
-		t.Errorf("expected 🔍 after verify phase change, got %q", d.slots[0].icon)
+	if d.lines[0].icon != "🔍" {
+		t.Errorf("expected 🔍 after verify phase change, got %q", d.lines[0].icon)
 	}
 
 	// Phase change to reviewing
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventPhaseChange, Phase: PhaseReviewing})
-	if d.slots[0].phase != PhaseReviewing {
-		t.Errorf("expected phase reviewing, got %q", d.slots[0].phase)
+	if d.lines[0].phase != PhaseReviewing {
+		t.Errorf("expected phase reviewing, got %q", d.lines[0].phase)
 	}
-	if d.slots[0].icon != "📝" {
-		t.Errorf("expected 📝 after review phase change, got %q", d.slots[0].icon)
+	if d.lines[0].icon != "📝" {
+		t.Errorf("expected 📝 after review phase change, got %q", d.lines[0].icon)
 	}
 
 	// Other activity icons still work within a phase
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventReasoning, Message: "Reasoning..."})
-	if d.slots[0].icon != "💭" {
-		t.Errorf("expected 💭 after reasoning, got %q", d.slots[0].icon)
+	if d.lines[0].icon != "💭" {
+		t.Errorf("expected 💭 after reasoning, got %q", d.lines[0].icon)
 	}
 }
 
 func TestDisplay_CompletedEvalsTracked(t *testing.T) {
 	var buf bytes.Buffer
 	d := &Display{
-		slots:     make([]slot, 3),
+		lines:     make([]evalLine, 0),
+		lineIndex: make(map[string]int),
 		total:     3,
 		w:         &buf,
 		disabled:  false,
-		evalSlots: make(map[string]int),
 		width:     120,
 		startTime: time.Now(),
 	}
@@ -179,39 +179,44 @@ func TestDisplay_CompletedEvalsTracked(t *testing.T) {
 	if d.completed != 3 {
 		t.Errorf("expected 3 completed, got %d", d.completed)
 	}
-	// Issue 2 & 3: All completed evals tracked
-	if len(d.completedEvals) != 3 {
-		t.Errorf("expected 3 completed evals tracked, got %d", len(d.completedEvals))
+	// All completed evals tracked as lines
+	completedCount := 0
+	for _, l := range d.lines {
+		if l.completed {
+			completedCount++
+		}
+	}
+	if completedCount != 3 {
+		t.Errorf("expected 3 completed lines, got %d", completedCount)
 	}
 	// Verify review score is tracked
-	if d.completedEvals[0].reviewScore != 8 {
-		t.Errorf("expected review score 8, got %d", d.completedEvals[0].reviewScore)
+	if d.lines[0].reviewScore != 8 {
+		t.Errorf("expected review score 8, got %d", d.lines[0].reviewScore)
 	}
 }
 
 func TestDisplay_Finish(t *testing.T) {
 	var buf bytes.Buffer
 	d := &Display{
-		slots:     make([]slot, 2),
+		lines: []evalLine{
+			{promptID: "crud", configName: "baseline", completed: true, passed: true, fileCount: 3, reviewScore: 8, duration: 34 * time.Second},
+			{promptID: "crud", configName: "azure-mcp", completed: true, message: "verification failed", duration: 28 * time.Second},
+		},
+		lineIndex: make(map[string]int),
 		total:     2,
 		completed: 2,
 		passed:    1,
 		failed:    1,
 		w:         &buf,
 		disabled:  false,
-		evalSlots: make(map[string]int),
 		width:     120,
 		startTime: time.Now(),
-		completedEvals: []completedEval{
-			{promptID: "crud", configName: "baseline", passed: true, fileCount: 3, reviewScore: 8, duration: 34 * time.Second},
-			{promptID: "crud", configName: "azure-mcp", passed: false, message: "verification failed", duration: 28 * time.Second},
-		},
 	}
 
 	d.Finish()
 
 	output := buf.String()
-	// Issue 2: All completed evals show results
+	// All completed evals show results
 	if !strings.Contains(output, "PASSED") {
 		t.Errorf("expected Finish output to contain 'PASSED', got %q", output)
 	}
@@ -224,7 +229,7 @@ func TestDisplay_Finish(t *testing.T) {
 	if !strings.Contains(output, "8/10") {
 		t.Errorf("expected Finish output to contain '8/10' review score, got %q", output)
 	}
-	// Issue 3: Summary line
+	// Summary line
 	if !strings.Contains(output, "Summary: 1/2 passed") {
 		t.Errorf("expected Finish output to contain 'Summary: 1/2 passed', got %q", output)
 	}
@@ -233,19 +238,18 @@ func TestDisplay_Finish(t *testing.T) {
 func TestDisplay_FinishWithReportDir(t *testing.T) {
 	var buf bytes.Buffer
 	d := &Display{
-		slots:     make([]slot, 1),
+		lines: []evalLine{
+			{promptID: "p1", configName: "c1", completed: true, passed: true, fileCount: 2, duration: 10 * time.Second},
+		},
+		lineIndex: make(map[string]int),
 		total:     1,
 		completed: 1,
 		passed:    1,
 		w:         &buf,
 		disabled:  false,
-		evalSlots: make(map[string]int),
 		width:     120,
 		startTime: time.Now(),
 		reportDir: "reports/20260321-171234/",
-		completedEvals: []completedEval{
-			{promptID: "p1", configName: "c1", passed: true, fileCount: 2, duration: 10 * time.Second},
-		},
 	}
 
 	d.Finish()
@@ -295,30 +299,50 @@ func TestDisplay_ActivityTruncation(t *testing.T) {
 	}
 }
 
-func TestDisplay_ClaimSlotPrefersEmpty(t *testing.T) {
+func TestDisplay_PerEvalLines(t *testing.T) {
+	var buf bytes.Buffer
 	d := &Display{
-		slots:     make([]slot, 3),
-		evalSlots: make(map[string]int),
+		lines:     make([]evalLine, 0),
+		lineIndex: make(map[string]int),
+		total:     3,
+		w:         &buf,
+		disabled:  false,
+		width:     120,
+		startTime: time.Now(),
 	}
 
-	// Empty slots available
-	idx := d.claimSlot()
-	if idx != 0 {
-		t.Errorf("expected first empty slot (0), got %d", idx)
+	// Start 3 evals — each should get its own line
+	d.HandleEvent(ProgressEvent{EvalID: "a/x", PromptID: "a", ConfigName: "x", Type: EventStarting})
+	d.HandleEvent(ProgressEvent{EvalID: "b/y", PromptID: "b", ConfigName: "y", Type: EventStarting})
+	d.HandleEvent(ProgressEvent{EvalID: "c/z", PromptID: "c", ConfigName: "z", Type: EventStarting})
+
+	if len(d.lines) != 3 {
+		t.Errorf("expected 3 lines, got %d", len(d.lines))
 	}
 
-	// Mark slot 0 as having had an eval (now released), slot 1 empty
-	d.slots[0] = slot{evalID: "x"}
-	idx = d.claimSlot()
-	if idx != 1 {
-		t.Errorf("expected empty slot 1, got %d", idx)
+	// Complete first, third still active — all 3 lines should persist
+	d.HandleEvent(ProgressEvent{EvalID: "a/x", Type: EventPassed, FileCount: 2})
+	if len(d.lines) != 3 {
+		t.Errorf("expected 3 lines after completion, got %d", len(d.lines))
 	}
+	if !d.lines[0].completed {
+		t.Error("expected line 0 completed")
+	}
+	if d.lines[1].completed || d.lines[2].completed {
+		t.Error("expected lines 1,2 still active")
+	}
+}
 
-	// All have evalIDs but slot 0 is inactive (released)
-	d.slots[1] = slot{evalID: "y", active: true}
-	d.slots[2] = slot{evalID: "z", active: true}
-	idx = d.claimSlot()
-	if idx != 0 {
-		t.Errorf("expected inactive slot 0, got %d", idx)
+func TestDisplay_CompletedEvalCount(t *testing.T) {
+	d := &Display{
+		lines: []evalLine{
+			{completed: true},
+			{completed: false},
+			{completed: true},
+		},
+		lineIndex: make(map[string]int),
+	}
+	if got := d.CompletedEvalCount(); got != 2 {
+		t.Errorf("expected CompletedEvalCount=2, got %d", got)
 	}
 }
