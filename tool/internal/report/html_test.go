@@ -41,6 +41,12 @@ func TestWriteHTMLReport(t *testing.T) {
 			Issues:       []string{"Missing retry logic"},
 			Strengths:    []string{"Clean code structure"},
 		},
+		SessionEvents: []SessionEventRecord{
+			{Type: "user.message", Content: "Write a dotnet storage auth sample"},
+			{Type: "assistant.reasoning", Content: "I need to create an auth sample"},
+			{Type: "tool.execution_start", ToolName: "create"},
+			{Type: "assistant.message", Content: "Here is your sample"},
+		},
 		EventCount: 15,
 		ToolCalls:  []string{"create_file", "edit_file"},
 		Success:    true,
@@ -60,12 +66,18 @@ func TestWriteHTMLReport(t *testing.T) {
 	checks := []string{
 		"test-prompt",
 		"baseline",
-		"PASS",
+		"PASSED",
 		"8/10",
 		"Correctness",
 		"Good implementation",
 		"Program.cs",
 		"dotnet build",
+		"Generation Session",
+		"Write a dotnet storage auth sample",
+		"I need to create an auth sample",
+		"Code Review",
+		"Clean code structure",
+		"Missing retry logic",
 	}
 	for _, check := range checks {
 		if !strings.Contains(content, check) {
@@ -105,8 +117,8 @@ func TestWriteHTMLReportNoReview(t *testing.T) {
 	}
 
 	content := string(data)
-	if !strings.Contains(content, "FAIL") {
-		t.Error("expected FAIL badge")
+	if !strings.Contains(content, "FAILED") {
+		t.Error("expected FAILED in report")
 	}
 	if !strings.Contains(content, "timeout exceeded") {
 		t.Error("expected error message in report")
@@ -184,13 +196,62 @@ func TestWriteSummaryHTML(t *testing.T) {
 			t.Errorf("summary HTML missing %q", check)
 		}
 	}
+
+	// Verify the summary uses Success field: 3 passed should show ✅, 1 failed should show ❌
+	passCount := strings.Count(content, "✅")
+	failCount := strings.Count(content, "❌")
+	if passCount != 3 {
+		t.Errorf("expected 3 ✅ icons for 3 passed evals, got %d", passCount)
+	}
+	if failCount != 1 {
+		t.Errorf("expected 1 ❌ icon for 1 failed eval, got %d", failCount)
+	}
+}
+
+func TestWriteSummaryHTMLNoBuild(t *testing.T) {
+	dir := t.TempDir()
+
+	// Simulate Copilot-verified results (no Build, only Verification)
+	s := &RunSummary{
+		RunID:      "20240201-090000",
+		Timestamp:  "2024-02-01T09:00:00Z",
+		TotalEvals: 3,
+		Passed:     2,
+		Failed:     1,
+		Duration:   60.0,
+		Results: []*EvalReport{
+			{PromptID: "p1", ConfigName: "baseline", Success: true, Verification: &VerifyResult{Pass: true}},
+			{PromptID: "p1", ConfigName: "mcp", Success: true, Verification: &VerifyResult{Pass: true}, Review: &review.ReviewResult{OverallScore: 7}},
+			{PromptID: "p2", ConfigName: "baseline", Success: false, Verification: &VerifyResult{Pass: false}},
+		},
+	}
+
+	summaryPath, err := WriteSummaryHTML(s, dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, err := os.ReadFile(summaryPath)
+	if err != nil {
+		t.Fatalf("failed to read summary: %v", err)
+	}
+
+	content := string(data)
+	passCount := strings.Count(content, "✅")
+	failCount := strings.Count(content, "❌")
+	if passCount != 2 {
+		t.Errorf("expected 2 ✅ for passed evals (no Build), got %d", passCount)
+	}
+	if failCount != 1 {
+		t.Errorf("expected 1 ❌ for failed eval (no Build), got %d", failCount)
+	}
 }
 
 func TestBuildMatrix(t *testing.T) {
 	s := &RunSummary{
 		Results: []*EvalReport{
-			{PromptID: "p1", ConfigName: "c1", Build: &build.BuildResult{Success: true}, Review: &review.ReviewResult{OverallScore: 8}},
-			{PromptID: "p1", ConfigName: "c2", Build: &build.BuildResult{Success: false}},
+			{PromptID: "p1", ConfigName: "c1", Success: true, Build: &build.BuildResult{Success: true}, Review: &review.ReviewResult{OverallScore: 8}},
+			{PromptID: "p1", ConfigName: "c2", Success: false, Build: &build.BuildResult{Success: false}},
 			{PromptID: "p2", ConfigName: "c1", Error: "timeout"},
 		},
 	}
@@ -214,6 +275,17 @@ func TestBuildMatrix(t *testing.T) {
 	if !cell.BuildPass {
 		t.Error("expected build pass")
 	}
+	if !cell.Success {
+		t.Error("expected Success=true for p1/c1")
+	}
+
+	failCell := m.Cells["p1"]["c2"]
+	if failCell == nil {
+		t.Fatal("expected cell for p1/c2")
+	}
+	if failCell.Success {
+		t.Error("expected Success=false for p1/c2")
+	}
 
 	errCell := m.Cells["p2"]["c1"]
 	if errCell == nil {
@@ -221,5 +293,41 @@ func TestBuildMatrix(t *testing.T) {
 	}
 	if errCell.Error != "timeout" {
 		t.Errorf("expected timeout error, got %q", errCell.Error)
+	}
+}
+
+func TestBuildReportData(t *testing.T) {
+	r := &EvalReport{
+		PromptID:       "test-prompt",
+		GeneratedFiles: []string{"main.py", "requirements.txt"},
+		SessionEvents: []SessionEventRecord{
+			{Type: "session.start"},
+			{Type: "user.message", Content: "Write a Python script"},
+			{Type: "assistant.reasoning", Content: "I should create a script"},
+			{Type: "tool.execution_start", ToolName: "create"},
+			{Type: "tool.execution_start", ToolName: "create"},
+			{Type: "assistant.message", Content: "Done! Here are your files."},
+		},
+	}
+
+	d := buildReportData(r)
+
+	if d.Prompt != "Write a Python script" {
+		t.Errorf("expected prompt from user.message, got %q", d.Prompt)
+	}
+	if d.Reasoning != "I should create a script" {
+		t.Errorf("expected reasoning, got %q", d.Reasoning)
+	}
+	if d.FinalReply != "Done! Here are your files." {
+		t.Errorf("expected final reply, got %q", d.FinalReply)
+	}
+	if len(d.ToolActions) != 2 {
+		t.Errorf("expected 2 tool actions, got %d", len(d.ToolActions))
+	}
+	if d.ToolActions[0].Index != 1 || d.ToolActions[0].ToolName != "create" {
+		t.Errorf("unexpected first tool action: %+v", d.ToolActions[0])
+	}
+	if d.FileCount != 2 {
+		t.Errorf("expected file count 2, got %d", d.FileCount)
 	}
 }
