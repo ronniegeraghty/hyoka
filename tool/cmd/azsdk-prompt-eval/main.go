@@ -12,7 +12,6 @@ import (
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/checkenv"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/config"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/eval"
-	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/manifest"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/prompt"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/review"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/trends"
@@ -40,7 +39,7 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(listCmd())
 	root.AddCommand(configsCmd())
 	root.AddCommand(versionCmd())
-	root.AddCommand(manifestCmd())
+
 	root.AddCommand(validateCmd())
 	root.AddCommand(checkEnvCmd())
 	root.AddCommand(trendsCmd())
@@ -363,42 +362,6 @@ func configsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&configFile, "config-file", "./configs/all.yaml", "Path to configuration YAML")
-	return cmd
-}
-
-func manifestCmd() *cobra.Command {
-	var promptsDir string
-	var outputPath string
-
-	cmd := &cobra.Command{
-		Use:   "manifest",
-		Short: "(Optional) Generate manifest.yaml snapshot from prompt files",
-		Long:  "Generate a manifest.yaml snapshot from prompt files. This is optional — the tool discovers prompts directly from the prompts/ directory. Use this to produce a static index for external tooling or documentation.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			promptsDir = resolvePromptsDir(cmd)
-			outputPath = resolveOutputFile(cmd, []string{"./manifest.yaml", "../manifest.yaml"})
-
-			m, err := manifest.Generate(promptsDir)
-			if err != nil {
-				return fmt.Errorf("generating manifest: %w", err)
-			}
-
-			data, err := m.Marshal()
-			if err != nil {
-				return fmt.Errorf("marshaling manifest: %w", err)
-			}
-
-			if err := os.WriteFile(outputPath, data, 0644); err != nil {
-				return fmt.Errorf("writing manifest: %w", err)
-			}
-
-			fmt.Printf("Generated %s with %d prompt(s)\n", outputPath, m.PromptCount)
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&promptsDir, "prompts", "./prompts", "Path to prompt library directory")
-	cmd.Flags().StringVar(&outputPath, "output", "./manifest.yaml", "Output path for manifest.yaml")
 	return cmd
 }
 
