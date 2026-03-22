@@ -171,9 +171,10 @@ func (d *Display) HandleEvent(evt ProgressEvent) {
 		}
 
 	case EventToolComplete:
-		// Issue 1: Keep showing the completed action until a new event replaces it
+		// Don't change icon — keep the current phase icon (⚙/🔄/🔍/📝).
+		// Just update activity text so it shows what completed.
+		// Changing to ✓ makes it look like the eval is done.
 		if idx, ok := d.lineIndex[evt.EvalID]; ok {
-			d.lines[idx].icon = "✓"
 			d.lines[idx].activity = evt.Message
 		}
 
