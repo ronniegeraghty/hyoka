@@ -1,0 +1,7 @@
+# Azure Key Vault Secrets Pagination Demo - Required Packages
+
+# Azure Key Vault Secrets SDK - provides SecretClient and related classes
+azure-keyvault-secrets>=4.8.0
+
+# Azure Identity - provides DefaultAzureCredential for authentication
+azure-identity>=1.15.0

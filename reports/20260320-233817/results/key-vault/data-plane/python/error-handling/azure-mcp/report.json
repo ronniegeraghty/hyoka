@@ -1,0 +1,64 @@
+{
+  "prompt_id": "key-vault-dp-python-error-handling",
+  "config_name": "azure-mcp",
+  "timestamp": "2026-03-21T06:38:17Z",
+  "duration_seconds": 30.250392611,
+  "prompt_metadata": {
+    "category": "error-handling",
+    "language": "python",
+    "plane": "data-plane",
+    "service": "key-vault"
+  },
+  "config_used": {
+    "model": "claude-sonnet-4.5",
+    "name": "azure-mcp"
+  },
+  "generated_files": null,
+  "verification": {
+    "pass": false,
+    "reasoning": "No files were generated.",
+    "summary": "FAIL — no output files found"
+  },
+  "session_events": [
+    {
+      "type": "session.start"
+    },
+    {
+      "type": "pending_messages.modified"
+    },
+    {
+      "type": "pending_messages.modified"
+    },
+    {
+      "type": "user.message",
+      "content": "How do I properly handle errors when working with Azure Key Vault secrets in Python?\nI need to handle access denied (403) when my app's identity doesn't have the right\nRBAC role, secret not found (404), and throttling (429) when rate limits are hit.\nShow me try/except patterns with the azure-keyvault-secrets SDK including\nhow to inspect the status_code and error message on HttpResponseError.\nAlso explain what happens when I try to get a soft-deleted secret."
+    },
+    {
+      "type": "assistant.turn_start"
+    },
+    {
+      "type": "session.usage_info"
+    },
+    {
+      "type": "assistant.usage",
+      "duration_ms": 25322
+    },
+    {
+      "type": "assistant.message",
+      "content": "I'll show you comprehensive error handling patterns for Azure Key Vault secrets in Python with the `azure-keyvault-secrets` SDK.\n\nHere are the key error handling patterns:\n\n## Basic Error Handling\n\n```python\nfrom azure.keyvault.secrets import SecretClient\nfrom azure.core.exceptions import HttpResponseError, ResourceNotFoundError\nfrom azure.identity import DefaultAzureCredential\n\ncredential = DefaultAzureCredential()\nclient = SecretClient(vault_url=\"https://your-vault.vault.azure.net/\", credential=credential)\n\n# Pattern 1: Specific exception handling\ntry:\n    secret = client.get_secret(\"my-secret\")\n    print(f\"Secret value: {secret.value}\")\nexcept ResourceNotFoundError:\n    print(\"Secret not found (404)\")\nexcept HttpResponseError as e:\n    if e.status_code == 403:\n        print(f\"Access denied: {e.message}\")\n        print(\"Check RBAC role assignments (need 'Key Vault Secrets User' or similar)\")\n    elif e.status_code == 429:\n        print(f\"Rate limited: {e.message}\")\n        print(f\"Retry after: {e.response.headers.get('Retry-After', 'unknown')} seconds\")\n    else:\n        print(f\"HTTP error {e.status_code}: {e.message}\")\n```\n\n## Inspecting HttpResponseError Details\n\n```python\ntry:\n    secret = client.get_secret(\"secret-name\")\nexcept HttpResponseError as e:\n    print(f\"Status Code: {e.status_code}\")\n    print(f\"Error Message: {e.message}\")\n    print(f\"Error Code: {e.error.code if e.error else 'N/A'}\")\n    print(f\"Full Error: {e.error}\")\n    \n    # Access response headers (useful for retry logic)\n    if e.response:\n        print(f\"Retry-After header: {e.response.headers.get('Retry-After')}\")\n        print(f\"Request ID: {e.response.headers.get('x-ms-request-id')}\")\n```\n\n## Handling Soft-Deleted Secrets\n\n```python\n# When you try to get a soft-deleted secret, you get a 404\ntry:\n    secret = client.get_secret(\"deleted-secret\")\nexcept ResourceNotFoundError:\n    print(\"Secret not found - may be soft-deleted\")\n    \n    # Check if it's in the deleted secrets\n    try:\n        deleted_secret = client.get_deleted_secret(\"deleted-secret\")\n        print(f\"Found in deleted secrets, deleted on: {deleted_secret.deleted_date}\")\n        print(f\"Scheduled purge: {deleted_secret.scheduled_purge_date}\")\n        \n        # Recover if needed\n        recovered = client.begin_recover_deleted_secret(\"deleted-secret\").result()\n        print(f\"Recovered secret\")\n    except ResourceNotFoundError:\n        print(\"Secret truly doesn't exist (not even soft-deleted)\")\n    except HttpResponseError as e:\n        if e.status_code == 403:\n            print(\"No permission to view/recover deleted secrets\")\n```\n\n## Comprehensive Pattern with Retry Logic\n\n```python\nimport time\nfrom azure.core.exceptions import HttpResponseError, ResourceNotFoundError\n\ndef get_secret_with_retry(client, secret_name, max_retries=3):\n    \"\"\"Get secret with exponential backoff for rate limiting\"\"\"\n    for attempt in range(max_retries):\n        try:\n            return client.get_secret(secret_name)\n        \n        except ResourceNotFoundError:\n            raise  # Don't retry 404s\n        \n        except HttpResponseError as e:\n            if e.status_code == 403:\n                # Access denied - no point retrying\n                raise ValueError(\n                    f\"Access denied to secret '{secret_name}'. \"\n                    f\"Ensure the identity has 'Key Vault Secrets User' role.\"\n                ) from e\n            \n            elif e.status_code == 429:\n                # Rate limited - retry with backoff\n                retry_after = int(e.response.headers.get('Retry-After', 2 ** attempt))\n                if attempt \u003c max_retries - 1:\n                    print(f\"Rate limited. Retrying after {retry_after}s...\")\n                    time.sleep(retry_after)\n                else:\n                    raise ValueError(f\"Rate limit exceeded after {max_retries} attempts\") from e\n            \n            else:\n                # Other HTTP errors\n                raise\n\n# Usage\ntry:\n    secret = get_secret_with_retry(client, \"my-secret\")\n    print(f\"Got secret: {secret.name}\")\nexcept Exception as e:\n    print(f\"Failed to get secret: {e}\")\n```\n\n## Common Status Codes\n\n- **403 Forbidden**: Missing RBAC role (e.g., \"Key Vault Secrets User\")\n- **404 Not Found**: Secret doesn't exist or is soft-deleted\n- **429 Too Many Requests**: Rate limit hit (check `Retry-After` header)\n- **401 Unauthorized**: Authentication failure (credential issue)\n\n## Key Points\n\n1. **Soft-deleted secrets**: Return 404 on normal `get_secret()` - use `get_deleted_secret()` to access them\n2. **RBAC roles needed**: Minimum \"Key Vault Secrets User\" for read, \"Key Vault Secrets Officer\" for write/delete\n3. **Rate limiting**: Always check the `Retry-After` header and implement exponential backoff\n4. **ResourceNotFoundError** is a convenience exception for 404s, but you can also catch it as `HttpResponseError`\n\nWould you like me to create a complete working example script with all these patterns?"
+    },
+    {
+      "type": "assistant.reasoning",
+      "content": "The user is asking for guidance on error handling with Azure Key Vault secrets in Python. This is a knowledge/documentation question rather than a task requiring code changes in a repository. They want to learn about:\n\n1. Handling specific HTTP errors (403, 404, 429)\n2. Try/except patterns with azure-keyvault-secrets SDK\n3. How to inspect status_code and error message on HttpResponseError\n4. What happens with soft-deleted secrets\n\nSince this is a direct question asking for information/examples rather than a task to implement in a codebase, I should provide a concise, helpful response with code examples. I don't need to use the plan mode or explore the codebase - there's no indication we're working in an existing project that needs modification.\n\nLet me provide a comprehensive but concise answer with practical code examples."
+    },
+    {
+      "type": "assistant.turn_end"
+    },
+    {
+      "type": "session.idle"
+    }
+  ],
+  "event_count": 11,
+  "tool_calls": null,
+  "success": false
+}

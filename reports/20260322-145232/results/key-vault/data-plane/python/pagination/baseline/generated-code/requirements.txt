@@ -1,0 +1,7 @@
+# Azure Key Vault Secrets SDK
+# Documentation: https://learn.microsoft.com/python/api/overview/azure/keyvault-secrets-readme
+azure-keyvault-secrets>=4.8.0
+
+# Azure Identity - provides DefaultAzureCredential and other authentication methods
+# Documentation: https://learn.microsoft.com/python/api/overview/azure/identity-readme
+azure-identity>=1.15.0

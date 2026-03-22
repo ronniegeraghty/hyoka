@@ -1,0 +1,13 @@
+# Azure Key Vault Secrets SDK
+# Provides SecretClient for interacting with Azure Key Vault secrets
+azure-keyvault-secrets>=4.8.0
+
+# Azure Identity SDK
+# Provides DefaultAzureCredential for authentication
+# Supports multiple auth methods: environment variables, managed identity,
+# Azure CLI, Azure PowerShell, Visual Studio Code, etc.
+azure-identity>=1.15.0
+
+# Azure Core (automatically included as dependency)
+# Provides ItemPaged for pagination support
+# azure-core>=1.29.0

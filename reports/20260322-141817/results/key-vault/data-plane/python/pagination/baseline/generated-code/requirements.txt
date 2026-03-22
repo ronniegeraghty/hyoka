@@ -1,0 +1,8 @@
+# Required packages for Azure Key Vault Secrets pagination example
+# Install with: pip install -r requirements.txt
+
+# Azure Key Vault Secrets client library
+azure-keyvault-secrets>=4.8.0
+
+# Azure Identity library for authentication (includes DefaultAzureCredential)
+azure-identity>=1.16.0

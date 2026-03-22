@@ -1,0 +1,5 @@
+# Azure Key Vault Secrets SDK
+azure-keyvault-secrets>=4.7.0
+
+# Azure Identity for authentication
+azure-identity>=1.12.0

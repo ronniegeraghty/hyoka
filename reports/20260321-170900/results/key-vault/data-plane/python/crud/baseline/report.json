@@ -1,0 +1,183 @@
+{
+  "prompt_id": "key-vault-dp-python-crud",
+  "config_name": "baseline",
+  "timestamp": "2026-03-22T00:09:00Z",
+  "duration_seconds": 52.737929945,
+  "prompt_metadata": {
+    "category": "crud",
+    "language": "python",
+    "plane": "data-plane",
+    "service": "key-vault"
+  },
+  "config_used": {
+    "model": "claude-sonnet-4.5",
+    "name": "baseline"
+  },
+  "generated_files": [
+    "README.md",
+    "key_vault_crud.py",
+    "requirements.txt"
+  ],
+  "verification": {
+    "pass": true,
+    "reasoning": "The code fully meets all requirements from the original prompt. It correctly implements all four CRUD operations: (1) Creates 'my-secret' with value 'my-secret-value' using set_secret(), (2) Reads it back with get_secret() and prints the value, (3) Updates it to 'updated-value' using set_secret() again, (4) Deletes and purges using begin_delete_secret() followed by purge_deleted_secret(). It uses DefaultAzureCredential for authentication as required. The code properly handles soft-delete by using poller.result() to wait for delete completion before purging. Error handling includes ResourceNotFoundError and HttpResponseError with helpful hints for common issues (401/403). The requirements.txt file specifies both required packages (azure-keyvault-secrets and azure-identity). The code is syntactically valid Python, uses correct SDK methods, and includes proper imports. The README provides clear installation instructions. All expected coverage points are addressed: package installation, SecretClient creation with vault URL and credential, all four required methods, soft-delete handling, and exception handling.",
+    "summary": "Code fully implements all CRUD operations with correct SDK usage, proper authentication, and comprehensive error handling."
+  },
+  "session_events": [
+    {
+      "type": "session.start"
+    },
+    {
+      "type": "pending_messages.modified"
+    },
+    {
+      "type": "pending_messages.modified"
+    },
+    {
+      "type": "user.message",
+      "content": "Using only the Azure SDK for Python documentation, write a script that performs\nall four CRUD operations on Azure Key Vault secrets:\n1. Create a new secret called \"my-secret\" with value \"my-secret-value\"\n2. Read the secret back and print its value\n3. Update the secret to a new value \"updated-value\"\n4. Delete the secret and purge it (soft-delete enabled vault)\n\nUse DefaultAzureCredential for authentication. Include proper error handling\nand show required pip packages."
+    },
+    {
+      "type": "assistant.turn_start"
+    },
+    {
+      "type": "session.usage_info"
+    },
+    {
+      "type": "assistant.usage",
+      "duration_ms": 24134
+    },
+    {
+      "type": "assistant.message",
+      "content": "I'll create a Python script that demonstrates all four CRUD operations on Azure Key Vault secrets using the Azure SDK for Python."
+    },
+    {
+      "type": "assistant.reasoning",
+      "content": "The user wants me to write a Python script that demonstrates CRUD operations on Azure Key Vault secrets using the Azure SDK for Python. They specifically want:\n1. Create a secret\n2. Read the secret\n3. Update the secret\n4. Delete and purge the secret\n\nThey want me to use only Azure SDK documentation, DefaultAzureCredential, and include error handling and pip packages.\n\nThis is a straightforward request - I need to create a Python script file. Let me start by reporting my intent and creating the script."
+    },
+    {
+      "type": "tool.execution_start",
+      "tool_name": "report_intent",
+      "tool_args": "{\"intent\":\"Creating Key Vault CRUD script\"}"
+    },
+    {
+      "type": "tool.execution_start",
+      "tool_name": "create",
+      "tool_args": "{\"file_text\":\"\\\"\\\"\\\"\\nAzure Key Vault Secret CRUD Operations\\n\\nThis script demonstrates Create, Read, Update, and Delete operations\\non Azure Key Vault secrets using the Azure SDK for Python.\\n\\nRequired packages:\\n    pip install azure-keyvault-secrets azure-identity\\n\\\"\\\"\\\"\\n\\nfrom azure.keyvault.secrets import SecretClient\\nfrom azure.identity import DefaultAzureCredential\\nfrom azure.core.exceptions import ResourceNotFoundError, HttpResponseError\\nimport sys\\n\\n\\ndef main():\\n    # Replace with your Key Vault URL\\n    # Format: https://\\u003cyour-key-vault-name\\u003e.vault.azure.net/\\n    key_vault_url = input(\\\"Enter your Key Vault URL: \\\").strip()\\n    \\n    if not key_vault_url:\\n        print(\\\"Error: Key Vault URL is required\\\")\\n        sys.exit(1)\\n    \\n    try:\\n        # Authenticate using DefaultAzureCredential\\n        credential = DefaultAzureCredential()\\n        \\n        # Create a SecretClient\\n        client = SecretClient(vault_url=key_vault_url, credential=credential)\\n        \\n        print(f\\\"\\\\nConnected to Key Vault: {key_vault_url}\\\")\\n        print(\\\"-\\\" * 60)\\n        \\n        # 1. CREATE: Create a new secret\\n        print(\\\"\\\\n1. CREATE: Creating secret 'my-secret'...\\\")\\n        secret_name = \\\"my-secret\\\"\\n        secret_value = \\\"my-secret-value\\\"\\n        \\n        created_secret = client.set_secret(secret_name, secret_value)\\n        print(f\\\"   ✓ Secret created: {created_secret.name}\\\")\\n        print(f\\\"   - Value: {created_secret.value}\\\")\\n        print(f\\\"   - Version: {created_secret.properties.version}\\\")\\n        \\n        # 2. READ: Read the secret back\\n        print(\\\"\\\\n2. READ: Reading secret 'my-secret'...\\\")\\n        retrieved_secret = client.get_secret(secret_name)\\n        print(f\\\"   ✓ Secret retrieved: {retrieved_secret.name}\\\")\\n        print(f\\\"   - Value: {retrieved_secret.value}\\\")\\n        print(f\\\"   - Version: {retrieved_secret.properties.version}\\\")\\n        \\n        # 3. UPDATE: Update the secret to a new value\\n        print(\\\"\\\\n3. UPDATE: Updating secret 'my-secret'...\\\")\\n        new_value = \\\"updated-value\\\"\\n        updated_secret = client.set_secret(secret_name, new_value)\\n        print(f\\\"   ✓ Secret updated: {updated_secret.name}\\\")\\n        print(f\\\"   - New Value: {updated_secret.value}\\\")\\n        print(f\\\"   - New Version: {updated_secret.properties.version}\\\")\\n        \\n        # Verify the update\\n        verification = client.get_secret(secret_name)\\n        print(f\\\"   - Verified Value: {verification.value}\\\")\\n        \\n        # 4. DELETE: Delete and purge the secret\\n        print(\\\"\\\\n4. DELETE: Deleting secret 'my-secret'...\\\")\\n        poller = client.begin_delete_secret(secret_name)\\n        deleted_secret = poller.result()\\n        print(f\\\"   ✓ Secret deleted: {deleted_secret.name}\\\")\\n        print(f\\\"   - Scheduled purge date: {deleted_secret.scheduled_purge_date}\\\")\\n        print(f\\\"   - Deleted date: {deleted_secret.deleted_date}\\\")\\n        \\n        # Purge the deleted secret (for soft-delete enabled vaults)\\n        print(\\\"\\\\n   Purging deleted secret...\\\")\\n        client.purge_deleted_secret(secret_name)\\n        print(f\\\"   ✓ Secret purged permanently\\\")\\n        \\n        print(\\\"\\\\n\\\" + \\\"-\\\" * 60)\\n        print(\\\"All CRUD operations completed successfully!\\\")\\n        \\n    except ResourceNotFoundError as e:\\n        print(f\\\"\\\\n✗ Error: Resource not found - {e.message}\\\")\\n        sys.exit(1)\\n    except HttpResponseError as e:\\n        print(f\\\"\\\\n✗ HTTP Error: {e.status_code} - {e.message}\\\")\\n        if e.status_code == 401:\\n            print(\\\"  Hint: Check your authentication credentials\\\")\\n        elif e.status_code == 403:\\n            print(\\\"  Hint: Check your Key Vault access permissions\\\")\\n        sys.exit(1)\\n    except Exception as e:\\n        print(f\\\"\\\\n✗ Unexpected error: {type(e).__name__} - {str(e)}\\\")\\n        sys.exit(1)\\n    finally:\\n        # Clean up credential\\n        if 'credential' in locals():\\n            credential.close()\\n\\n\\nif __name__ == \\\"__main__\\\":\\n    main()\\n\",\"path\":\"/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/key_vault_crud.py\"}"
+    },
+    {
+      "type": "tool.execution_start",
+      "tool_name": "create",
+      "tool_args": "{\"file_text\":\"azure-keyvault-secrets\\u003e=4.7.0\\nazure-identity\\u003e=1.12.0\\n\",\"path\":\"/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/requirements.txt\"}"
+    },
+    {
+      "type": "tool.execution_start",
+      "tool_name": "create",
+      "tool_args": "{\"file_text\":\"# Azure Key Vault Secret CRUD Operations\\n\\nThis script demonstrates all four CRUD operations on Azure Key Vault secrets using the Azure SDK for Python.\\n\\n## Prerequisites\\n\\n1. An Azure subscription\\n2. An Azure Key Vault with soft-delete enabled\\n3. Appropriate permissions (Secret Get, Set, Delete, Purge)\\n4. Python 3.7 or higher\\n\\n## Installation\\n\\nInstall the required packages:\\n\\n```bash\\npip install -r requirements.txt\\n```\\n\\nOr install individually:\\n\\n```bash\\npip install azure-keyvault-secrets azure-identity\\n```\\n\\n## Authentication\\n\\nThis script uses `DefaultAzureCredential`, which attempts multiple authentication methods in order:\\n1. Environment variables\\n2. Managed Identity\\n3. Azure CLI\\n4. Azure PowerShell\\n5. Interactive browser\\n\\nFor local development, the easiest method is Azure CLI:\\n\\n```bash\\naz login\\n```\\n\\n## Usage\\n\\nRun the script:\\n\\n```bash\\npython key_vault_crud.py\\n```\\n\\nWhen prompted, enter your Key Vault URL in the format:\\n```\\nhttps://\\u003cyour-key-vault-name\\u003e.vault.azure.net/\\n```\\n\\n## Operations Performed\\n\\n1. **CREATE**: Creates a secret named \\\"my-secret\\\" with value \\\"my-secret-value\\\"\\n2. **READ**: Retrieves the secret and prints its value\\n3. **UPDATE**: Updates the secret to a new value \\\"updated-value\\\"\\n4. **DELETE**: Soft-deletes the secret and then purges it permanently\\n\\n## Error Handling\\n\\nThe script includes error handling for:\\n- Resource not found errors\\n- HTTP errors (401 Unauthorized, 403 Forbidden, etc.)\\n- General exceptions\\n\\n## Required Permissions\\n\\nEnsure your identity has the following Key Vault permissions:\\n- `Secret Get`\\n- `Secret Set`\\n- `Secret Delete`\\n- `Secret Purge`\\n\\nYou can assign these via Azure RBAC role \\\"Key Vault Secrets Officer\\\" or through access policies.\\n\",\"path\":\"/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/README.md\"}"
+    },
+    {
+      "type": "hook.start"
+    },
+    {
+      "type": "hook.end",
+      "tool_success": true
+    },
+    {
+      "type": "tool.execution_complete",
+      "tool_result": "Creating Key Vault CRUD script",
+      "tool_success": true
+    },
+    {
+      "type": "permission.requested"
+    },
+    {
+      "type": "permission.requested"
+    },
+    {
+      "type": "permission.requested"
+    },
+    {
+      "type": "permission.completed"
+    },
+    {
+      "type": "permission.completed"
+    },
+    {
+      "type": "permission.completed"
+    },
+    {
+      "type": "session.info"
+    },
+    {
+      "type": "hook.start"
+    },
+    {
+      "type": "hook.end",
+      "tool_success": true
+    },
+    {
+      "type": "tool.execution_complete",
+      "tool_result": "\ndiff --git a/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/README.md b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/README.md\ncreate file mode 100644\nindex 0000000..0000000\n--- a/dev/null\n+++ b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/README.md\n@@ -1,0 +1,77 @@\n+# Azure Key Vault Secret CRUD Operations\n+\n+This script demonstrates all four CRUD operations on Azure Key Vault secrets using the Azure SDK for Python.\n+\n+## Prerequisites\n+\n+1. An Azure subscription\n+2. An Azure Key Vault with soft-delete enabled\n+3. Appropriate permissions (Secret Get, Set, Delete, Purge)\n+4. Python 3.7 or higher\n+\n+## Installation\n+\n+Install the required packages:\n+\n+```bash\n+pip install -r requirements.txt\n+```\n+\n+Or install individually:\n+\n+```bash\n+pip install azure-keyvault-secrets azure-identity\n+```\n+\n+## Authentication\n+\n+This script uses `DefaultAzureCredential`, which attempts multiple authentication methods in order:\n+1. Environment variables\n+2. Managed Identity\n+3. Azure CLI\n+4. Azure PowerShell\n+5. Interactive browser\n+\n+For local development, the easiest method is Azure CLI:\n+\n+```bash\n+az login\n+```\n+\n+## Usage\n+\n+Run the script:\n+\n+```bash\n+python key_vault_crud.py\n+```\n+\n+When prompted, enter your Key Vault URL in the format:\n+```\n+https://\u003cyour-key-vault-name\u003e.vault.azure.net/\n+```\n+\n+## Operations Performed\n+\n+1. **CREATE**: Creates a secret named \"my-secret\" with value \"my-secret-value\"\n+2. **READ**: Retrieves the secret and prints its value\n+3. **UPDATE**: Updates the secret to a new value \"updated-value\"\n+4. **DELETE**: Soft-deletes the secret and then purges it permanently\n+\n+## Error Handling\n+\n+The script includes error handling for:\n+- Resource not found errors\n+- HTTP errors (401 Unauthorized, 403 Forbidden, etc.)\n+- General exceptions\n+\n+## Required Permissions\n+\n+Ensure your identity has the following Key Vault permissions:\n+- `Secret Get`\n+- `Secret Set`\n+- `Secret Delete`\n+- `Secret Purge`\n+\n+You can assign these via Azure RBAC role \"Key Vault Secrets Officer\" or through access policies.\n+\n",
+      "tool_success": true
+    },
+    {
+      "type": "session.info"
+    },
+    {
+      "type": "hook.start"
+    },
+    {
+      "type": "hook.end",
+      "tool_success": true
+    },
+    {
+      "type": "tool.execution_complete",
+      "tool_result": "\ndiff --git a/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/key_vault_crud.py b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/key_vault_crud.py\ncreate file mode 100644\nindex 0000000..0000000\n--- a/dev/null\n+++ b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/key_vault_crud.py\n@@ -1,0 +1,102 @@\n+\"\"\"\n+Azure Key Vault Secret CRUD Operations\n+\n+This script demonstrates Create, Read, Update, and Delete operations\n+on Azure Key Vault secrets using the Azure SDK for Python.\n+\n+Required packages:\n+    pip install azure-keyvault-secrets azure-identity\n+\"\"\"\n+\n+from azure.keyvault.secrets import SecretClient\n+from azure.identity import DefaultAzureCredential\n+from azure.core.exceptions import ResourceNotFoundError, HttpResponseError\n+import sys\n+\n+\n+def main():\n+    # Replace with your Key Vault URL\n+    # Format: https://\u003cyour-key-vault-name\u003e.vault.azure.net/\n+    key_vault_url = input(\"Enter your Key Vault URL: \").strip()\n+    \n+    if not key_vault_url:\n+        print(\"Error: Key Vault URL is required\")\n+        sys.exit(1)\n+    \n+    try:\n+        # Authenticate using DefaultAzureCredential\n+        credential = DefaultAzureCredential()\n+        \n+        # Create a SecretClient\n+        client = SecretClient(vault_url=key_vault_url, credential=credential)\n+        \n+        print(f\"\\nConnected to Key Vault: {key_vault_url}\")\n+        print(\"-\" * 60)\n+        \n+        # 1. CREATE: Create a new secret\n+        print(\"\\n1. CREATE: Creating secret 'my-secret'...\")\n+        secret_name = \"my-secret\"\n+        secret_value = \"my-secret-value\"\n+        \n+        created_secret = client.set_secret(secret_name, secret_value)\n+        print(f\"   ✓ Secret created: {created_secret.name}\")\n+        print(f\"   - Value: {created_secret.value}\")\n+        print(f\"   - Version: {created_secret.properties.version}\")\n+        \n+        # 2. READ: Read the secret back\n+        print(\"\\n2. READ: Reading secret 'my-secret'...\")\n+        retrieved_secret = client.get_secret(secret_name)\n+        print(f\"   ✓ Secret retrieved: {retrieved_secret.name}\")\n+        print(f\"   - Value: {retrieved_secret.value}\")\n+        print(f\"   - Version: {retrieved_secret.properties.version}\")\n+        \n+        # 3. UPDATE: Update the secret to a new value\n+        print(\"\\n3. UPDATE: Updating secret 'my-secret'...\")\n+        new_value = \"updated-value\"\n+        updated_secret = client.set_secret(secret_name, new_value)\n+        print(f\"   ✓ Secret updated: {updated_secret.name}\")\n+        print(f\"   - New Value: {updated_secret.value}\")\n+        print(f\"   - New Version: {updated_secret.properties.version}\")\n+        \n+        # Verify the update\n+        verification = client.get_secret(secret_name)\n+        print(f\"   - Verified Value: {verification.value}\")\n+        \n+        # 4. DELETE: Delete and purge the secret\n+        print(\"\\n4. DELETE: Deleting secret 'my-secret'...\")\n+        poller = client.begin_delete_secret(secret_name)\n+        deleted_secret = poller.result()\n+        print(f\"   ✓ Secret deleted: {deleted_secret.name}\")\n+        print(f\"   - Scheduled purge date: {deleted_secret.scheduled_purge_date}\")\n+        print(f\"   - Deleted date: {deleted_secret.deleted_date}\")\n+        \n+        # Purge the deleted secret (for soft-delete enabled vaults)\n+        print(\"\\n   Purging deleted secret...\")\n+        client.purge_deleted_secret(secret_name)\n+        print(f\"   ✓ Secret purged permanently\")\n+        \n+        print(\"\\n\" + \"-\" * 60)\n+        print(\"All CRUD operations completed successfully!\")\n+        \n+    except ResourceNotFoundError as e:\n+        print(f\"\\n✗ Error: Resource not found - {e.message}\")\n+        sys.exit(1)\n+    except HttpResponseError as e:\n+        print(f\"\\n✗ HTTP Error: {e.status_code} - {e.message}\")\n+        if e.status_code == 401:\n+            print(\"  Hint: Check your authentication credentials\")\n+        elif e.status_code == 403:\n+            print(\"  Hint: Check your Key Vault access permissions\")\n+        sys.exit(1)\n+    except Exception as e:\n+        print(f\"\\n✗ Unexpected error: {type(e).__name__} - {str(e)}\")\n+        sys.exit(1)\n+    finally:\n+        # Clean up credential\n+        if 'credential' in locals():\n+            credential.close()\n+\n+\n+if __name__ == \"__main__\":\n+    main()\n+\n",
+      "tool_success": true
+    },
+    {
+      "type": "session.info"
+    },
+    {
+      "type": "hook.start"
+    },
+    {
+      "type": "hook.end",
+      "tool_success": true
+    },
+    {
+      "type": "tool.execution_complete",
+      "tool_result": "\ndiff --git a/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/requirements.txt b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/requirements.txt\ncreate file mode 100644\nindex 0000000..0000000\n--- a/dev/null\n+++ b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-baseline-1294133265/requirements.txt\n@@ -1,0 +1,3 @@\n+azure-keyvault-secrets\u003e=4.7.0\n+azure-identity\u003e=1.12.0\n+\n",
+      "tool_success": true
+    },
+    {
+      "type": "assistant.turn_end"
+    },
+    {
+      "type": "assistant.turn_start"
+    },
+    {
+      "type": "session.usage_info"
+    },
+    {
+      "type": "assistant.usage",
+      "duration_ms": 6077
+    },
+    {
+      "type": "assistant.message",
+      "content": "Perfect! I've created a complete Azure Key Vault CRUD script with the following files:\n\n## 📁 Files Created\n\n1. **key_vault_crud.py** - Main script with all four CRUD operations:\n   - ✅ **CREATE**: Creates \"my-secret\" with value \"my-secret-value\"\n   - ✅ **READ**: Retrieves and prints the secret value\n   - ✅ **UPDATE**: Updates to \"updated-value\"\n   - ✅ **DELETE**: Soft-deletes and purges the secret\n\n2. **requirements.txt** - Required packages:\n   - `azure-keyvault-secrets\u003e=4.7.0`\n   - `azure-identity\u003e=1.12.0`\n\n3. **README.md** - Complete documentation with setup and usage instructions\n\n## 🔑 Key Features\n\n- Uses `DefaultAzureCredential` for flexible authentication\n- Comprehensive error handling for common issues (401, 403, ResourceNotFoundError)\n- Clean output showing each operation's result\n- Proper resource cleanup\n- Handles soft-delete enabled vaults with purge operation\n\n## 🚀 Quick Start\n\n```bash\npip install -r requirements.txt\npython key_vault_crud.py\n```\n\nThe script will prompt for your Key Vault URL and then execute all four CRUD operations in sequence!"
+    },
+    {
+      "type": "assistant.turn_end"
+    },
+    {
+      "type": "session.idle"
+    }
+  ],
+  "event_count": 41,
+  "tool_calls": [
+    "report_intent",
+    "create"
+  ],
+  "success": true
+}

@@ -1,0 +1,5 @@
+# Azure Key Vault Secrets - Required Packages
+# Install with: pip install -r requirements.txt
+
+azure-keyvault-secrets>=4.8.0
+azure-identity>=1.15.0

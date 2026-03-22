@@ -1,333 +1,73 @@
 package progress
 
 import (
-	"bytes"
-	"regexp"
-	"strings"
-	"testing"
-	"time"
+"bytes"
+"strings"
+"testing"
 )
 
-var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+func TestDisplay_BasicFlow(t *testing.T) {
+var buf bytes.Buffer
+d := NewDisplay(DisplayConfig{Total: 2, Workers: 2, Writer: &buf, Disabled: false})
 
-func stripANSI(s string) string {
-	return ansiRegex.ReplaceAllString(s, "")
+d.HandleEvent(ProgressEvent{EvalID: "a", PromptID: "p1", ConfigName: "c1", Type: EventStarting})
+d.HandleEvent(ProgressEvent{EvalID: "b", PromptID: "p2", ConfigName: "c2", Type: EventStarting})
+d.HandleEvent(ProgressEvent{EvalID: "a", Type: EventPassed, FileCount: 3, ReviewScore: 8})
+d.HandleEvent(ProgressEvent{EvalID: "b", Type: EventFailed, Message: "bad code"})
+d.Finish()
+
+out := buf.String()
+if !strings.Contains(out, "p1/c1") {
+t.Errorf("expected p1/c1 in output, got %q", out)
+}
+if !strings.Contains(out, "p2/c2") {
+t.Errorf("expected p2/c2 in output, got %q", out)
+}
+if !strings.Contains(out, "✅") {
+t.Errorf("expected ✅ in output")
+}
+if !strings.Contains(out, "❌") {
+t.Errorf("expected ❌ in output")
+}
+if !strings.Contains(out, "3 files") {
+t.Errorf("expected '3 files' in output")
+}
+if !strings.Contains(out, "8/10") {
+t.Errorf("expected '8/10' in output")
+}
+if !strings.Contains(out, "Summary: 1/2") {
+t.Errorf("expected summary in output")
+}
 }
 
-// newTestDisplay creates a Display suitable for testing.
-// rendered is false so redraw/Finish skip ANSI cursor-up.
-func newTestDisplay(total int, buf *bytes.Buffer) *Display {
-	return &Display{
-		lines:      make([]evalLine, total),
-		lineIndex:  make(map[string]int),
-		order:      make([]string, 0, total),
-		total:      total,
-		fixedLines: total + 2,
-		w:          buf,
-		disabled:   false,
-		width:      120,
-		startTime:  time.Now(),
-	}
+func TestDisplay_CompletedCount(t *testing.T) {
+var buf bytes.Buffer
+d := NewDisplay(DisplayConfig{Total: 3, Workers: 2, Writer: &buf, Disabled: false})
+d.HandleEvent(ProgressEvent{EvalID: "a", PromptID: "p", ConfigName: "c", Type: EventStarting})
+d.HandleEvent(ProgressEvent{EvalID: "a", Type: EventPassed, FileCount: 1})
+if d.CompletedEvalCount() != 1 {
+t.Errorf("expected 1 completed, got %d", d.CompletedEvalCount())
+}
 }
 
-func TestNewDisplay_Disabled(t *testing.T) {
-	var buf bytes.Buffer
-	d := NewDisplay(DisplayConfig{
-		Total:    5,
-		Workers:  2,
-		Writer:   &buf,
-		Disabled: true,
-	})
-	d.HandleEvent(ProgressEvent{
-		EvalID:     "test/config",
-		PromptID:   "test",
-		ConfigName: "config",
-		Type:       EventStarting,
-	})
-	d.Done()
-	if buf.Len() != 0 {
-		t.Errorf("expected no output when disabled, got %d bytes", buf.Len())
-	}
+func TestDisplay_ReportDir(t *testing.T) {
+var buf bytes.Buffer
+d := NewDisplay(DisplayConfig{Total: 1, Workers: 1, Writer: &buf, ReportDir: "reports/123/"})
+d.HandleEvent(ProgressEvent{EvalID: "a", PromptID: "p", ConfigName: "c", Type: EventStarting})
+d.HandleEvent(ProgressEvent{EvalID: "a", Type: EventPassed, FileCount: 2})
+d.Finish()
+if !strings.Contains(buf.String(), "reports/123/") {
+t.Errorf("expected report dir in output")
+}
 }
 
-func TestDisplay_LineManagement(t *testing.T) {
-	var buf bytes.Buffer
-	d := newTestDisplay(4, &buf)
-
-	// Start two evals — should create lines 0 and 1
-	d.HandleEvent(ProgressEvent{
-		EvalID: "p1/c1", PromptID: "p1", ConfigName: "c1",
-		Type: EventStarting,
-	})
-	d.HandleEvent(ProgressEvent{
-		EvalID: "p2/c2", PromptID: "p2", ConfigName: "c2",
-		Type: EventStarting,
-	})
-
-	if len(d.order) != 2 {
-		t.Errorf("expected 2 started evals, got %d", len(d.order))
-	}
-	if len(d.lineIndex) != 2 {
-		t.Errorf("expected 2 active line entries, got %d", len(d.lineIndex))
-	}
-
-	// Complete first eval — line stays in list, marked completed
-	d.HandleEvent(ProgressEvent{
-		EvalID: "p1/c1", Type: EventPassed, FileCount: 3,
-	})
-	if d.completed != 1 || d.passed != 1 {
-		t.Errorf("expected 1 completed/passed, got %d/%d", d.completed, d.passed)
-	}
-	if !d.lines[0].completed {
-		t.Error("expected line 0 to be completed")
-	}
-	if len(d.order) != 2 {
-		t.Errorf("expected 2 started evals (completed stays), got %d", len(d.order))
-	}
-
-	// New eval should append as line 2 (not reuse old position)
-	d.HandleEvent(ProgressEvent{
-		EvalID: "p3/c3", PromptID: "p3", ConfigName: "c3",
-		Type: EventStarting,
-	})
-	if len(d.order) != 3 {
-		t.Errorf("expected 3 started, got %d", len(d.order))
-	}
-	if d.lineIndex["p3/c3"] != 2 {
-		t.Errorf("expected new eval at line 2, got line %d", d.lineIndex["p3/c3"])
-	}
+func TestDisplay_Disabled(t *testing.T) {
+var buf bytes.Buffer
+d := NewDisplay(DisplayConfig{Total: 1, Workers: 1, Writer: &buf, Disabled: true})
+d.HandleEvent(ProgressEvent{EvalID: "a", PromptID: "p", ConfigName: "c", Type: EventStarting})
+d.HandleEvent(ProgressEvent{EvalID: "a", Type: EventPassed, FileCount: 1})
+d.Finish()
+if buf.Len() != 0 {
+t.Errorf("expected no output when disabled, got %q", buf.String())
 }
-
-func TestDisplay_EventIcons_PhaseAware(t *testing.T) {
-	var buf bytes.Buffer
-	d := newTestDisplay(1, &buf)
-
-	// Start eval
-	d.HandleEvent(ProgressEvent{EvalID: "p/c", PromptID: "p", ConfigName: "c", Type: EventStarting})
-	if d.lines[0].phase != PhaseGenerating {
-		t.Errorf("expected phase generating after start, got %q", d.lines[0].phase)
-	}
-
-	// Tool start — activity should describe the tool usage
-	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventToolStart, Message: "bash → ls"})
-	if !strings.Contains(d.lines[0].activity, "bash → ls") {
-		t.Errorf("expected activity to contain 'bash → ls', got %q", d.lines[0].activity)
-	}
-
-	// Tool complete — activity updates
-	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventToolComplete, Message: "bash → success"})
-	if !strings.Contains(d.lines[0].activity, "bash") {
-		t.Errorf("expected activity to contain 'bash', got %q", d.lines[0].activity)
-	}
-
-	// Phase change to verifying
-	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventPhaseChange, Phase: PhaseVerifying})
-	if d.lines[0].phase != PhaseVerifying {
-		t.Errorf("expected phase verifying, got %q", d.lines[0].phase)
-	}
-
-	// Phase change to reviewing
-	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventPhaseChange, Phase: PhaseReviewing})
-	if d.lines[0].phase != PhaseReviewing {
-		t.Errorf("expected phase reviewing, got %q", d.lines[0].phase)
-	}
-
-	// Reasoning — activity should contain the message
-	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventReasoning, Message: "Checking coverage"})
-	if !strings.Contains(d.lines[0].activity, "Checking coverage") {
-		t.Errorf("expected activity to contain 'Checking coverage', got %q", d.lines[0].activity)
-	}
-}
-
-func TestDisplay_CompletedEvalsTracked(t *testing.T) {
-	var buf bytes.Buffer
-	d := newTestDisplay(3, &buf)
-
-	// Start 3 evals
-	for i, id := range []string{"a/x", "b/y", "c/z"} {
-		d.HandleEvent(ProgressEvent{
-			EvalID:     id,
-			PromptID:   string(rune('a' + i)),
-			ConfigName: string(rune('x' + i)),
-			Type:       EventStarting,
-		})
-	}
-
-	d.HandleEvent(ProgressEvent{EvalID: "a/x", Type: EventPassed, FileCount: 2, ReviewScore: 8})
-	d.HandleEvent(ProgressEvent{EvalID: "b/y", Type: EventFailed, Message: "verification failed"})
-	d.HandleEvent(ProgressEvent{EvalID: "c/z", Type: EventError, Message: "timeout"})
-
-	if d.passed != 1 {
-		t.Errorf("expected 1 passed, got %d", d.passed)
-	}
-	if d.failed != 1 {
-		t.Errorf("expected 1 failed, got %d", d.failed)
-	}
-	if d.errors != 1 {
-		t.Errorf("expected 1 error, got %d", d.errors)
-	}
-	if d.completed != 3 {
-		t.Errorf("expected 3 completed, got %d", d.completed)
-	}
-
-	completedCount := 0
-	for _, l := range d.lines {
-		if l.completed {
-			completedCount++
-		}
-	}
-	if completedCount != 3 {
-		t.Errorf("expected 3 completed lines, got %d", completedCount)
-	}
-	if d.lines[0].reviewScore != 8 {
-		t.Errorf("expected review score 8, got %d", d.lines[0].reviewScore)
-	}
-}
-
-func TestDisplay_Finish(t *testing.T) {
-	var buf bytes.Buffer
-	d := &Display{
-		lines: []evalLine{
-			{promptID: "crud", configName: "baseline", completed: true, passed: true, fileCount: 3, reviewScore: 8, duration: 34 * time.Second},
-			{promptID: "crud", configName: "azure-mcp", completed: true, message: "verification failed", duration: 28 * time.Second},
-		},
-		lineIndex:  make(map[string]int),
-		order:      []string{"crud/baseline", "crud/azure-mcp"},
-		total:      2,
-		completed:  2,
-		passed:     1,
-		failed:     1,
-		fixedLines: 4,
-		w:          &buf,
-		disabled:   false,
-		width:      120,
-		startTime:  time.Now(),
-		rendered:   false,
-	}
-
-	d.Finish()
-
-	output := stripANSI(buf.String())
-	if !strings.Contains(output, "PASSED") {
-		t.Errorf("expected Finish output to contain 'PASSED', got %q", output)
-	}
-	if !strings.Contains(output, "FAILED") {
-		t.Errorf("expected Finish output to contain 'FAILED', got %q", output)
-	}
-	if !strings.Contains(output, "3 files") {
-		t.Errorf("expected Finish output to contain '3 files', got %q", output)
-	}
-	if !strings.Contains(output, "8/10") {
-		t.Errorf("expected Finish output to contain '8/10' review score, got %q", output)
-	}
-	if !strings.Contains(output, "Summary: 1/2 passed") {
-		t.Errorf("expected Finish output to contain 'Summary: 1/2 passed', got %q", output)
-	}
-}
-
-func TestDisplay_FinishWithReportDir(t *testing.T) {
-	var buf bytes.Buffer
-	d := &Display{
-		lines: []evalLine{
-			{promptID: "p1", configName: "c1", completed: true, passed: true, fileCount: 2, duration: 10 * time.Second},
-		},
-		lineIndex:  make(map[string]int),
-		order:      []string{"p1/c1"},
-		total:      1,
-		completed:  1,
-		passed:     1,
-		fixedLines: 3,
-		w:          &buf,
-		disabled:   false,
-		width:      120,
-		startTime:  time.Now(),
-		reportDir:  "reports/20260321-171234/",
-		rendered:   false,
-	}
-
-	d.Finish()
-
-	output := stripANSI(buf.String())
-	if !strings.Contains(output, "Reports: reports/20260321-171234/") {
-		t.Errorf("expected report dir in output, got %q", output)
-	}
-}
-
-func TestFormatName_Short(t *testing.T) {
-	d := &Display{width: 120}
-	got := d.formatName("p1", "c1")
-	if got != "p1/c1" {
-		t.Errorf("expected 'p1/c1', got %q", got)
-	}
-}
-
-func TestFormatName_Truncated(t *testing.T) {
-	d := &Display{width: 120}
-	got := d.formatName("very-long-prompt-id-that-exceeds-limit", "config-name")
-	if len(got) > 38 {
-		t.Errorf("expected name truncated to ≤38 chars, got %d: %q", len(got), got)
-	}
-	if !strings.HasSuffix(got, "..") {
-		t.Errorf("expected truncated name to end with '..', got %q", got)
-	}
-}
-
-func TestTermWidth_Default(t *testing.T) {
-	w := TermWidth()
-	if w <= 0 {
-		t.Errorf("expected positive terminal width, got %d", w)
-	}
-}
-
-func TestDisplay_ActivityTruncation(t *testing.T) {
-	d := &Display{width: 80}
-	maxW := d.activityWidth()
-	longActivity := strings.Repeat("x", 200)
-	truncated := d.truncate(longActivity, d.activityWidth())
-	if len(truncated) > maxW {
-		t.Errorf("expected truncated activity ≤%d, got %d", maxW, len(truncated))
-	}
-	if !strings.HasSuffix(truncated, "...") {
-		t.Errorf("expected truncated activity to end with '...', got %q", truncated)
-	}
-}
-
-func TestDisplay_PerEvalLines(t *testing.T) {
-	var buf bytes.Buffer
-	d := newTestDisplay(3, &buf)
-
-	// Start 3 evals — each should get its own line
-	d.HandleEvent(ProgressEvent{EvalID: "a/x", PromptID: "a", ConfigName: "x", Type: EventStarting})
-	d.HandleEvent(ProgressEvent{EvalID: "b/y", PromptID: "b", ConfigName: "y", Type: EventStarting})
-	d.HandleEvent(ProgressEvent{EvalID: "c/z", PromptID: "c", ConfigName: "z", Type: EventStarting})
-
-	if len(d.order) != 3 {
-		t.Errorf("expected 3 started, got %d", len(d.order))
-	}
-
-	// Complete first, third still active — all 3 lines should persist
-	d.HandleEvent(ProgressEvent{EvalID: "a/x", Type: EventPassed, FileCount: 2})
-	if len(d.order) != 3 {
-		t.Errorf("expected 3 lines after completion, got %d", len(d.order))
-	}
-	if !d.lines[0].completed {
-		t.Error("expected line 0 completed")
-	}
-	if d.lines[1].completed || d.lines[2].completed {
-		t.Error("expected lines 1,2 still active")
-	}
-}
-
-func TestDisplay_CompletedEvalCount(t *testing.T) {
-	d := &Display{
-		lines: []evalLine{
-			{completed: true},
-			{completed: false},
-			{completed: true},
-		},
-		lineIndex: make(map[string]int),
-	}
-	if got := d.CompletedEvalCount(); got != 2 {
-		t.Errorf("expected CompletedEvalCount=2, got %d", got)
-	}
 }

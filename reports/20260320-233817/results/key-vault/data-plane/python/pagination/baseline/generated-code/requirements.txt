@@ -1,0 +1,8 @@
+# Azure SDK for Python - Key Vault Secrets
+# Documentation: https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme
+
+# Azure Key Vault Secrets client library
+azure-keyvault-secrets>=4.8.0
+
+# Azure Identity library for authentication (provides DefaultAzureCredential)
+azure-identity>=1.15.0

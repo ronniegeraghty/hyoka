@@ -1,0 +1,64 @@
+{
+  "prompt_id": "key-vault-dp-python-error-handling",
+  "config_name": "baseline",
+  "timestamp": "2026-03-22T21:25:36Z",
+  "duration_seconds": 33.902237742,
+  "prompt_metadata": {
+    "category": "error-handling",
+    "language": "python",
+    "plane": "data-plane",
+    "service": "key-vault"
+  },
+  "config_used": {
+    "model": "claude-sonnet-4.5",
+    "name": "baseline"
+  },
+  "generated_files": null,
+  "verification": {
+    "pass": false,
+    "reasoning": "No files were generated.",
+    "summary": "FAIL — no output files found"
+  },
+  "session_events": [
+    {
+      "type": "session.start"
+    },
+    {
+      "type": "pending_messages.modified"
+    },
+    {
+      "type": "pending_messages.modified"
+    },
+    {
+      "type": "user.message",
+      "content": "How do I properly handle errors when working with Azure Key Vault secrets in Python?\nI need to handle access denied (403) when my app's identity doesn't have the right\nRBAC role, secret not found (404), and throttling (429) when rate limits are hit.\nShow me try/except patterns with the azure-keyvault-secrets SDK including\nhow to inspect the status_code and error message on HttpResponseError.\nAlso explain what happens when I try to get a soft-deleted secret."
+    },
+    {
+      "type": "assistant.turn_start"
+    },
+    {
+      "type": "session.usage_info"
+    },
+    {
+      "type": "assistant.usage",
+      "duration_ms": 32200
+    },
+    {
+      "type": "assistant.message",
+      "content": "I'll show you comprehensive error handling patterns for Azure Key Vault secrets in Python.\n\nHere's a complete example covering all the scenarios you mentioned:\n\n```python\nfrom azure.keyvault.secrets import SecretClient\nfrom azure.identity import DefaultAzureCredential\nfrom azure.core.exceptions import HttpResponseError, ResourceNotFoundError\nimport time\n\n# Initialize the client\ncredential = DefaultAzureCredential()\nclient = SecretClient(vault_url=\"https://your-vault.vault.azure.net/\", credential=credential)\n\ndef get_secret_with_error_handling(secret_name):\n    \"\"\"\n    Demonstrates proper error handling for Azure Key Vault operations\n    \"\"\"\n    try:\n        secret = client.get_secret(secret_name)\n        return secret.value\n        \n    except HttpResponseError as e:\n        # Access the status code\n        status_code = e.status_code\n        \n        # Access the error message\n        error_message = e.message\n        \n        # Handle specific HTTP status codes\n        if status_code == 403:\n            # Access Denied - RBAC permissions issue\n            print(f\"Access Denied (403): {error_message}\")\n            print(\"Your identity lacks the required RBAC role.\")\n            print(\"Required: 'Key Vault Secrets User' or 'Key Vault Secrets Officer'\")\n            # You can also check: e.error.code, e.error.message\n            \n        elif status_code == 404:\n            # Secret Not Found\n            print(f\"Secret Not Found (404): {error_message}\")\n            print(f\"Secret '{secret_name}' does not exist in the vault\")\n            \n        elif status_code == 429:\n            # Rate Limiting / Throttling\n            print(f\"Throttled (429): {error_message}\")\n            print(\"Rate limit exceeded. Implementing retry with backoff...\")\n            \n            # Check for Retry-After header\n            retry_after = e.response.headers.get('Retry-After')\n            if retry_after:\n                wait_time = int(retry_after)\n            else:\n                wait_time = 5  # Default backoff\n                \n            print(f\"Waiting {wait_time} seconds before retry...\")\n            time.sleep(wait_time)\n            \n            # Retry the operation\n            return get_secret_with_retry(secret_name)\n            \n        else:\n            # Other HTTP errors\n            print(f\"HTTP Error {status_code}: {error_message}\")\n            \n        # Additional error details\n        if hasattr(e, 'error'):\n            print(f\"Error Code: {e.error.code}\")\n            print(f\"Error Details: {e.error.message}\")\n            \n        raise  # Re-raise if you want calling code to handle it\n        \n    except ResourceNotFoundError as e:\n        # This is a more specific exception for 404s\n        print(f\"Resource not found: {e.message}\")\n        raise\n        \n    except Exception as e:\n        # Catch-all for unexpected errors\n        print(f\"Unexpected error: {type(e).__name__}: {str(e)}\")\n        raise\n\n\ndef get_secret_with_retry(secret_name, max_retries=3):\n    \"\"\"\n    Implements exponential backoff for retries\n    \"\"\"\n    for attempt in range(max_retries):\n        try:\n            secret = client.get_secret(secret_name)\n            return secret.value\n            \n        except HttpResponseError as e:\n            if e.status_code == 429:\n                if attempt \u003c max_retries - 1:\n                    wait_time = 2 ** attempt  # Exponential backoff: 1, 2, 4 seconds\n                    print(f\"Retry attempt {attempt + 1}/{max_retries} after {wait_time}s\")\n                    time.sleep(wait_time)\n                else:\n                    print(f\"Max retries ({max_retries}) exceeded\")\n                    raise\n            else:\n                raise  # Re-raise non-429 errors immediately\n\n\ndef handle_soft_deleted_secret(secret_name):\n    \"\"\"\n    Demonstrates what happens with soft-deleted secrets\n    \"\"\"\n    try:\n        # Trying to get a soft-deleted secret returns 404\n        secret = client.get_secret(secret_name)\n        return secret.value\n        \n    except HttpResponseError as e:\n        if e.status_code == 404:\n            print(f\"Secret '{secret_name}' not found (404)\")\n            print(\"This could mean:\")\n            print(\"1. The secret never existed\")\n            print(\"2. The secret was deleted and is in soft-delete state\")\n            \n            # Check if it's soft-deleted\n            try:\n                deleted_secret = client.get_deleted_secret(secret_name)\n                print(f\"\\nSecret IS soft-deleted!\")\n                print(f\"Deleted on: {deleted_secret.deleted_date}\")\n                print(f\"Scheduled purge: {deleted_secret.scheduled_purge_date}\")\n                print(f\"Recovery ID: {deleted_secret.recovery_id}\")\n                \n                # You can recover it if needed:\n                # recovered = client.begin_recover_deleted_secret(secret_name).result()\n                \n            except HttpResponseError as recover_err:\n                if recover_err.status_code == 404:\n                    print(\"\\nSecret is NOT soft-deleted - it simply doesn't exist\")\n                elif recover_err.status_code == 403:\n                    print(\"\\nNo permission to check deleted secrets\")\n                    print(\"Required: 'Key Vault Secrets Officer' role\")\n\n\n# Example: Complete error handling workflow\ndef production_secret_retrieval(secret_name):\n    \"\"\"\n    Production-ready pattern with logging and fallback\n    \"\"\"\n    try:\n        secret = client.get_secret(secret_name)\n        return secret.value\n        \n    except HttpResponseError as e:\n        # Log the full error details\n        error_info = {\n            'status_code': e.status_code,\n            'message': e.message,\n            'secret_name': secret_name,\n        }\n        \n        if hasattr(e, 'error'):\n            error_info['error_code'] = e.error.code\n            \n        # Handle based on status\n        if e.status_code == 403:\n            # Log security event and alert\n            print(f\"SECURITY: Unauthorized access attempt: {error_info}\")\n            return None  # Or use a default value\n            \n        elif e.status_code == 404:\n            # Could use a fallback or default\n            print(f\"WARNING: Secret missing: {error_info}\")\n            return None\n            \n        elif e.status_code == 429:\n            # Implement retry with backoff\n            return get_secret_with_retry(secret_name)\n            \n        else:\n            # Unknown error - log and fail\n            print(f\"ERROR: Key Vault operation failed: {error_info}\")\n            raise\n\n\n# Usage examples\nif __name__ == \"__main__\":\n    # Example 1: Basic error handling\n    try:\n        value = get_secret_with_error_handling(\"my-secret\")\n        print(f\"Secret value: {value}\")\n    except Exception as e:\n        print(f\"Failed to retrieve secret: {e}\")\n    \n    # Example 2: Check soft-deleted secret\n    handle_soft_deleted_secret(\"deleted-secret\")\n```\n\n**Key Points:**\n\n1. **HttpResponseError** is the main exception - check `e.status_code` for HTTP codes\n2. **Soft-deleted secrets** return 404 on `get_secret()` - use `get_deleted_secret()` to check if they're recoverable\n3. **For 429 throttling**: Check `Retry-After` header and implement exponential backoff\n4. **For 403 errors**: User needs \"Key Vault Secrets User\" (read) or \"Key Vault Secrets Officer\" (read/write/delete) RBAC role\n5. **Error object structure**: `e.error.code` and `e.error.message` provide additional details\n\nThe SDK also supports automatic retries via `RetryPolicy` if you want to configure it at the client level."
+    },
+    {
+      "type": "assistant.reasoning",
+      "content": "The user is asking for guidance on error handling with Azure Key Vault in Python. This is a knowledge/tutorial request rather than a code modification task. They want to understand:\n\n1. How to handle specific HTTP errors (403, 404, 429)\n2. Try/except patterns with azure-keyvault-secrets SDK\n3. How to inspect status_code and error messages on HttpResponseError\n4. What happens with soft-deleted secrets\n\nThis is a straightforward question that I can answer directly. I should:\n- Show them concrete code examples\n- Explain the error handling patterns\n- Cover the specific scenarios they mentioned\n- Explain soft-deleted secret behavior\n\nI don't need to explore a codebase or make changes. I can provide a comprehensive answer with code examples."
+    },
+    {
+      "type": "assistant.turn_end"
+    },
+    {
+      "type": "session.idle"
+    }
+  ],
+  "event_count": 11,
+  "tool_calls": null,
+  "success": false
+}

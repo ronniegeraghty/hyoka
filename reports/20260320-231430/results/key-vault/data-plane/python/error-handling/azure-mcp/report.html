@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eval Report: key-vault-dp-python-error-handling / azure-mcp</title>
+<style>
+  :root { 
+    --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316; 
+    --gray: #6b7280; --bg: #f8fafc; --card-bg: #fff; --border: #e2e8f0; 
+    --text: #0f172a; --text-muted: #64748b; --purple: #7c3aed; --blue: #2563eb;
+    --indigo: #4f46e5;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; color: var(--text); background: var(--bg); line-height: 1.6; }
+
+   
+  .nav { margin-bottom: 1.5rem; }
+  .nav a { color: var(--blue); text-decoration: none; font-size: 0.9rem; }
+  .nav a:hover { text-decoration: underline; }
+
+   
+  .report-header { margin-bottom: 2rem; }
+  .report-header h1 { font-size: 1.5rem; margin: 0 0 0.25rem 0; }
+  .report-header .subtitle { color: var(--text-muted); font-size: 0.95rem; }
+
+   
+  .result-banner { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.95rem; }
+  .result-banner.pass { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .result-banner.fail { background: #fef2f2; border: 1px solid #fecaca; }
+  .result-banner .verdict { font-size: 1.25rem; font-weight: 700; }
+  .result-banner .meta-item { color: var(--text-muted); }
+  .result-banner .meta-item strong { color: var(--text); }
+
+   
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 600; }
+  .badge-pass { background: #dcfce7; color: #166534; }
+  .badge-fail { background: #fef2f2; color: #991b1b; }
+  .badge-stub { background: #fef3c7; color: #92400e; }
+
+   
+  .section { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.25rem; overflow: hidden; }
+  .section-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: #f8fafc; }
+  .section-header h2 { font-size: 1rem; margin: 0; font-weight: 600; }
+  .section-header .icon { font-size: 1.1rem; }
+  .section-body { padding: 1rem; }
+
+   
+  details { margin: 0.5rem 0; }
+  details > summary { cursor: pointer; font-weight: 600; padding: 0.4rem 0; color: var(--text); user-select: none; }
+  details > summary:hover { color: var(--blue); }
+  details[open] > summary { margin-bottom: 0.5rem; }
+
+   
+  pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 0.5rem 0; white-space: pre-wrap; word-break: break-word; }
+  code { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 0.85em; }
+  p code, li code { background: #f1f5f9; color: var(--indigo); padding: 1px 5px; border-radius: 3px; }
+
+   
+  .tool-card { background: #fafbfc; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+  .tool-card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
+  .tool-card-header .tool-index { background: var(--indigo); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+  .tool-card-header .tool-name { font-family: monospace; font-weight: 700; color: var(--purple); font-size: 0.95rem; }
+  .tool-card-header .tool-meta { margin-left: auto; display: flex; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--text-muted); }
+  .tool-card-body { padding: 0.75rem 1rem; }
+  .tool-card-body .tool-section-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+  .tool-card-body pre { font-size: 0.8rem; margin: 0.25rem 0 0.75rem 0; max-height: 200px; overflow-y: auto; }
+  .tool-card-body details pre { max-height: 400px; }
+
+   
+  .file-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+  .file-card-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #1e293b; color: #e2e8f0; font-family: monospace; font-size: 0.85rem; }
+  .file-card-header .file-icon { opacity: 0.7; }
+  .file-card pre { margin: 0; border-radius: 0; }
+
+   
+  .scores-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin: 0.75rem 0; }
+  .score-card { text-align: center; padding: 0.75rem 0.5rem; border-radius: 6px; background: #f8fafc; border: 1px solid var(--border); }
+  .score-card .value { font-size: 1.4rem; font-weight: 700; }
+  .score-card .label { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+  .overall-score { text-align: center; margin: 1rem 0; }
+  .overall-score .value { font-size: 2.5rem; font-weight: 700; }
+  .overall-score .label { font-size: 0.85rem; color: var(--text-muted); }
+
+   
+  .findings-list { padding-left: 1.25rem; margin: 0.5rem 0; }
+  .findings-list li { padding: 0.2rem 0; font-size: 0.9rem; }
+
+   
+  .event-row { display: flex; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem; align-items: baseline; }
+  .event-row:last-child { border-bottom: none; }
+  .ev-type { font-weight: 600; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; min-width: 10rem; flex-shrink: 0; }
+  .ev-tool { color: var(--purple); font-weight: 600; }
+  .ev-content { color: var(--text); flex: 1; min-width: 0; }
+  .ev-content pre { margin: 0.25rem 0; padding: 0.5rem; font-size: 0.8rem; }
+  .ev-error { color: var(--red); }
+
+   
+  .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem; }
+  .error-box h3 { margin: 0 0 0.5rem 0; color: #991b1b; }
+
+   
+  .meta-table { width: 100%; border-collapse: collapse; }
+  .meta-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+  .meta-table td:first-child { font-weight: 600; width: 120px; color: var(--text-muted); }
+
+   
+  .verify-banner { padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; }
+  .verify-pass { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .verify-fail { background: #fef2f2; border: 1px solid #fecaca; }
+</style>
+</head>
+<body>
+
+<div class="nav"><a href="../../../../../../summary.html">← Back to Summary</a></div>
+
+<div class="report-header">
+  <h1>📋 key-vault-dp-python-error-handling</h1>
+  <div class="subtitle">Config: <strong>azure-mcp</strong> · 2026-03-21T06:15:48Z</div>
+</div>
+
+
+
+
+<div class="result-banner pass">
+  <span class="verdict">✅ PASSED</span>
+  
+  <span class="meta-item">Duration: <strong>78.3s</strong></span>
+  <span class="meta-item">Files: <strong>1</strong></span>
+  <span class="meta-item">Tool Calls: <strong>2</strong></span>
+  
+</div>
+
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">🧪</span><h2>Generation Session</h2></div>
+  <div class="section-body">
+    
+    <details open>
+      <summary>📝 Prompt</summary>
+      <pre>How do I properly handle errors when working with Azure Key Vault secrets in Python?
+I need to handle access denied (403) when my app&#39;s identity doesn&#39;t have the right
+RBAC role, secret not found (404), and throttling (429) when rate limits are hit.
+Show me try/except patterns with the azure-keyvault-secrets SDK including
+how to inspect the status_code and error message on HttpResponseError.
+Also explain what happens when I try to get a soft-deleted secret.</pre>
+    </details>
+    
+
+    
+    <details>
+      <summary>💭 Copilot's Reasoning</summary>
+      <pre>The user is asking about error handling with Azure Key Vault secrets in Python. They want to:
+1. Handle specific HTTP errors (403, 404, 429)
+2. Learn try/except patterns with azure-keyvault-secrets SDK
+3. Understand how to inspect status_code and error message on HttpResponseError
+4. Learn about soft-deleted secrets behavior
+
+This is a straightforward question about Azure SDK usage patterns. I should create a comprehensive example showing:
+- Proper exception handling with ResourceNotFoundError, HttpResponseError
+- How to access status_code and error details
+- Examples for each scenario (403, 404, 429)
+- Explanation of soft-deleted secrets
+
+I don&#39;t need to create a plan for this - it&#39;s a direct code example question. I&#39;ll create a Python script demonstrating the patterns.</pre>
+    </details>
+    
+
+    
+    <details>
+      <summary>💬 Copilot's Reply</summary>
+      <pre>I&#39;ll create a comprehensive example showing proper error handling patterns for Azure Key Vault secrets in Python.
+
+I&#39;ve created a comprehensive example showing proper error handling for Azure Key Vault secrets in Python. Here are the key patterns:
+
+## Key Points:
+
+**1. Exception Types:**
+- `ResourceNotFoundError` - 404 errors (secret not found)
+- `HttpResponseError` - All HTTP errors with `status_code` property
+- `ServiceRequestError` - Network/connection issues
+
+**2. Inspecting Errors:**
+```python
+except HttpResponseError as e:
+    e.status_code          # HTTP status (403, 404, 429, etc.)
+    e.message              # Error description
+    e.error.code           # Azure error code
+    e.response.headers     # Response headers (e.g., Retry-After)
+```
+
+**3. Common Scenarios:**
+- **403 (Access Denied)**: Missing RBAC role like &#34;Key Vault Secrets User&#34;
+- **404 (Not Found)**: Secret doesn&#39;t exist OR is soft-deleted
+- **429 (Throttling)**: Check `Retry-After` header for wait time
+
+**4. Soft-Deleted Secrets:**
+When soft-delete is enabled:
+- `get_secret()` raises `ResourceNotFoundError` (404)
+- Use `get_deleted_secret()` to access soft-deleted secrets
+- Retrieve `deleted_date` and `scheduled_purge_date`
+- Can recover with `begin_recover_deleted_secret()`
+
+**5. Best Practices:**
+- Implement exponential backoff for 429 errors
+- Don&#39;t retry on 404/403 (permanent failures)
+- Use the `Retry-After` header when present
+
+The example includes retry logic, existence checking, and detailed error inspection patterns you can adapt for your application!</pre>
+    </details>
+    
+  </div>
+</div>
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">🔧</span><h2>Tool Calls (2)</h2></div>
+  <div class="section-body">
+    
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-index">1</span>
+        <span class="tool-name">report_intent</span>
+        
+        <div class="tool-meta">
+          
+          
+        </div>
+      </div>
+      <div class="tool-card-body">
+        
+        <div class="tool-section-label">Input</div>
+        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{&#34;intent&#34;:&#34;Creating Key Vault error examples&#34;}</pre></details>
+        
+        
+        
+      </div>
+    </div>
+    
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-index">2</span>
+        <span class="tool-name">create</span>
+        
+        <div class="tool-meta">
+          
+          
+        </div>
+      </div>
+      <div class="tool-card-body">
+        
+        <div class="tool-section-label">Input</div>
+        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{&#34;file_text&#34;:&#34;\&#34;\&#34;\&#34;\nAzure Key Vault Secrets Error Handling Examples\nDemonstrates proper exception handling for common scenarios:\n- 403 Forbidden (Access Denied / RBAC)\n- 404 Not Found (Secret doesn&#39;t exist)\n- 429 Too Many Requests (Throttling)\n- Soft-deleted secrets\n\&#34;\&#34;\&#34;\n\nfrom azure.identity import DefaultAzureCredential\nfrom azure.keyvault.secrets import SecretClient\nfrom azure.core.exceptions import (\n    ResourceNotFoundError,\n    HttpResponseError,\n    ServiceRequestError\n)\nimport time\n\n\ndef create_secret_client(vault_url: str) -\u003e SecretClient:\n    \&#34;\&#34;\&#34;Initialize the Key Vault secret client.\&#34;\&#34;\&#34;\n    credential = DefaultAzureCredential()\n    return SecretClient(vault_url=vault_url, credential=credential)\n\n\ndef handle_get_secret_with_specific_errors(client: SecretClient, secret_name: str):\n    \&#34;\&#34;\&#34;\n    Example 1: Handle specific HTTP status codes when getting a secret.\n    \&#34;\&#34;\&#34;\n    try:\n        secret = client.get_secret(secret_name)\n        print(f\&#34;✓ Retrieved secret: {secret.name}\&#34;)\n        return secret.value\n    \n    except ResourceNotFoundError as e:\n        # 404 - Secret not found (or soft-deleted and you&#39;re trying to access it normally)\n        print(f\&#34;✗ Secret &#39;{secret_name}&#39; not found (404)\&#34;)\n        print(f\&#34;  Error message: {e.message}\&#34;)\n        print(f\&#34;  Status code: {e.status_code}\&#34;)\n        # Note: If the secret is soft-deleted, you need to use get_deleted_secret()\n        return None\n    \n    except HttpResponseError as e:\n        # Check the specific status code for other errors\n        if e.status_code == 403:\n            # Forbidden - Missing RBAC permissions\n            print(f\&#34;✗ Access denied to secret &#39;{secret_name}&#39; (403)\&#34;)\n            print(f\&#34;  Error message: {e.message}\&#34;)\n            print(f\&#34;  Your app identity needs &#39;Key Vault Secrets User&#39; role\&#34;)\n            print(f\&#34;  or &#39;Key Vault Reader&#39; &#43; data plane permissions\&#34;)\n            \n        elif e.status_code == 429:\n            # Too Many Requests - Rate limiting/throttling\n            print(f\&#34;✗ Rate limit exceeded (429)\&#34;)\n            print(f\&#34;  Error message: {e.message}\&#34;)\n            \n            # Check for Retry-After header\n            retry_after = e.response.headers.get(&#39;Retry-After&#39;, &#39;unknown&#39;)\n            print(f\&#34;  Retry after: {retry_after} seconds\&#34;)\n            \n            # Implement exponential backoff\n            wait_time = int(retry_after) if retry_after.isdigit() else 5\n            print(f\&#34;  Waiting {wait_time} seconds before retry...\&#34;)\n            time.sleep(wait_time)\n            \n        else:\n            # Other HTTP errors\n            print(f\&#34;✗ HTTP error occurred (status: {e.status_code})\&#34;)\n            print(f\&#34;  Error message: {e.message}\&#34;)\n            print(f\&#34;  Error code: {e.error.code if e.error else &#39;N/A&#39;}\&#34;)\n        \n        return None\n    \n    except ServiceRequestError as e:\n        # Network-level errors (DNS, connection, etc.)\n        print(f\&#34;✗ Network error: {str(e)}\&#34;)\n        return None\n    \n    except Exception as e:\n        # Catch-all for unexpected errors\n        print(f\&#34;✗ Unexpected error: {type(e).__name__}: {str(e)}\&#34;)\n        return None\n\n\ndef handle_get_secret_with_retry(client: SecretClient, secret_name: str, max_retries: int = 3):\n    \&#34;\&#34;\&#34;\n    Example 2: Implement retry logic with exponential backoff for throttling.\n    \&#34;\&#34;\&#34;\n    retry_count = 0\n    base_delay = 1  # seconds\n    \n    while retry_count \u003c max_retries:\n        try:\n            secret = client.get_secret(secret_name)\n            print(f\&#34;✓ Retrieved secret: {secret.name}\&#34;)\n            return secret.value\n        \n        except HttpResponseError as e:\n            if e.status_code == 429:\n                retry_count &#43;= 1\n                if retry_count \u003e= max_retries:\n                    print(f\&#34;✗ Max retries ({max_retries}) reached for throttling\&#34;)\n                    raise\n                \n                # Exponential backoff\n                retry_after = e.response.headers.get(&#39;Retry-After&#39;)\n                if retry_after and retry_after.isdigit():\n                    wait_time = int(retry_after)\n                else:\n                    wait_time = base_delay * (2 ** retry_count)\n                \n                print(f\&#34;⟳ Throttled (429), retry {retry_count}/{max_retries} in {wait_time}s\&#34;)\n                time.sleep(wait_time)\n            else:\n                # For non-throttling errors, don&#39;t retry\n                raise\n        \n        except ResourceNotFoundError:\n            # Don&#39;t retry on 404\n            raise\n\n\ndef check_secret_exists(client: SecretClient, secret_name: str) -\u003e bool:\n    \&#34;\&#34;\&#34;\n    Example 3: Check if a secret exists without raising exceptions.\n    \&#34;\&#34;\&#34;\n    try:\n        client.get_secret(secret_name)\n        return True\n    except ResourceNotFoundError:\n        return False\n    except HttpResponseError as e:\n        if e.status_code == 403:\n            # We can&#39;t determine if it exists due to permissions\n            print(f\&#34;⚠ Cannot check existence: Access denied (403)\&#34;)\n            return None\n        raise\n\n\ndef handle_soft_deleted_secret(client: SecretClient, secret_name: str):\n    \&#34;\&#34;\&#34;\n    Example 4: Working with soft-deleted secrets.\n    \n    When soft-delete is enabled on a Key Vault:\n    - Deleted secrets are retained for the recovery period (default 90 days)\n    - get_secret() on a soft-deleted secret raises ResourceNotFoundError (404)\n    - You must use get_deleted_secret() to access soft-deleted secrets\n    - You can recover or purge soft-deleted secrets\n    \&#34;\&#34;\&#34;\n    print(f\&#34;\\n--- Handling Soft-Deleted Secret: {secret_name} ---\&#34;)\n    \n    # Try to get the secret normally\n    try:\n        secret = client.get_secret(secret_name)\n        print(f\&#34;✓ Secret is active: {secret.name}\&#34;)\n        return secret.value\n    \n    except ResourceNotFoundError:\n        print(f\&#34;✗ Secret not found via get_secret() (404)\&#34;)\n        print(f\&#34;  It might be soft-deleted. Checking deleted secrets...\&#34;)\n        \n        # Check if it&#39;s soft-deleted\n        try:\n            deleted_secret = client.get_deleted_secret(secret_name)\n            print(f\&#34;✓ Found soft-deleted secret: {deleted_secret.name}\&#34;)\n            print(f\&#34;  Deleted on: {deleted_secret.deleted_date}\&#34;)\n            print(f\&#34;  Scheduled purge: {deleted_secret.scheduled_purge_date}\&#34;)\n            print(f\&#34;  Recovery ID: {deleted_secret.recovery_id}\&#34;)\n            \n            # You can recover it\n            print(f\&#34;\\n  To recover: client.begin_recover_deleted_secret(&#39;{secret_name}&#39;)\&#34;)\n            # recovery_poller = client.begin_recover_deleted_secret(secret_name)\n            # recovered_secret = recovery_poller.result()\n            \n            return None\n        \n        except ResourceNotFoundError:\n            print(f\&#34;✗ Secret doesn&#39;t exist (not active and not soft-deleted)\&#34;)\n            return None\n        \n        except HttpResponseError as e:\n            if e.status_code == 403:\n                print(f\&#34;✗ Access denied to deleted secrets (403)\&#34;)\n                print(f\&#34;  Need &#39;Key Vault Secrets Officer&#39; or equivalent permissions\&#34;)\n            else:\n                print(f\&#34;✗ Error checking deleted secrets: {e.status_code} - {e.message}\&#34;)\n            return None\n\n\ndef handle_set_secret_errors(client: SecretClient, secret_name: str, secret_value: str):\n    \&#34;\&#34;\&#34;\n    Example 5: Handle errors when setting/creating secrets.\n    \&#34;\&#34;\&#34;\n    try:\n        secret = client.set_secret(secret_name, secret_value)\n        print(f\&#34;✓ Secret &#39;{secret.name}&#39; created/updated\&#34;)\n        return secret\n    \n    except HttpResponseError as e:\n        if e.status_code == 403:\n            print(f\&#34;✗ Access denied to set secret (403)\&#34;)\n            print(f\&#34;  Need &#39;Key Vault Secrets Officer&#39; role\&#34;)\n            print(f\&#34;  or &#39;Key Vault Contributor&#39; &#43; data plane permissions\&#34;)\n        \n        elif e.status_code == 409:\n            # Conflict - might occur with certain policies\n            print(f\&#34;✗ Conflict when setting secret (409)\&#34;)\n            print(f\&#34;  Error: {e.message}\&#34;)\n        \n        elif e.status_code == 429:\n            print(f\&#34;✗ Throttled when setting secret (429)\&#34;)\n            retry_after = e.response.headers.get(&#39;Retry-After&#39;, &#39;5&#39;)\n            print(f\&#34;  Retry after: {retry_after} seconds\&#34;)\n        \n        else:\n            print(f\&#34;✗ Error setting secret: {e.status_code} - {e.message}\&#34;)\n        \n        return None\n\n\ndef inspect_http_response_error(error: HttpResponseError):\n    \&#34;\&#34;\&#34;\n    Example 6: Detailed inspection of HttpResponseError.\n    \&#34;\&#34;\&#34;\n    print(\&#34;\\n--- HttpResponseError Details ---\&#34;)\n    print(f\&#34;Status code: {error.status_code}\&#34;)\n    print(f\&#34;Reason: {error.reason}\&#34;)\n    print(f\&#34;Message: {error.message}\&#34;)\n    \n    # Error object (if available)\n    if error.error:\n        print(f\&#34;Error code: {error.error.code}\&#34;)\n        print(f\&#34;Error message: {error.error.message}\&#34;)\n    \n    # Response headers\n    if error.response:\n        print(f\&#34;\\nResponse headers:\&#34;)\n        for key, value in error.response.headers.items():\n            print(f\&#34;  {key}: {value}\&#34;)\n    \n    # Inner error details (sometimes nested)\n    if hasattr(error, &#39;inner_exception&#39;):\n        print(f\&#34;\\nInner exception: {error.inner_exception}\&#34;)\n\n\ndef main():\n    \&#34;\&#34;\&#34;\n    Main demonstration of error handling patterns.\n    \&#34;\&#34;\&#34;\n    # Replace with your Key Vault URL\n    vault_url = \&#34;https://your-keyvault-name.vault.azure.net/\&#34;\n    \n    print(\&#34;Azure Key Vault Error Handling Examples\&#34;)\n    print(\&#34;=\&#34; * 50)\n    \n    # Create client\n    try:\n        client = create_secret_client(vault_url)\n        print(f\&#34;✓ Connected to Key Vault: {vault_url}\\n\&#34;)\n    except Exception as e:\n        print(f\&#34;✗ Failed to create client: {e}\&#34;)\n        return\n    \n    # Example 1: Basic error handling\n    print(\&#34;\\n1. Basic Error Handling\&#34;)\n    print(\&#34;-\&#34; * 50)\n    handle_get_secret_with_specific_errors(client, \&#34;my-secret\&#34;)\n    \n    # Example 2: Retry logic\n    print(\&#34;\\n2. Retry Logic with Exponential Backoff\&#34;)\n    print(\&#34;-\&#34; * 50)\n    try:\n        handle_get_secret_with_retry(client, \&#34;my-secret\&#34;, max_retries=3)\n    except Exception as e:\n        print(f\&#34;Failed after retries: {e}\&#34;)\n    \n    # Example 3: Check existence\n    print(\&#34;\\n3. Check Secret Existence\&#34;)\n    print(\&#34;-\&#34; * 50)\n    exists = check_secret_exists(client, \&#34;my-secret\&#34;)\n    print(f\&#34;Secret exists: {exists}\&#34;)\n    \n    # Example 4: Soft-deleted secrets\n    print(\&#34;\\n4. Soft-Deleted Secrets\&#34;)\n    print(\&#34;-\&#34; * 50)\n    handle_soft_deleted_secret(client, \&#34;deleted-secret\&#34;)\n    \n    # Example 5: Set secret errors\n    print(\&#34;\\n5. Setting Secrets\&#34;)\n    print(\&#34;-\&#34; * 50)\n    handle_set_secret_errors(client, \&#34;new-secret\&#34;, \&#34;my-value\&#34;)\n\n\nif __name__ == \&#34;__main__\&#34;:\n    main()\n&#34;,&#34;path&#34;:&#34;/tmp/azsdk-prompt-eval-key-vault-dp-python-error-handling-azure-mcp-914898392/keyvault_error_handling.py&#34;}</pre></details>
+        
+        
+        
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">📁</span><h2>Generated Files (1)</h2></div>
+  <div class="section-body">
+    <p style="font-size:0.85rem;color:var(--text-muted)">Files are saved in the <code>generated-code/</code> subdirectory alongside this report.</p>
+    
+    <div class="file-card">
+      <div class="file-card-header"><span class="file-icon">📄</span> keyvault_error_handling.py</div>
+    </div>
+    
+  </div>
+</div>
+
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">🔍</span><h2>Verification</h2><span style="margin-left:auto"><span class="badge badge-pass">PASS</span></span></div>
+  <div class="section-body">
+    <div class="verify-banner verify-pass">
+      ✅ <strong>Comprehensive error handling implementation covering all required scenarios (403/404/429), proper exception inspection, and soft-delete handling with correct SDK usage.</strong>
+    </div>
+    
+    <details open>
+      <summary>💭 Verifier's Reasoning</summary>
+      <pre>The code comprehensively addresses all major requirements from the prompt: (1) It correctly imports and uses HttpResponseError and ResourceNotFoundError from azure.core.exceptions. (2) It demonstrates proper try/except patterns for handling 403 (access denied/RBAC), 404 (not found), and 429 (throttling) errors with the azure-keyvault-secrets SDK. (3) It shows how to inspect status_code, error.code, and message properties on HttpResponseError instances. (4) It includes detailed soft-delete handling with get_deleted_secret() and references begin_recover_deleted_secret(). (5) It demonstrates retry-after header inspection for throttling. (6) The code is syntactically valid and well-structured with multiple practical examples. Minor omission: The expected coverage mentions &#39;SecretClient retry configuration via kwargs&#39; for built-in retry policies, which the code doesn&#39;t explicitly demonstrate (though it implements comprehensive manual retry logic). Despite this minor gap, the code provides complete, production-ready error handling patterns that fully answer the user&#39;s question about properly handling errors when working with Azure Key Vault secrets in Python.</pre>
+    </details>
+    
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">📜</span><h2>Session Transcript</h2><span style="margin-left:auto;font-size:0.85rem;color:var(--text-muted)">27 events</span></div>
+  <div class="section-body">
+    <details>
+      <summary>Show all events</summary>
+      
+      <div class="event-row">
+        <span class="ev-type">session.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">pending_messages.modified</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">pending_messages.modified</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">user.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>How do I properly handle errors when working with Azure Key Vault secrets in Python?
+I need to handle access denied (403) when my app&#39;s identity doesn&#39;t have the right
+RBAC role, secret not found (404), and throttling (429) when rate limits are hit.
+Show me try/except patterns with the azure-keyvault-secrets SDK including
+how to inspect the status_code and error message on HttpResponseError.
+Also explain what happens when I try to get a soft-deleted secret.</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.usage_info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.usage</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>I&#39;ll create a comprehensive example showing proper error handling patterns for Azure Key Vault secrets in Python.</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.reasoning</span>
+        <div class="ev-content">
+          
+          
+          <pre>The user is asking about error handling with Azure Key Vault secrets in Python. They want to:
+1. Handle specific HTTP errors (403, 404, 429)
+2. Learn try/except patterns with azure-keyvault-secrets SDK
+3. Understand how to inspect status_code and error message on HttpResponseError
+4. Learn about soft-deleted secrets behavior
+
+This is a straightforward question about Azure SDK usage patterns. I should create a comprehensive example showing:
+- Proper exception handling with ResourceNotFoundError, …</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_start</span>
+        <div class="ev-content">
+          <span class="ev-tool">report_intent</span>
+           <span style="color:var(--text-muted)">({&#34;intent&#34;:&#34;Creating Key Vault error examples&#34;})</span>
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_start</span>
+        <div class="ev-content">
+          <span class="ev-tool">create</span>
+           <span style="color:var(--text-muted)">({&#34;file_text&#34;:&#34;\&#34;\&#34;\&#34;\nAzure Key Vault Secrets Error Handling Examples\nDemonstrates proper exception handling for common…)</span>
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_complete</span>
+        <div class="ev-content">
+          
+          
+          
+          <pre style="background:#f0fdf4;color:#166534">Creating Key Vault error examples</pre>
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.requested</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.completed</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_complete</span>
+        <div class="ev-content">
+          
+          
+          
+          <pre style="background:#f0fdf4;color:#166534">
+diff --git a/tmp/azsdk-prompt-eval-key-vault-dp-python-error-handling-azure-mcp-914898392/keyvault_error_handling.py b/tmp/azsdk-prompt-eval-key-vault-dp-python-error-handling-azure-mcp-914898392/keyvault_error_handling.py
+create file mode 100644
+index 0000000..0000000
+--- a/dev/null
+&#43;&#43;&#43; b/tmp/azsd…</pre>
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.usage_info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.usage</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>I&#39;ve created a comprehensive example showing proper error handling for Azure Key Vault secrets in Python. Here are the key patterns:
+
+## Key Points:
+
+**1. Exception Types:**
+- `ResourceNotFoundError` - 404 errors (secret not found)
+- `HttpResponseError` - All HTTP errors with `status_code` property
+- `ServiceRequestError` - Network/connection issues
+
+**2. Inspecting Errors:**
+```python
+except HttpResponseError as e:
+    e.status_code          # HTTP status (403, 404, 429, etc.)
+    e.message    …</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.idle</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+    </details>
+  </div>
+</div>
+
+
+</body>
+</html>

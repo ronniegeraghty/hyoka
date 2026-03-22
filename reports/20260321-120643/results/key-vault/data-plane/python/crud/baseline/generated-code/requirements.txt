@@ -1,0 +1,8 @@
+# Azure Key Vault Secrets CRUD Demo Requirements
+# Install with: pip install -r requirements.txt
+
+# Azure Key Vault Secrets client library
+azure-keyvault-secrets>=4.10.0
+
+# Azure Identity library for authentication
+azure-identity>=1.12.0

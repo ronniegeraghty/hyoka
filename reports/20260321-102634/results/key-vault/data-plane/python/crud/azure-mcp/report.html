@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eval Report: key-vault-dp-python-crud / azure-mcp</title>
+<style>
+  :root { 
+    --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316; 
+    --gray: #6b7280; --bg: #f8fafc; --card-bg: #fff; --border: #e2e8f0; 
+    --text: #0f172a; --text-muted: #64748b; --purple: #7c3aed; --blue: #2563eb;
+    --indigo: #4f46e5;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; color: var(--text); background: var(--bg); line-height: 1.6; }
+
+   
+  .nav { margin-bottom: 1.5rem; }
+  .nav a { color: var(--blue); text-decoration: none; font-size: 0.9rem; }
+  .nav a:hover { text-decoration: underline; }
+
+   
+  .report-header { margin-bottom: 2rem; }
+  .report-header h1 { font-size: 1.5rem; margin: 0 0 0.25rem 0; }
+  .report-header .subtitle { color: var(--text-muted); font-size: 0.95rem; }
+
+   
+  .result-banner { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.95rem; }
+  .result-banner.pass { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .result-banner.fail { background: #fef2f2; border: 1px solid #fecaca; }
+  .result-banner .verdict { font-size: 1.25rem; font-weight: 700; }
+  .result-banner .meta-item { color: var(--text-muted); }
+  .result-banner .meta-item strong { color: var(--text); }
+
+   
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 600; }
+  .badge-pass { background: #dcfce7; color: #166534; }
+  .badge-fail { background: #fef2f2; color: #991b1b; }
+  .badge-stub { background: #fef3c7; color: #92400e; }
+
+   
+  .section { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.25rem; overflow: hidden; }
+  .section-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: #f8fafc; }
+  .section-header h2 { font-size: 1rem; margin: 0; font-weight: 600; }
+  .section-header .icon { font-size: 1.1rem; }
+  .section-body { padding: 1rem; }
+
+   
+  details { margin: 0.5rem 0; }
+  details > summary { cursor: pointer; font-weight: 600; padding: 0.4rem 0; color: var(--text); user-select: none; }
+  details > summary:hover { color: var(--blue); }
+  details[open] > summary { margin-bottom: 0.5rem; }
+
+   
+  pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 0.5rem 0; white-space: pre-wrap; word-break: break-word; }
+  code { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 0.85em; }
+  p code, li code { background: #f1f5f9; color: var(--indigo); padding: 1px 5px; border-radius: 3px; }
+
+   
+  .tool-card { background: #fafbfc; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+  .tool-card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
+  .tool-card-header .tool-index { background: var(--indigo); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+  .tool-card-header .tool-name { font-family: monospace; font-weight: 700; color: var(--purple); font-size: 0.95rem; }
+  .tool-card-header .tool-meta { margin-left: auto; display: flex; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--text-muted); }
+  .tool-card-body { padding: 0.75rem 1rem; }
+  .tool-card-body .tool-section-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+  .tool-card-body pre { font-size: 0.8rem; margin: 0.25rem 0 0.75rem 0; max-height: 200px; overflow-y: auto; }
+  .tool-card-body details pre { max-height: 400px; }
+
+   
+  .file-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+  .file-card-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #1e293b; color: #e2e8f0; font-family: monospace; font-size: 0.85rem; }
+  .file-card-header .file-icon { opacity: 0.7; }
+  .file-card pre { margin: 0; border-radius: 0; }
+
+   
+  .scores-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin: 0.75rem 0; }
+  .score-card { text-align: center; padding: 0.75rem 0.5rem; border-radius: 6px; background: #f8fafc; border: 1px solid var(--border); }
+  .score-card .value { font-size: 1.4rem; font-weight: 700; }
+  .score-card .label { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+  .overall-score { text-align: center; margin: 1rem 0; }
+  .overall-score .value { font-size: 2.5rem; font-weight: 700; }
+  .overall-score .label { font-size: 0.85rem; color: var(--text-muted); }
+
+   
+  .findings-list { padding-left: 1.25rem; margin: 0.5rem 0; }
+  .findings-list li { padding: 0.2rem 0; font-size: 0.9rem; }
+
+   
+  .event-row { display: flex; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem; align-items: baseline; }
+  .event-row:last-child { border-bottom: none; }
+  .ev-type { font-weight: 600; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; min-width: 10rem; flex-shrink: 0; }
+  .ev-tool { color: var(--purple); font-weight: 600; }
+  .ev-content { color: var(--text); flex: 1; min-width: 0; }
+  .ev-content pre { margin: 0.25rem 0; padding: 0.5rem; font-size: 0.8rem; }
+  .ev-error { color: var(--red); }
+
+   
+  .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem; }
+  .error-box h3 { margin: 0 0 0.5rem 0; color: #991b1b; }
+
+   
+  .meta-table { width: 100%; border-collapse: collapse; }
+  .meta-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+  .meta-table td:first-child { font-weight: 600; width: 120px; color: var(--text-muted); }
+
+   
+  .verify-banner { padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; }
+  .verify-pass { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .verify-fail { background: #fef2f2; border: 1px solid #fecaca; }
+
+   
+  .review-comment { background: #fef3c7; color: #92400e; display: block; border-left: 3px solid #f59e0b; padding-left: 0.5rem; margin: 1px 0; }
+  .reviewed-file pre { white-space: pre-wrap; word-break: break-word; }
+</style>
+</head>
+<body>
+
+<div class="nav"><a href="../../../../../../summary.html">← Back to Summary</a></div>
+
+<div class="report-header">
+  <h1>📋 key-vault-dp-python-crud</h1>
+  <div class="subtitle">Config: <strong>azure-mcp</strong> · 2026-03-21T17:27:45Z</div>
+</div>
+
+
+
+
+<div class="result-banner pass">
+  <span class="verdict">✅ PASSED</span>
+  
+  <span class="meta-item">Duration: <strong>88.2s</strong></span>
+  <span class="meta-item">Files: <strong>3</strong></span>
+  <span class="meta-item">Tool Calls: <strong>6</strong></span>
+  
+</div>
+
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">🧪</span><h2>Generation Session</h2></div>
+  <div class="section-body">
+    
+    <details open>
+      <summary>📝 Prompt</summary>
+      <pre>Using only the Azure SDK for Python documentation, write a script that performs
+all four CRUD operations on Azure Key Vault secrets:
+1. Create a new secret called &#34;my-secret&#34; with value &#34;my-secret-value&#34;
+2. Read the secret back and print its value
+3. Update the secret to a new value &#34;updated-value&#34;
+4. Delete the secret and purge it (soft-delete enabled vault)
+
+Use DefaultAzureCredential for authentication. Include proper error handling
+and show required pip packages.</pre>
+    </details>
+    
+
+    
+    <details>
+      <summary>💭 Copilot's Reasoning</summary>
+      <pre>The user wants me to write a Python script that performs CRUD operations on Azure Key Vault secrets using the Azure SDK for Python. They specifically want:
+1. Create a secret
+2. Read the secret
+3. Update the secret
+4. Delete and purge the secret
+
+They want me to use only the Azure SDK for Python documentation, use DefaultAzureCredential, include error handling, and show required pip packages.
+
+This is a straightforward task - I need to:
+1. Look up the Azure SDK for Python documentation for Key Vault
+2. Write a script that demonstrates all CRUD operations
+3. Include error handling
+4. Document the required packages
+
+Let me start by fetching the Azure SDK documentation for Key Vault secrets.</pre>
+    </details>
+    
+
+    
+    <details>
+      <summary>💬 Copilot's Reply</summary>
+      <pre>I&#39;ll help you create a Python script that performs CRUD operations on Azure Key Vault secrets using the official Azure SDK documentation. Let me first check the Azure SDK documentation and then write the script.
+
+Let me also fetch information about purging secrets:
+
+Perfect! Now I have all the information needed. Let me create a comprehensive Python script that demonstrates all CRUD operations on Azure Key Vault secrets.
+
+Now let me create a requirements.txt file and a README with instructions:
+
+Perfect! I&#39;ve created a complete solution for you. Here&#39;s what I&#39;ve provided:
+
+## Summary
+
+✅ **keyvault_secrets_crud.py** - A comprehensive Python script that demonstrates all four CRUD operations:
+
+1. **CREATE** - Uses `set_secret()` to create &#34;my-secret&#34; with value &#34;my-secret-value&#34;
+2. **READ** - Uses `get_secret()` to retrieve and display the secret value
+3. **UPDATE** - Uses `set_secret()` again to update the value to &#34;updated-value&#34; (creates new version)
+4. **DELETE &amp; PURGE** - Uses `begin_delete_secret()` for soft delete, then `purge_deleted_secret()` for permanent deletion
+
+## Key Features:
+
+✅ **DefaultAzureCredential** for authentication (supports multiple auth methods)  
+✅ **Comprehensive error handling** for all common exceptions  
+✅ **Clear output** with visual indicators (✓/✗) for each operation  
+✅ **Proper resource cleanup** with client.close() and credential.close()  
+✅ **Verification steps** to confirm each operation succeeded  
+
+## Required Packages:
+
+```
+pip install azure-keyvault-secrets azure-identity
+```
+
+Or use the provided `requirements.txt`:
+```
+pip install -r requirements.txt
+```
+
+## To Run:
+
+```bash
+export VAULT_URL=&#39;https://your-key-vault-name.vault.azure.net/&#39;
+python keyvault_secrets_crud.py
+```
+
+The script includes detailed documentation, follows Azure SDK best practices from the official documentation, and handles both soft-delete enabled and disabled vaults appropriately!</pre>
+    </details>
+    
+  </div>
+</div>
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">🔧</span><h2>Tool Calls (6)</h2></div>
+  <div class="section-body">
+    
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-index">1</span>
+        <span class="tool-name">report_intent</span>
+        
+        <div class="tool-meta">
+          
+          
+        </div>
+      </div>
+      <div class="tool-card-body">
+        
+        <div class="tool-section-label">Input</div>
+        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{&#34;intent&#34;:&#34;Fetching Azure SDK documentation&#34;}</pre></details>
+        
+        
+        
+      </div>
+    </div>
+    
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-index">2</span>
+        <span class="tool-name">web_fetch</span>
+        
+        <div class="tool-meta">
+          
+          
+        </div>
+      </div>
+      <div class="tool-card-body">
+        
+        <div class="tool-section-label">Input</div>
+        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{&#34;max_length&#34;:15000,&#34;url&#34;:&#34;https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme&#34;}</pre></details>
+        
+        
+        
+      </div>
+    </div>
+    
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-index">3</span>
+        <span class="tool-name">web_fetch</span>
+        
+        <div class="tool-meta">
+          
+          
+        </div>
+      </div>
+      <div class="tool-card-body">
+        
+        <div class="tool-section-label">Input</div>
+        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{&#34;max_length&#34;:15000,&#34;url&#34;:&#34;https://learn.microsoft.com/en-us/python/api/azure-keyvault-secrets/azure.keyvault.secrets.secretclient&#34;}</pre></details>
+        
+        
+        
+      </div>
+    </div>
+    
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-index">4</span>
+        <span class="tool-name">create</span>
+        
+        <div class="tool-meta">
+          
+          
+        </div>
+      </div>
+      <div class="tool-card-body">
+        
+        <div class="tool-section-label">Input</div>
+        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{&#34;file_text&#34;:&#34;#!/usr/bin/env python3\n\&#34;\&#34;\&#34;\nAzure Key Vault Secrets CRUD Operations Demo\n\nThis script demonstrates all four CRUD operations on Azure Key Vault secrets:\n1. Create - Set a new secret\n2. Read - Get the secret value\n3. Update - Change the secret value\n4. Delete - Delete and purge the secret\n\nPrerequisites:\n- Azure Key Vault with soft-delete enabled\n- Proper authentication configured (Azure CLI login, managed identity, etc.)\n- Required permissions: secrets/set, secrets/get, secrets/delete, secrets/purge\n\nEnvironment Variables Required:\n- VAULT_URL: Your Key Vault URL (e.g., https://my-key-vault.vault.azure.net/)\n\&#34;\&#34;\&#34;\n\nimport os\nimport sys\nimport time\nfrom azure.identity import DefaultAzureCredential\nfrom azure.keyvault.secrets import SecretClient\nfrom azure.core.exceptions import (\n    ResourceNotFoundError,\n    HttpResponseError,\n    ServiceRequestError\n)\n\n\ndef main():\n    \&#34;\&#34;\&#34;Main function demonstrating CRUD operations on Azure Key Vault secrets.\&#34;\&#34;\&#34;\n    \n    # Get vault URL from environment variable\n    vault_url = os.environ.get(\&#34;VAULT_URL\&#34;)\n    if not vault_url:\n        print(\&#34;Error: VAULT_URL environment variable is not set.\&#34;)\n        print(\&#34;Example: export VAULT_URL=&#39;https://my-key-vault.vault.azure.net/&#39;\&#34;)\n        sys.exit(1)\n    \n    print(f\&#34;Using Key Vault: {vault_url}\\n\&#34;)\n    \n    # Initialize credential and client\n    try:\n        credential = DefaultAzureCredential()\n        client = SecretClient(vault_url=vault_url, credential=credential)\n        print(\&#34;✓ Successfully initialized SecretClient with DefaultAzureCredential\\n\&#34;)\n    except Exception as e:\n        print(f\&#34;Error initializing client: {e}\&#34;)\n        sys.exit(1)\n    \n    secret_name = \&#34;my-secret\&#34;\n    \n    try:\n        # ==================== CREATE ====================\n        print(\&#34;=\&#34; * 60)\n        print(\&#34;1. CREATE - Setting a new secret\&#34;)\n        print(\&#34;=\&#34; * 60)\n        \n        initial_value = \&#34;my-secret-value\&#34;\n        try:\n            secret = client.set_secret(secret_name, initial_value)\n            print(f\&#34;✓ Secret created successfully!\&#34;)\n            print(f\&#34;  Name: {secret.name}\&#34;)\n            print(f\&#34;  Value: {secret.value}\&#34;)\n            print(f\&#34;  Version: {secret.properties.version}\&#34;)\n            print(f\&#34;  Created on: {secret.properties.created_on}\&#34;)\n            print()\n        except HttpResponseError as e:\n            print(f\&#34;✗ Failed to create secret: {e.message}\&#34;)\n            raise\n        \n        # ==================== READ ====================\n        print(\&#34;=\&#34; * 60)\n        print(\&#34;2. READ - Retrieving the secret\&#34;)\n        print(\&#34;=\&#34; * 60)\n        \n        try:\n            retrieved_secret = client.get_secret(secret_name)\n            print(f\&#34;✓ Secret retrieved successfully!\&#34;)\n            print(f\&#34;  Name: {retrieved_secret.name}\&#34;)\n            print(f\&#34;  Value: {retrieved_secret.value}\&#34;)\n            print(f\&#34;  Version: {retrieved_secret.properties.version}\&#34;)\n            print(f\&#34;  Content Type: {retrieved_secret.properties.content_type}\&#34;)\n            print(f\&#34;  Enabled: {retrieved_secret.properties.enabled}\&#34;)\n            print()\n        except ResourceNotFoundError:\n            print(f\&#34;✗ Secret &#39;{secret_name}&#39; not found in the vault\&#34;)\n            raise\n        except HttpResponseError as e:\n            print(f\&#34;✗ Failed to retrieve secret: {e.message}\&#34;)\n            raise\n        \n        # ==================== UPDATE ====================\n        print(\&#34;=\&#34; * 60)\n        print(\&#34;3. UPDATE - Updating the secret value\&#34;)\n        print(\&#34;=\&#34; * 60)\n        \n        new_value = \&#34;updated-value\&#34;\n        try:\n            # Setting a secret with an existing name creates a new version\n            updated_secret = client.set_secret(secret_name, new_value)\n            print(f\&#34;✓ Secret updated successfully!\&#34;)\n            print(f\&#34;  Name: {updated_secret.name}\&#34;)\n            print(f\&#34;  New Value: {updated_secret.value}\&#34;)\n            print(f\&#34;  New Version: {updated_secret.properties.version}\&#34;)\n            print(f\&#34;  Updated on: {updated_secret.properties.updated_on}\&#34;)\n            print()\n            \n            # Verify the update by reading it back\n            verify_secret = client.get_secret(secret_name)\n            print(f\&#34;✓ Verified updated value: {verify_secret.value}\&#34;)\n            print()\n        except HttpResponseError as e:\n            print(f\&#34;✗ Failed to update secret: {e.message}\&#34;)\n            raise\n        \n        # ==================== DELETE \u0026 PURGE ====================\n        print(\&#34;=\&#34; * 60)\n        print(\&#34;4. DELETE - Deleting and purging the secret\&#34;)\n        print(\&#34;=\&#34; * 60)\n        \n        try:\n            # Begin delete operation (returns a poller)\n            print(f\&#34;Initiating delete operation for &#39;{secret_name}&#39;...\&#34;)\n            delete_poller = client.begin_delete_secret(secret_name)\n            \n            # Wait for deletion to complete\n            deleted_secret = delete_poller.result()\n            print(f\&#34;✓ Secret deleted successfully!\&#34;)\n            print(f\&#34;  Name: {deleted_secret.name}\&#34;)\n            print(f\&#34;  Deleted on: {deleted_secret.deleted_date}\&#34;)\n            print(f\&#34;  Scheduled purge date: {deleted_secret.scheduled_purge_date}\&#34;)\n            print(f\&#34;  Recovery ID: {deleted_secret.recovery_id}\&#34;)\n            print()\n            \n            # Purge the deleted secret (permanent deletion)\n            print(f\&#34;Purging deleted secret &#39;{secret_name}&#39;...\&#34;)\n            client.purge_deleted_secret(secret_name)\n            print(f\&#34;✓ Secret purged successfully!\&#34;)\n            print(f\&#34;  The secret has been permanently deleted and cannot be recovered.\&#34;)\n            print()\n            \n            # Wait a moment for purge to complete\n            time.sleep(2)\n            \n            # Verify the secret is gone\n            print(\&#34;Verifying secret deletion...\&#34;)\n            try:\n                client.get_secret(secret_name)\n                print(\&#34;✗ Warning: Secret still exists (unexpected)\&#34;)\n            except ResourceNotFoundError:\n                print(\&#34;✓ Confirmed: Secret no longer exists in the vault\&#34;)\n            \n        except HttpResponseError as e:\n            if \&#34;not currently in a deleted state\&#34; in str(e):\n                print(f\&#34;Note: Secret may already be deleted. Error: {e.message}\&#34;)\n            else:\n                print(f\&#34;✗ Failed to delete/purge secret: {e.message}\&#34;)\n                raise\n        \n        print()\n        print(\&#34;=\&#34; * 60)\n        print(\&#34;✓ All CRUD operations completed successfully!\&#34;)\n        print(\&#34;=\&#34; * 60)\n        \n    except ServiceRequestError as e:\n        print(f\&#34;\\n✗ Service request error: {e}\&#34;)\n        print(\&#34;Check your network connection and vault URL.\&#34;)\n        sys.exit(1)\n    except Exception as e:\n        print(f\&#34;\\n✗ Unexpected error: {e}\&#34;)\n        sys.exit(1)\n    finally:\n        # Clean up resources\n        client.close()\n        credential.close()\n\n\nif __name__ == \&#34;__main__\&#34;:\n    main()\n&#34;,&#34;path&#34;:&#34;/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/keyvault_secrets_crud.py&#34;}</pre></details>
+        
+        
+        
+      </div>
+    </div>
+    
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-index">5</span>
+        <span class="tool-name">create</span>
+        
+        <div class="tool-meta">
+          
+          
+        </div>
+      </div>
+      <div class="tool-card-body">
+        
+        <div class="tool-section-label">Input</div>
+        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{&#34;file_text&#34;:&#34;# Azure Key Vault Secrets - Required Packages\n# Install with: pip install -r requirements.txt\n\nazure-keyvault-secrets\u003e=4.8.0\nazure-identity\u003e=1.15.0\n&#34;,&#34;path&#34;:&#34;/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/requirements.txt&#34;}</pre></details>
+        
+        
+        
+      </div>
+    </div>
+    
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-index">6</span>
+        <span class="tool-name">create</span>
+        
+        <div class="tool-meta">
+          
+          
+        </div>
+      </div>
+      <div class="tool-card-body">
+        
+        <div class="tool-section-label">Input</div>
+        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{&#34;file_text&#34;:&#34;# Azure Key Vault Secrets - CRUD Operations Demo\n\nThis script demonstrates all four CRUD operations on Azure Key Vault secrets using the Azure SDK for Python.\n\n## Required Packages\n\nInstall the required packages using pip:\n\n```bash\npip install -r requirements.txt\n```\n\nOr install individually:\n\n```bash\npip install azure-keyvault-secrets azure-identity\n```\n\n### Package Details\n\n- **azure-keyvault-secrets** (\u003e=4.8.0): Azure Key Vault Secrets client library\n- **azure-identity** (\u003e=1.15.0): Azure authentication library (includes DefaultAzureCredential)\n\n## Prerequisites\n\n1. **Python 3.9 or later** is required\n2. **Azure Key Vault** with soft-delete enabled\n3. **Azure Authentication** - DefaultAzureCredential supports multiple authentication methods (in order of precedence):\n   - Environment variables (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_CLIENT_SECRET)\n   - Managed Identity (when running on Azure)\n   - Azure CLI authentication (`az login`)\n   - Azure PowerShell authentication\n   - Interactive browser authentication\n\n4. **Required Permissions** on the Key Vault:\n   - secrets/set\n   - secrets/get\n   - secrets/delete\n   - secrets/purge\n\n## Setup\n\n1. Set your Key Vault URL as an environment variable:\n\n```bash\nexport VAULT_URL=&#39;https://your-key-vault-name.vault.azure.net/&#39;\n```\n\nOn Windows (PowerShell):\n```powershell\n$env:VAULT_URL=&#39;https://your-key-vault-name.vault.azure.net/&#39;\n```\n\nOn Windows (Command Prompt):\n```cmd\nset VAULT_URL=https://your-key-vault-name.vault.azure.net/\n```\n\n2. Authenticate with Azure (if using Azure CLI):\n\n```bash\naz login\n```\n\n## Running the Script\n\n```bash\npython keyvault_secrets_crud.py\n```\n\n## What the Script Does\n\nThe script performs four CRUD operations on a secret named \&#34;my-secret\&#34;:\n\n### 1. **CREATE** - Set a new secret\n- Creates a secret with name \&#34;my-secret\&#34; and value \&#34;my-secret-value\&#34;\n- Uses `set_secret()` method\n- Displays the secret name, value, version, and creation date\n\n### 2. **READ** - Retrieve the secret\n- Retrieves the secret using `get_secret()` method\n- Displays the secret value and metadata (version, enabled status, etc.)\n\n### 3. **UPDATE** - Change the secret value\n- Updates the secret to a new value \&#34;updated-value\&#34;\n- Uses `set_secret()` again (creates a new version)\n- Displays the new version and updated timestamp\n- Verifies the update by reading it back\n\n### 4. **DELETE \u0026 PURGE** - Remove the secret\n- Deletes the secret using `begin_delete_secret()` (soft delete)\n- Waits for deletion to complete\n- Purges the secret using `purge_deleted_secret()` (permanent deletion)\n- Verifies the secret is completely removed\n\n## Error Handling\n\nThe script includes comprehensive error handling for:\n- Missing environment variables\n- Authentication failures\n- Resource not found errors\n- HTTP response errors\n- Service request errors\n- Network connectivity issues\n\n## Notes\n\n- The script uses **soft-delete** enabled vaults. If soft-delete is disabled, `begin_delete_secret()` is permanent and `purge_deleted_secret()` is not needed.\n- `begin_delete_secret()` returns a poller that allows waiting for deletion completion\n- `set_secret()` creates a new version if the secret already exists\n- All secrets are versioned in Azure Key Vault\n- The script cleans up resources properly by closing the client and credential connections\n\n## Documentation References\n\n- [Azure Key Vault Secrets Python SDK](https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme)\n- [SecretClient API Reference](https://learn.microsoft.com/en-us/python/api/azure-keyvault-secrets/azure.keyvault.secrets.secretclient)\n- [DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential)\n&#34;,&#34;path&#34;:&#34;/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/README.md&#34;}</pre></details>
+        
+        
+        
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">📁</span><h2>Generated Files (3)</h2></div>
+  <div class="section-body">
+    <p style="font-size:0.85rem;color:var(--text-muted)">Files are saved in the <code>generated-code/</code> subdirectory alongside this report.</p>
+    
+    <div class="file-card">
+      <div class="file-card-header"><span class="file-icon">📄</span> README.md</div>
+    </div>
+    
+    <div class="file-card">
+      <div class="file-card-header"><span class="file-icon">📄</span> keyvault_secrets_crud.py</div>
+    </div>
+    
+    <div class="file-card">
+      <div class="file-card-header"><span class="file-icon">📄</span> requirements.txt</div>
+    </div>
+    
+  </div>
+</div>
+
+
+
+
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">🔍</span><h2>Verification</h2><span style="margin-left:auto"><span class="badge badge-pass">PASS</span></span></div>
+  <div class="section-body">
+    <div class="verify-banner verify-pass">
+      ✅ <strong>Code fully implements all CRUD operations with correct SDK usage, authentication, error handling, and soft-delete support as specified.</strong>
+    </div>
+    
+    <details open>
+      <summary>💭 Verifier's Reasoning</summary>
+      <pre>The generated code fully meets all requirements from the original prompt. (1) CRUD Operations: Correctly implements Create using set_secret() with &#39;my-secret&#39; and &#39;my-secret-value&#39;, Read using get_secret() with printed output, Update using set_secret() with &#39;updated-value&#39;, and Delete/Purge using begin_delete_secret() followed by purge_deleted_secret(). (2) Authentication: Uses DefaultAzureCredential as specified. (3) Error Handling: Includes comprehensive exception handling for ResourceNotFoundError, HttpResponseError, and ServiceRequestError with proper try-except blocks and cleanup in finally. (4) Packages: requirements.txt correctly lists azure-keyvault-secrets&gt;=4.8.0 and azure-identity&gt;=1.15.0 with installation instructions. (5) Soft-Delete: Properly handles soft-delete by calling begin_delete_secret(), waiting for completion with result(), then purging. (6) Syntax: Code is syntactically valid Python with correct imports and SDK method usage. (7) Documentation: Comprehensive README covers setup, prerequisites, authentication methods, and usage. The code addresses all expected coverage points including SecretClient initialization, all required methods, soft-delete waiting mechanism, and ResourceNotFoundError handling.</pre>
+    </details>
+    
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section">
+  <div class="section-header"><span class="icon">📜</span><h2>Session Transcript</h2><span style="margin-left:auto;font-size:0.85rem;color:var(--text-muted)">67 events</span></div>
+  <div class="section-body">
+    <details>
+      <summary>Show all events</summary>
+      
+      <div class="event-row">
+        <span class="ev-type">pending_messages.modified</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">pending_messages.modified</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">user.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>Using only the Azure SDK for Python documentation, write a script that performs
+all four CRUD operations on Azure Key Vault secrets:
+1. Create a new secret called &#34;my-secret&#34; with value &#34;my-secret-value&#34;
+2. Read the secret back and print its value
+3. Update the secret to a new value &#34;updated-value&#34;
+4. Delete the secret and purge it (soft-delete enabled vault)
+
+Use DefaultAzureCredential for authentication. Include proper error handling
+and show required pip packages.</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.usage_info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.usage</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>I&#39;ll help you create a Python script that performs CRUD operations on Azure Key Vault secrets using the official Azure SDK documentation. Let me first check the Azure SDK documentation and then write the script.</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.reasoning</span>
+        <div class="ev-content">
+          
+          
+          <pre>The user wants me to write a Python script that performs CRUD operations on Azure Key Vault secrets using the Azure SDK for Python. They specifically want:
+1. Create a secret
+2. Read the secret
+3. Update the secret
+4. Delete and purge the secret
+
+They want me to use only the Azure SDK for Python documentation, use DefaultAzureCredential, include error handling, and show required pip packages.
+
+This is a straightforward task - I need to:
+1. Look up the Azure SDK for Python documentation for Key V…</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_start</span>
+        <div class="ev-content">
+          <span class="ev-tool">report_intent</span>
+           <span style="color:var(--text-muted)">({&#34;intent&#34;:&#34;Fetching Azure SDK documentation&#34;})</span>
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_start</span>
+        <div class="ev-content">
+          <span class="ev-tool">web_fetch</span>
+           <span style="color:var(--text-muted)">({&#34;max_length&#34;:15000,&#34;url&#34;:&#34;https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme&#34;})</span>
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.requested</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_complete</span>
+        <div class="ev-content">
+          
+          
+          
+          <pre style="background:#f0fdf4;color:#166534">Fetching Azure SDK documentation</pre>
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.completed</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_complete</span>
+        <div class="ev-content">
+          
+          
+          
+          <pre style="background:#f0fdf4;color:#166534">Contents of https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme:
+Azure Key Vault helps solve the following problems:
+
+*   Secrets management (this library) - securely store and control access to tokens, passwords, certificates, API keys, and other secrets
+*   Cryptogr…</pre>
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.usage_info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.usage</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>Let me also fetch information about purging secrets:</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_start</span>
+        <div class="ev-content">
+          <span class="ev-tool">web_fetch</span>
+           <span style="color:var(--text-muted)">({&#34;max_length&#34;:15000,&#34;url&#34;:&#34;https://learn.microsoft.com/en-us/python/api/azure-keyvault-secrets/azure.keyvault.secrets.se…)</span>
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.requested</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.completed</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_complete</span>
+        <div class="ev-content">
+          
+          
+          
+          <pre style="background:#f0fdf4;color:#166534">Contents of https://learn.microsoft.com/en-us/python/api/azure-keyvault-secrets/azure.keyvault.secrets.secretclient:
+A high-level interface for managing a vault&#39;s secrets.
+
+## Constructor
+
+```
+SecretClient(vault_url: str, credential: TokenCredential, **kwargs: Any)
+```
+
+### Parameters
+
+### Keyword-O…</pre>
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.usage_info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.usage</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>Perfect! Now I have all the information needed. Let me create a comprehensive Python script that demonstrates all CRUD operations on Azure Key Vault secrets.</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_start</span>
+        <div class="ev-content">
+          <span class="ev-tool">create</span>
+           <span style="color:var(--text-muted)">({&#34;file_text&#34;:&#34;#!/usr/bin/env python3\n\&#34;\&#34;\&#34;\nAzure Key Vault Secrets CRUD Operations Demo\n\nThis script demonstrates a…)</span>
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.requested</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.completed</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_complete</span>
+        <div class="ev-content">
+          
+          
+          
+          <pre style="background:#f0fdf4;color:#166534">
+diff --git a/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/keyvault_secrets_crud.py b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/keyvault_secrets_crud.py
+create file mode 100644
+index 0000000..0000000
+--- a/dev/null
+&#43;&#43;&#43; b/tmp/azsdk-prompt-eval-key-vaul…</pre>
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.usage_info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.usage</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>Now let me create a requirements.txt file and a README with instructions:</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_start</span>
+        <div class="ev-content">
+          <span class="ev-tool">create</span>
+           <span style="color:var(--text-muted)">({&#34;file_text&#34;:&#34;# Azure Key Vault Secrets - Required Packages\n# Install with: pip install -r requirements.txt\n\nazure-ke…)</span>
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_start</span>
+        <div class="ev-content">
+          <span class="ev-tool">create</span>
+           <span style="color:var(--text-muted)">({&#34;file_text&#34;:&#34;# Azure Key Vault Secrets - CRUD Operations Demo\n\nThis script demonstrates all four CRUD operations on A…)</span>
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.requested</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.requested</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.completed</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">permission.completed</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_complete</span>
+        <div class="ev-content">
+          
+          
+          
+          <pre style="background:#f0fdf4;color:#166534">
+diff --git a/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/README.md b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/README.md
+create file mode 100644
+index 0000000..0000000
+--- a/dev/null
+&#43;&#43;&#43; b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-296…</pre>
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">hook.end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">tool.execution_complete</span>
+        <div class="ev-content">
+          
+          
+          
+          <pre style="background:#f0fdf4;color:#166534">
+diff --git a/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/requirements.txt b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud-azure-mcp-2960641506/requirements.txt
+create file mode 100644
+index 0000000..0000000
+--- a/dev/null
+&#43;&#43;&#43; b/tmp/azsdk-prompt-eval-key-vault-dp-python-crud…</pre>
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_start</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.usage_info</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.usage</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.message</span>
+        <div class="ev-content">
+          
+          
+          <pre>Perfect! I&#39;ve created a complete solution for you. Here&#39;s what I&#39;ve provided:
+
+## Summary
+
+✅ **keyvault_secrets_crud.py** - A comprehensive Python script that demonstrates all four CRUD operations:
+
+1. **CREATE** - Uses `set_secret()` to create &#34;my-secret&#34; with value &#34;my-secret-value&#34;
+2. **READ** - Uses `get_secret()` to retrieve and display the secret value
+3. **UPDATE** - Uses `set_secret()` again to update the value to &#34;updated-value&#34; (creates new version)
+4. **DELETE &amp; PURGE** - Uses `begi…</pre>
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">assistant.turn_end</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="event-row">
+        <span class="ev-type">session.idle</span>
+        <div class="ev-content">
+          
+          
+          
+          
+          
+        </div>
+      </div>
+      
+    </details>
+  </div>
+</div>
+
+
+</body>
+</html>

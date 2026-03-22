@@ -1,0 +1,12 @@
+# Azure Key Vault Secrets SDK for Python
+# Documentation: https://learn.microsoft.com/python/api/overview/azure/keyvault-secrets-readme
+azure-keyvault-secrets>=4.7.0
+
+# Azure Identity library for authentication
+# Documentation: https://learn.microsoft.com/python/api/overview/azure/identity-readme
+azure-identity>=1.15.0
+
+# Azure Core provides shared functionality (including ItemPaged)
+# Documentation: https://learn.microsoft.com/python/api/overview/azure/core-readme
+# This is automatically installed as a dependency of azure-keyvault-secrets
+azure-core>=1.29.0

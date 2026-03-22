@@ -1,0 +1,7 @@
+# Azure Key Vault Secrets SDK
+# Provides SecretClient for interacting with Azure Key Vault
+azure-keyvault-secrets>=4.7.0
+
+# Azure Identity SDK
+# Provides DefaultAzureCredential for authentication
+azure-identity>=1.14.0

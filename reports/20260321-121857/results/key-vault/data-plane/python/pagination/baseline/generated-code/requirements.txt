@@ -1,0 +1,7 @@
+# Azure Key Vault Secrets SDK
+# Documentation: https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme
+azure-keyvault-secrets>=4.8.0
+
+# Azure Identity for authentication
+# Documentation: https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity
+azure-identity>=1.16.0
