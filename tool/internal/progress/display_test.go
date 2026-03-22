@@ -2,10 +2,33 @@ package progress
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 )
+
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+func stripANSI(s string) string {
+	return ansiRegex.ReplaceAllString(s, "")
+}
+
+// newTestDisplay creates a Display suitable for testing.
+// rendered is false so redraw/Finish skip ANSI cursor-up.
+func newTestDisplay(total int, buf *bytes.Buffer) *Display {
+	return &Display{
+		lines:      make([]evalLine, total),
+		lineIndex:  make(map[string]int),
+		order:      make([]string, 0, total),
+		total:      total,
+		fixedLines: total + 2,
+		w:          buf,
+		disabled:   false,
+		width:      120,
+		startTime:  time.Now(),
+	}
+}
 
 func TestNewDisplay_Disabled(t *testing.T) {
 	var buf bytes.Buffer
@@ -29,15 +52,7 @@ func TestNewDisplay_Disabled(t *testing.T) {
 
 func TestDisplay_LineManagement(t *testing.T) {
 	var buf bytes.Buffer
-	d := &Display{
-		lines:     make([]evalLine, 0),
-		lineIndex: make(map[string]int),
-		total:     4,
-		w:         &buf,
-		disabled:  false,
-		width:     120,
-		startTime: time.Now(),
-	}
+	d := newTestDisplay(4, &buf)
 
 	// Start two evals — should create lines 0 and 1
 	d.HandleEvent(ProgressEvent{
@@ -49,8 +64,8 @@ func TestDisplay_LineManagement(t *testing.T) {
 		Type: EventStarting,
 	})
 
-	if len(d.lines) != 2 {
-		t.Errorf("expected 2 lines, got %d", len(d.lines))
+	if len(d.order) != 2 {
+		t.Errorf("expected 2 started evals, got %d", len(d.order))
 	}
 	if len(d.lineIndex) != 2 {
 		t.Errorf("expected 2 active line entries, got %d", len(d.lineIndex))
@@ -66,8 +81,8 @@ func TestDisplay_LineManagement(t *testing.T) {
 	if !d.lines[0].completed {
 		t.Error("expected line 0 to be completed")
 	}
-	if len(d.lines) != 2 {
-		t.Errorf("expected 2 lines (completed stays), got %d", len(d.lines))
+	if len(d.order) != 2 {
+		t.Errorf("expected 2 started evals (completed stays), got %d", len(d.order))
 	}
 
 	// New eval should append as line 2 (not reuse old position)
@@ -75,8 +90,8 @@ func TestDisplay_LineManagement(t *testing.T) {
 		EvalID: "p3/c3", PromptID: "p3", ConfigName: "c3",
 		Type: EventStarting,
 	})
-	if len(d.lines) != 3 {
-		t.Errorf("expected 3 lines, got %d", len(d.lines))
+	if len(d.order) != 3 {
+		t.Errorf("expected 3 started, got %d", len(d.order))
 	}
 	if d.lineIndex["p3/c3"] != 2 {
 		t.Errorf("expected new eval at line 2, got line %d", d.lineIndex["p3/c3"])
@@ -85,15 +100,7 @@ func TestDisplay_LineManagement(t *testing.T) {
 
 func TestDisplay_EventIcons_PhaseAware(t *testing.T) {
 	var buf bytes.Buffer
-	d := &Display{
-		lines:     make([]evalLine, 0),
-		lineIndex: make(map[string]int),
-		total:     1,
-		w:         &buf,
-		disabled:  false,
-		width:     120,
-		startTime: time.Now(),
-	}
+	d := newTestDisplay(1, &buf)
 
 	// Start eval
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", PromptID: "p", ConfigName: "c", Type: EventStarting})
@@ -107,7 +114,7 @@ func TestDisplay_EventIcons_PhaseAware(t *testing.T) {
 		t.Errorf("expected activity to contain 'bash → ls', got %q", d.lines[0].activity)
 	}
 
-	// Tool complete — activity updates, no checkmark icon
+	// Tool complete — activity updates
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventToolComplete, Message: "bash → success"})
 	if !strings.Contains(d.lines[0].activity, "bash") {
 		t.Errorf("expected activity to contain 'bash', got %q", d.lines[0].activity)
@@ -134,15 +141,7 @@ func TestDisplay_EventIcons_PhaseAware(t *testing.T) {
 
 func TestDisplay_CompletedEvalsTracked(t *testing.T) {
 	var buf bytes.Buffer
-	d := &Display{
-		lines:     make([]evalLine, 0),
-		lineIndex: make(map[string]int),
-		total:     3,
-		w:         &buf,
-		disabled:  false,
-		width:     120,
-		startTime: time.Now(),
-	}
+	d := newTestDisplay(3, &buf)
 
 	// Start 3 evals
 	for i, id := range []string{"a/x", "b/y", "c/z"} {
@@ -170,7 +169,7 @@ func TestDisplay_CompletedEvalsTracked(t *testing.T) {
 	if d.completed != 3 {
 		t.Errorf("expected 3 completed, got %d", d.completed)
 	}
-	// All completed evals tracked as lines
+
 	completedCount := 0
 	for _, l := range d.lines {
 		if l.completed {
@@ -180,7 +179,6 @@ func TestDisplay_CompletedEvalsTracked(t *testing.T) {
 	if completedCount != 3 {
 		t.Errorf("expected 3 completed lines, got %d", completedCount)
 	}
-	// Verify review score is tracked
 	if d.lines[0].reviewScore != 8 {
 		t.Errorf("expected review score 8, got %d", d.lines[0].reviewScore)
 	}
@@ -193,21 +191,23 @@ func TestDisplay_Finish(t *testing.T) {
 			{promptID: "crud", configName: "baseline", completed: true, passed: true, fileCount: 3, reviewScore: 8, duration: 34 * time.Second},
 			{promptID: "crud", configName: "azure-mcp", completed: true, message: "verification failed", duration: 28 * time.Second},
 		},
-		lineIndex: make(map[string]int),
-		total:     2,
-		completed: 2,
-		passed:    1,
-		failed:    1,
-		w:         &buf,
-		disabled:  false,
-		width:     120,
-		startTime: time.Now(),
+		lineIndex:  make(map[string]int),
+		order:      []string{"crud/baseline", "crud/azure-mcp"},
+		total:      2,
+		completed:  2,
+		passed:     1,
+		failed:     1,
+		fixedLines: 4,
+		w:          &buf,
+		disabled:   false,
+		width:      120,
+		startTime:  time.Now(),
+		rendered:   false,
 	}
 
 	d.Finish()
 
-	output := buf.String()
-	// All completed evals show results
+	output := stripANSI(buf.String())
 	if !strings.Contains(output, "PASSED") {
 		t.Errorf("expected Finish output to contain 'PASSED', got %q", output)
 	}
@@ -220,7 +220,6 @@ func TestDisplay_Finish(t *testing.T) {
 	if !strings.Contains(output, "8/10") {
 		t.Errorf("expected Finish output to contain '8/10' review score, got %q", output)
 	}
-	// Summary line
 	if !strings.Contains(output, "Summary: 1/2 passed") {
 		t.Errorf("expected Finish output to contain 'Summary: 1/2 passed', got %q", output)
 	}
@@ -232,20 +231,23 @@ func TestDisplay_FinishWithReportDir(t *testing.T) {
 		lines: []evalLine{
 			{promptID: "p1", configName: "c1", completed: true, passed: true, fileCount: 2, duration: 10 * time.Second},
 		},
-		lineIndex: make(map[string]int),
-		total:     1,
-		completed: 1,
-		passed:    1,
-		w:         &buf,
-		disabled:  false,
-		width:     120,
-		startTime: time.Now(),
-		reportDir: "reports/20260321-171234/",
+		lineIndex:  make(map[string]int),
+		order:      []string{"p1/c1"},
+		total:      1,
+		completed:  1,
+		passed:     1,
+		fixedLines: 3,
+		w:          &buf,
+		disabled:   false,
+		width:      120,
+		startTime:  time.Now(),
+		reportDir:  "reports/20260321-171234/",
+		rendered:   false,
 	}
 
 	d.Finish()
 
-	output := buf.String()
+	output := stripANSI(buf.String())
 	if !strings.Contains(output, "Reports: reports/20260321-171234/") {
 		t.Errorf("expected report dir in output, got %q", output)
 	}
@@ -281,7 +283,7 @@ func TestDisplay_ActivityTruncation(t *testing.T) {
 	d := &Display{width: 80}
 	maxW := d.activityWidth()
 	longActivity := strings.Repeat("x", 200)
-	truncated := d.truncateActivity(longActivity)
+	truncated := d.truncate(longActivity, d.activityWidth())
 	if len(truncated) > maxW {
 		t.Errorf("expected truncated activity ≤%d, got %d", maxW, len(truncated))
 	}
@@ -292,29 +294,21 @@ func TestDisplay_ActivityTruncation(t *testing.T) {
 
 func TestDisplay_PerEvalLines(t *testing.T) {
 	var buf bytes.Buffer
-	d := &Display{
-		lines:     make([]evalLine, 0),
-		lineIndex: make(map[string]int),
-		total:     3,
-		w:         &buf,
-		disabled:  false,
-		width:     120,
-		startTime: time.Now(),
-	}
+	d := newTestDisplay(3, &buf)
 
 	// Start 3 evals — each should get its own line
 	d.HandleEvent(ProgressEvent{EvalID: "a/x", PromptID: "a", ConfigName: "x", Type: EventStarting})
 	d.HandleEvent(ProgressEvent{EvalID: "b/y", PromptID: "b", ConfigName: "y", Type: EventStarting})
 	d.HandleEvent(ProgressEvent{EvalID: "c/z", PromptID: "c", ConfigName: "z", Type: EventStarting})
 
-	if len(d.lines) != 3 {
-		t.Errorf("expected 3 lines, got %d", len(d.lines))
+	if len(d.order) != 3 {
+		t.Errorf("expected 3 started, got %d", len(d.order))
 	}
 
 	// Complete first, third still active — all 3 lines should persist
 	d.HandleEvent(ProgressEvent{EvalID: "a/x", Type: EventPassed, FileCount: 2})
-	if len(d.lines) != 3 {
-		t.Errorf("expected 3 lines after completion, got %d", len(d.lines))
+	if len(d.order) != 3 {
+		t.Errorf("expected 3 lines after completion, got %d", len(d.order))
 	}
 	if !d.lines[0].completed {
 		t.Error("expected line 0 completed")
