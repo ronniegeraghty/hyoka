@@ -301,6 +301,8 @@ func (d *Display) CompletedEvalCount() int {
 }
 
 func (d *Display) redraw() {
+	currentLineCount := len(d.lines) + 2 // eval lines + blank + summary
+
 	// Move cursor to start of display area
 	if d.rendered && d.lastLineCount > 0 {
 		fmt.Fprintf(d.w, "\033[%dA", d.lastLineCount)
@@ -311,7 +313,7 @@ func (d *Display) redraw() {
 	// Render all eval lines (completed show results, active show current activity)
 	for i := range d.lines {
 		l := &d.lines[i]
-		fmt.Fprintf(d.w, "\033[K") // clear to end of line
+		fmt.Fprintf(d.w, "\033[2K") // clear entire line
 		name := d.formatName(l.promptID, l.configName)
 		if l.completed {
 			if l.errored {
@@ -336,9 +338,16 @@ func (d *Display) redraw() {
 		fmt.Fprint(d.w, "\n")
 	}
 
+	// Clear any leftover lines from previous render (if list was longer before — shouldn't happen but safety)
+	if d.lastLineCount > currentLineCount {
+		for i := 0; i < d.lastLineCount-currentLineCount; i++ {
+			fmt.Fprintf(d.w, "\033[2K\n")
+		}
+	}
+
 	// Blank line + summary
-	fmt.Fprintf(d.w, "\033[K\n")
-	fmt.Fprintf(d.w, "\033[K  Completed: %d/%d", d.completed, d.total)
+	fmt.Fprintf(d.w, "\033[2K\n")
+	fmt.Fprintf(d.w, "\033[2K  Completed: %d/%d", d.completed, d.total)
 	if d.passed > 0 {
 		fmt.Fprintf(d.w, "  %s✅ %d%s", ColorGreen, d.passed, ColorReset)
 	}
@@ -350,7 +359,7 @@ func (d *Display) redraw() {
 	}
 	fmt.Fprint(d.w, "\n")
 
-	d.lastLineCount = len(d.lines) + 2 // eval lines + blank + summary
+	d.lastLineCount = currentLineCount
 	d.rendered = true
 }
 
