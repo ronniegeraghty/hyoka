@@ -427,8 +427,11 @@ func trendsCmd() *cobra.Command {
 		Short: "Generate historical trend reports from past evaluation runs",
 		Long:  "Scans all past runs in reports/ directory and generates a trend report with score changes, config comparisons, regressions, and improvements.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reportsDir = resolvePathFlag(cmd, "reports-dir", []string{"./reports", "../reports"})
-			output = resolvePathFlag(cmd, "output", []string{"./reports/trends", "../reports/trends"})
+			reportsDir = resolvePathFlag(cmd, "reports-dir", []string{"../reports", "./reports"})
+			// Derive output from resolved reports-dir when not explicitly set
+			if !cmd.Flags().Changed("output") {
+				output = filepath.Join(reportsDir, "trends")
+			}
 
 			tr, err := trends.Generate(trends.TrendOptions{
 				ReportsDir: reportsDir,
@@ -482,7 +485,7 @@ func reportCmd() *cobra.Command {
 		Long:  "Re-generates report.html, report.md, summary.html, and summary.md using current templates without re-running evaluations. Useful after template improvements.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reportsDir = resolvePathFlag(cmd, "reports-dir", []string{"./reports", "../reports"})
+			reportsDir = resolvePathFlag(cmd, "reports-dir", []string{"../reports", "./reports"})
 
 			var runID string
 			if len(args) > 0 {
