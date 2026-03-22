@@ -73,21 +73,6 @@ promptID:   evt.PromptID,
 configName: evt.ConfigName,
 startTime:  time.Now(),
 }
-fmt.Fprintf(d.w, "  ▶ %-40s starting...\n", evt.PromptID+"/"+evt.ConfigName)
-
-case EventPhaseChange:
-if s, ok := d.active[evt.EvalID]; ok {
-label := ""
-switch evt.Phase {
-case PhaseVerifying:
-label = "verifying..."
-case PhaseReviewing:
-label = "reviewing..."
-}
-if label != "" {
-fmt.Fprintf(d.w, "  ▶ %-40s %s\n", s.promptID+"/"+s.configName, label)
-}
-}
 
 case EventPassed:
 d.completed++
