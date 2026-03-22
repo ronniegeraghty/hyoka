@@ -42,9 +42,11 @@ type evalLine struct {
 
 // Display renders live progress for evaluation runs.
 //
-// In ANSI mode (real terminal), it pre-allocates a fixed display region of
-// N+2 lines (N evals + blank + summary) and redraws it on a 500ms timer.
-// The region size NEVER changes, so cursor-up is always the same constant.
+// In ANSI mode (real terminal), it prints a header, saves the cursor
+// position, and redraws the eval region on a 500ms timer using
+// save/restore cursor (\033[s / \033[u) + clear-to-end (\033[J).
+// This avoids cursor-up arithmetic that breaks when emoji or wide
+// characters cause line wrapping.
 //
 // In non-ANSI mode (piped output, test buffers), it prints result lines
 // inline as evals complete, then a summary on Finish.
@@ -63,10 +65,9 @@ type Display struct {
 	reportDir string
 
 	// Fixed-region state: ordered eval slots, assigned on EventStarting.
-	lines      []*evalLine
-	lineIndex  map[string]int
-	nextSlot   int
-	regionSize int // N+2: N eval lines + blank + summary
+	lines     []*evalLine
+	lineIndex map[string]int
+	nextSlot  int
 
 	// ANSI redraw timer
 	ticker *time.Ticker
@@ -92,16 +93,15 @@ func NewDisplay(cfg DisplayConfig) *Display {
 	}
 
 	d := &Display{
-		total:      cfg.Total,
-		workers:    cfg.Workers,
-		w:          w,
-		disabled:   disabled,
-		ansi:       ansi,
-		startTime:  time.Now(),
-		reportDir:  cfg.ReportDir,
-		lines:      make([]*evalLine, cfg.Total),
-		lineIndex:  make(map[string]int),
-		regionSize: cfg.Total + 2,
+		total:     cfg.Total,
+		workers:   cfg.Workers,
+		w:         w,
+		disabled:  disabled,
+		ansi:      ansi,
+		startTime: time.Now(),
+		reportDir: cfg.ReportDir,
+		lines:     make([]*evalLine, cfg.Total),
+		lineIndex: make(map[string]int),
 	}
 
 	for i := range d.lines {
@@ -110,6 +110,7 @@ func NewDisplay(cfg DisplayConfig) *Display {
 
 	if d.ansi && cfg.Total > 0 {
 		fmt.Fprintf(d.w, "\nRunning %d evaluations (%d workers)\n", cfg.Total, cfg.Workers)
+		fmt.Fprint(d.w, "\033[s") // save cursor position
 		d.drawRegion()
 		d.stopCh = make(chan struct{})
 		d.ticker = time.NewTicker(500 * time.Millisecond)
@@ -132,12 +133,14 @@ func (d *Display) drawRegion() {
 }
 
 func (d *Display) redrawRegion() {
-	fmt.Fprintf(d.w, "\033[%dA", d.regionSize)
+	// Restore saved cursor position, then clear everything below it.
+	// This is more reliable than cursor-up because it doesn't depend
+	// on counting wrapped lines caused by emoji / wide characters.
+	fmt.Fprint(d.w, "\033[u\033[J")
 	d.drawRegion()
 }
 
 func (d *Display) drawEvalLine(l *evalLine) {
-	fmt.Fprint(d.w, "\033[2K") // clear line
 	switch l.status {
 	case evalPending:
 		fmt.Fprintf(d.w, "  \033[2m⏳ (waiting)\033[0m\n")
@@ -167,7 +170,6 @@ func (d *Display) drawEvalLine(l *evalLine) {
 }
 
 func (d *Display) drawSummaryLine() {
-	fmt.Fprint(d.w, "\033[2K")
 	if d.completed == d.total && d.total > 0 {
 		fmt.Fprintf(d.w, "  Summary: %d/%d passed", d.passed, d.total)
 	} else {
