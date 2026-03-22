@@ -97,23 +97,20 @@ func TestDisplay_EventIcons_PhaseAware(t *testing.T) {
 
 	// Start eval
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", PromptID: "p", ConfigName: "c", Type: EventStarting})
-	if d.lines[0].icon != "⏳" {
-		t.Errorf("expected ⏳ after starting, got %q", d.lines[0].icon)
-	}
 	if d.lines[0].phase != PhaseGenerating {
 		t.Errorf("expected phase generating after start, got %q", d.lines[0].phase)
 	}
 
-	// Tool start — should show ⚙
+	// Tool start — activity should describe the tool usage
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventToolStart, Message: "bash → ls"})
-	if d.lines[0].icon != "⚙" {
-		t.Errorf("expected ⚙ after tool start, got %q", d.lines[0].icon)
+	if !strings.Contains(d.lines[0].activity, "bash → ls") {
+		t.Errorf("expected activity to contain 'bash → ls', got %q", d.lines[0].activity)
 	}
 
-	// Tool complete — Issue 1: should show ✓ and keep last action visible
-	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventToolComplete, Message: "bash"})
-	if d.lines[0].icon != "✓" {
-		t.Errorf("expected ✓ after tool complete (Issue 1), got %q", d.lines[0].icon)
+	// Tool complete — activity updates, no checkmark icon
+	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventToolComplete, Message: "bash → success"})
+	if !strings.Contains(d.lines[0].activity, "bash") {
+		t.Errorf("expected activity to contain 'bash', got %q", d.lines[0].activity)
 	}
 
 	// Phase change to verifying
@@ -121,23 +118,17 @@ func TestDisplay_EventIcons_PhaseAware(t *testing.T) {
 	if d.lines[0].phase != PhaseVerifying {
 		t.Errorf("expected phase verifying, got %q", d.lines[0].phase)
 	}
-	if d.lines[0].icon != "🔍" {
-		t.Errorf("expected 🔍 after verify phase change, got %q", d.lines[0].icon)
-	}
 
 	// Phase change to reviewing
 	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventPhaseChange, Phase: PhaseReviewing})
 	if d.lines[0].phase != PhaseReviewing {
 		t.Errorf("expected phase reviewing, got %q", d.lines[0].phase)
 	}
-	if d.lines[0].icon != "📝" {
-		t.Errorf("expected 📝 after review phase change, got %q", d.lines[0].icon)
-	}
 
-	// Other activity icons still work within a phase
-	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventReasoning, Message: "Reasoning..."})
-	if d.lines[0].icon != "💭" {
-		t.Errorf("expected 💭 after reasoning, got %q", d.lines[0].icon)
+	// Reasoning — activity should contain the message
+	d.HandleEvent(ProgressEvent{EvalID: "p/c", Type: EventReasoning, Message: "Checking coverage"})
+	if !strings.Contains(d.lines[0].activity, "Checking coverage") {
+		t.Errorf("expected activity to contain 'Checking coverage', got %q", d.lines[0].activity)
 	}
 }
 
