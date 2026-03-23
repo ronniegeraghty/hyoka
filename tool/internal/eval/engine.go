@@ -101,7 +101,7 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, verifier Verifier, review
 		opts.Workers = 4
 	}
 	if opts.Timeout <= 0 {
-		opts.Timeout = 5 * time.Minute
+		opts.Timeout = 10 * time.Minute
 	}
 	if opts.OutputDir == "" {
 		opts.OutputDir = "./reports"
@@ -308,8 +308,13 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	result, err := e.evaluator.Evaluate(evalCtx, task.Prompt, &task.Config, ws.Dir)
 	evalFailed := err != nil
 	if evalFailed {
-		evalReport.Error = fmt.Sprintf("evaluation failed: %v", err)
-		evalReport.ErrorDetails = err.Error()
+		if evalCtx.Err() == context.DeadlineExceeded {
+			evalReport.Error = fmt.Sprintf("evaluation timed out after %s", e.opts.Timeout)
+			evalReport.ErrorDetails = fmt.Sprintf("context deadline exceeded — consider increasing --timeout (currently %s)", e.opts.Timeout)
+		} else {
+			evalReport.Error = fmt.Sprintf("evaluation failed: %v", err)
+			evalReport.ErrorDetails = err.Error()
+		}
 		// Capture whatever session events were collected before failure
 		if result != nil {
 			evalReport.SessionEvents = result.SessionEvents
@@ -329,8 +334,12 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		evalReport.StarterFiles = result.StarterFiles
 	}
 
-	// Collect generated files from workspace (may have files even after error)
+	// Collect generated files — prefer evaluator's captured list (taken before
+	// SDK cleanup may remove files) over workspace listing which runs after cleanup.
 	generatedFiles, _ := ws.ListFiles()
+	if len(generatedFiles) == 0 && result != nil && len(result.GeneratedFiles) > 0 {
+		generatedFiles = result.GeneratedFiles
+	}
 	evalReport.GeneratedFiles = generatedFiles
 
 	if e.opts.Debug {

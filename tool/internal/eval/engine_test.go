@@ -2,6 +2,7 @@ package eval
 
 import (
 "context"
+"fmt"
 "os"
 "path/filepath"
 "strings"
@@ -11,6 +12,14 @@ import (
 "github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/config"
 "github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/prompt"
 )
+
+// slowEvaluator blocks until context cancellation, simulating a timeout.
+type slowEvaluator struct{}
+
+func (s *slowEvaluator) Evaluate(ctx context.Context, _ *prompt.Prompt, _ *config.ToolConfig, _ string) (*EvalResult, error) {
+	<-ctx.Done()
+	return nil, fmt.Errorf("prompt send failed: %w", ctx.Err())
+}
 
 func TestStubEvaluator(t *testing.T) {
 stub := &StubEvaluator{}
@@ -98,6 +107,70 @@ t.Fatalf("unexpected error: %v", err)
 if summary.TotalEvals != 1 {
 t.Errorf("expected 1 evaluation, got %d", summary.TotalEvals)
 }
+}
+
+func TestEngineRunCapturesGeneratedFiles(t *testing.T) {
+	// The evaluator returns GeneratedFiles in its result, but may not leave
+	// files on disk (e.g., SDK cleanup removes them). The engine must use the
+	// evaluator's captured list rather than relying solely on ws.ListFiles().
+	outputDir := t.TempDir()
+	engine := NewEngine(&StubEvaluator{}, EngineOptions{
+		Workers:   1,
+		Timeout:   30 * time.Second,
+		OutputDir: outputDir,
+	})
+
+	prompts := []*prompt.Prompt{
+		{ID: "filelist-test", Service: "storage", Plane: "data-plane", Language: "python", Category: "crud"},
+	}
+	configs := []config.ToolConfig{
+		{Name: "baseline", Model: "gpt-4"},
+	}
+
+	summary, err := engine.Run(context.Background(), prompts, configs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(summary.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(summary.Results))
+	}
+	r := summary.Results[0]
+	if len(r.GeneratedFiles) == 0 {
+		t.Error("expected GeneratedFiles to be populated from evaluator result, got 0 files")
+	}
+}
+
+func TestEngineRunTimeoutError(t *testing.T) {
+	// An evaluator that blocks until the context is cancelled.
+	slowEval := &slowEvaluator{}
+	outputDir := t.TempDir()
+	engine := NewEngine(slowEval, EngineOptions{
+		Workers:   1,
+		Timeout:   100 * time.Millisecond,
+		OutputDir: outputDir,
+	})
+
+	prompts := []*prompt.Prompt{
+		{ID: "timeout-test", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
+	}
+	configs := []config.ToolConfig{
+		{Name: "baseline", Model: "gpt-4"},
+	}
+
+	summary, err := engine.Run(context.Background(), prompts, configs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(summary.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(summary.Results))
+	}
+	r := summary.Results[0]
+	if r.Error == "" {
+		t.Fatal("expected error in report for timed-out eval")
+	}
+	if !strings.Contains(r.Error, "timed out") {
+		t.Errorf("expected timeout message in error, got %q", r.Error)
+	}
 }
 
 func TestNewWorkspace(t *testing.T) {

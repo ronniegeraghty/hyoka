@@ -124,7 +124,7 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.configName, "config", "", "Config name(s) from config file (comma-separated)")
 	cmd.Flags().StringVar(&f.configFile, "config-file", "./configs/all.yaml", "Path to configuration YAML")
 	cmd.Flags().IntVar(&f.workers, "workers", 4, "Parallel evaluation workers")
-	cmd.Flags().IntVar(&f.timeout, "timeout", 300, "Per-prompt timeout in seconds")
+	cmd.Flags().IntVar(&f.timeout, "timeout", 600, "Per-prompt timeout in seconds")
 	cmd.Flags().StringVar(&f.model, "model", "", "Override model for all configs")
 	cmd.Flags().StringVar(&f.output, "output", "./reports", "Report output directory")
 	cmd.Flags().BoolVar(&f.skipTests, "skip-tests", false, "Skip test generation")
