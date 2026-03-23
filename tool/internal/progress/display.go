@@ -83,6 +83,7 @@ type Display struct {
 	// ANSI redraw timer
 	ticker *time.Ticker
 	stopCh chan struct{}
+	wg     sync.WaitGroup
 }
 
 // NewDisplay creates a progress display. When Writer is nil, it writes to
@@ -136,6 +137,7 @@ func NewDisplay(cfg DisplayConfig) *Display {
 		d.drawRegion()
 		d.stopCh = make(chan struct{})
 		d.ticker = time.NewTicker(500 * time.Millisecond)
+		d.wg.Add(1)
 		go d.redrawLoop()
 	} else if !d.disabled {
 		fmt.Fprintf(d.w, "\nRunning %d evaluations (%d workers)\n\n", cfg.Total, cfg.Workers)
@@ -222,6 +224,7 @@ func (d *Display) writeSummaryLine(buf *bytes.Buffer) {
 }
 
 func (d *Display) redrawLoop() {
+	defer d.wg.Done()
 	for {
 		select {
 		case <-d.stopCh:
@@ -347,11 +350,11 @@ func (d *Display) Finish() {
 		return
 	}
 
-	// ANSI mode: stop timer, final redraw, print reports below region
+	// ANSI mode: stop timer, wait for redrawLoop to exit, then final redraw
 	if d.ansi && d.ticker != nil {
 		d.ticker.Stop()
 		close(d.stopCh)
-		time.Sleep(10 * time.Millisecond)
+		d.wg.Wait()
 		d.mu.Lock()
 		if d.total > 0 {
 			d.redrawRegion()

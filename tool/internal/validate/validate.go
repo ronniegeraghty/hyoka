@@ -9,29 +9,40 @@ import (
 "github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/prompt"
 )
 
-var validServices = map[string]bool{
-"storage": true, "key-vault": true, "cosmos-db": true, "event-hubs": true,
-"app-configuration": true, "purview": true, "digital-twins": true,
-"identity": true, "resource-manager": true, "service-bus": true,
+// ValidServices is the canonical list of valid service values.
+var ValidServices = []string{
+"storage", "key-vault", "cosmos-db", "event-hubs",
+"app-configuration", "purview", "digital-twins",
+"identity", "resource-manager", "service-bus",
 }
 
-var validPlanes = map[string]bool{
-"data-plane": true, "management-plane": true,
+// ValidPlanes is the canonical list of valid plane values.
+var ValidPlanes = []string{"data-plane", "management-plane"}
+
+// ValidLanguages is the canonical list of valid language values.
+var ValidLanguages = []string{"dotnet", "java", "js-ts", "python", "go", "rust", "cpp"}
+
+// ValidCategories is the canonical list of valid category values.
+var ValidCategories = []string{
+"authentication", "pagination", "polling", "retries",
+"error-handling", "crud", "batch", "streaming", "auth", "provisioning",
 }
 
-var validLanguages = map[string]bool{
-"dotnet": true, "java": true, "js-ts": true, "python": true,
-"go": true, "rust": true, "cpp": true,
-}
+// ValidDifficulties is the canonical list of valid difficulty values.
+var ValidDifficulties = []string{"basic", "intermediate", "advanced"}
 
-var validCategories = map[string]bool{
-"authentication": true, "pagination": true, "polling": true, "retries": true,
-"error-handling": true, "crud": true, "batch": true, "streaming": true,
-"auth": true, "provisioning": true,
-}
+var validServicesMap = toSet(ValidServices)
+var validPlanesMap = toSet(ValidPlanes)
+var validLanguagesMap = toSet(ValidLanguages)
+var validCategoriesMap = toSet(ValidCategories)
+var validDifficultiesMap = toSet(ValidDifficulties)
 
-var validDifficulties = map[string]bool{
-"basic": true, "intermediate": true, "advanced": true,
+func toSet(ss []string) map[string]bool {
+m := make(map[string]bool, len(ss))
+for _, s := range ss {
+m[s] = true
+}
+return m
 }
 
 // planeAbbrev maps plane values to their ID prefix abbreviation.
@@ -97,20 +108,20 @@ addErr(fmt.Sprintf("missing required field: %s", field))
 }
 
 // Enum validation
-if p.Service != "" && !validServices[p.Service] {
-addErr(fmt.Sprintf("invalid service %q; must be one of: %s", p.Service, joinKeys(validServices)))
+if p.Service != "" && !validServicesMap[p.Service] {
+addErr(fmt.Sprintf("invalid service %q; must be one of: %s", p.Service, joinKeys(validServicesMap)))
 }
-if p.Plane != "" && !validPlanes[p.Plane] {
-addErr(fmt.Sprintf("invalid plane %q; must be one of: %s", p.Plane, joinKeys(validPlanes)))
+if p.Plane != "" && !validPlanesMap[p.Plane] {
+addErr(fmt.Sprintf("invalid plane %q; must be one of: %s", p.Plane, joinKeys(validPlanesMap)))
 }
-if p.Language != "" && !validLanguages[p.Language] {
-addErr(fmt.Sprintf("invalid language %q; must be one of: %s", p.Language, joinKeys(validLanguages)))
+if p.Language != "" && !validLanguagesMap[p.Language] {
+addErr(fmt.Sprintf("invalid language %q; must be one of: %s", p.Language, joinKeys(validLanguagesMap)))
 }
-if p.Category != "" && !validCategories[p.Category] {
-addErr(fmt.Sprintf("invalid category %q; must be one of: %s", p.Category, joinKeys(validCategories)))
+if p.Category != "" && !validCategoriesMap[p.Category] {
+addErr(fmt.Sprintf("invalid category %q; must be one of: %s", p.Category, joinKeys(validCategoriesMap)))
 }
-if p.Difficulty != "" && !validDifficulties[p.Difficulty] {
-addErr(fmt.Sprintf("invalid difficulty %q; must be one of: %s", p.Difficulty, joinKeys(validDifficulties)))
+if p.Difficulty != "" && !validDifficultiesMap[p.Difficulty] {
+addErr(fmt.Sprintf("invalid difficulty %q; must be one of: %s", p.Difficulty, joinKeys(validDifficultiesMap)))
 }
 
 // ID naming convention: {service}-{dp|mp}-{language}-

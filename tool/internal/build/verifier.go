@@ -81,12 +81,14 @@ return "sh", []string{"-c", "dotnet restore && dotnet build"}
 case "python":
 // Find all .py files
 var pyFiles []string
-filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
+if err := filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
 if err == nil && !info.IsDir() && strings.HasSuffix(path, ".py") {
 pyFiles = append(pyFiles, path)
 }
 return nil
-})
+}); err != nil {
+return "python3", []string{"-m", "py_compile", "/dev/null"}
+}
 if len(pyFiles) == 0 {
 return "python3", []string{"-m", "py_compile", "/dev/null"}
 }
@@ -95,12 +97,14 @@ args = append(args, pyFiles...)
 return "python3", args
 case "javascript":
 var jsFiles []string
-filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
+if err := filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
 if err == nil && !info.IsDir() && (strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".mjs")) {
 jsFiles = append(jsFiles, path)
 }
 return nil
-})
+}); err != nil {
+return "node", []string{"--check", "/dev/null"}
+}
 if len(jsFiles) == 0 {
 return "node", []string{"--check", "/dev/null"}
 }

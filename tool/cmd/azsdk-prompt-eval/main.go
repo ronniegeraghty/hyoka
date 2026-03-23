@@ -61,7 +61,7 @@ func resolvePathFlag(cmd *cobra.Command, flagName string, candidates []string) s
 		return val
 	}
 	for _, c := range candidates {
-		if info, err := os.Stat(c); err == nil && info.IsDir() || err == nil {
+		if _, err := os.Stat(c); err == nil {
 			return c
 		}
 	}
@@ -264,6 +264,19 @@ func runCmd() *cobra.Command {
 						copilotVerifier.SetSkillDirectories(skillsDirs)
 					}
 					verifier = copilotVerifier
+
+					// Create a real CopilotReviewer backed by its own Copilot client
+					reviewClient := copilot.NewClient(clientOpts)
+					if err := reviewClient.Start(context.Background()); err != nil {
+						fmt.Printf("⚠️  Could not start reviewer client: %v, reviews will be skipped\n", err)
+					} else {
+						copilotReviewer := review.NewCopilotReviewer(reviewClient, f.model)
+						if len(skillsDirs) > 0 {
+							copilotReviewer.SetSkillDirectories(skillsDirs)
+						}
+						reviewer = copilotReviewer
+						defer reviewClient.Stop()
+					}
 				}
 			}
 
@@ -622,18 +635,11 @@ func openInBrowser(path string) {
 	}
 }
 
-var validServices = []string{
-	"storage", "key-vault", "cosmos-db", "event-hubs",
-	"app-configuration", "purview", "digital-twins",
-	"identity", "resource-manager", "service-bus",
-}
-var validLanguages = []string{"dotnet", "java", "js-ts", "python", "go", "rust", "cpp"}
-var validPlanes = []string{"data-plane", "management-plane"}
-var validCategories = []string{
-	"authentication", "pagination", "polling", "retries",
-	"error-handling", "crud", "batch", "streaming", "auth", "provisioning",
-}
-var validDifficulties = []string{"basic", "intermediate", "advanced"}
+var validServices = validate.ValidServices
+var validLanguages = validate.ValidLanguages
+var validPlanes = validate.ValidPlanes
+var validCategories = validate.ValidCategories
+var validDifficulties = validate.ValidDifficulties
 
 func newPromptCmd() *cobra.Command {
 	return &cobra.Command{

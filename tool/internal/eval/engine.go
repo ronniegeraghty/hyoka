@@ -237,17 +237,17 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	summary.Duration = time.Since(start).Seconds()
 
 	// Write JSON summary
-	if _, err := report.WriteSummary(summary, e.opts.OutputDir); err != nil && e.opts.Debug {
+	if _, err := report.WriteSummary(summary, e.opts.OutputDir); err != nil {
 		log.Printf("failed to write run summary: %v", err)
 	}
 
 	// Write HTML summary
-	if _, err := report.WriteSummaryHTML(summary, e.opts.OutputDir); err != nil && e.opts.Debug {
+	if _, err := report.WriteSummaryHTML(summary, e.opts.OutputDir); err != nil {
 		log.Printf("failed to write HTML summary: %v", err)
 	}
 
 	// Write Markdown summary
-	if _, err := report.WriteSummaryMarkdown(summary, e.opts.OutputDir); err != nil && e.opts.Debug {
+	if _, err := report.WriteSummaryMarkdown(summary, e.opts.OutputDir); err != nil {
 		log.Printf("failed to write Markdown summary: %v", err)
 	}
 
@@ -335,9 +335,10 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		}
 		verifyResult, err := e.verifier.Verify(evalCtx, task.Prompt.PromptText, ws.Dir, task.Prompt.ExpectedCoverage)
 		if err != nil {
-			if e.opts.Debug {
-				log.Printf("[DEBUG] %s: ERROR: verification failed: %v", debugPrefix, err)
-			}
+			log.Printf("%s: verification error: %v", debugPrefix, err)
+			evalReport.Error = fmt.Sprintf("verification error: %v", err)
+			evalReport.ErrorDetails = err.Error()
+			evalReport.Success = false
 		} else {
 			evalReport.Verification = verifyResult
 			evalReport.Success = verifyResult.Pass
@@ -355,9 +356,10 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	if e.opts.VerifyBuild {
 		buildResult, err := build.Verify(evalCtx, task.Prompt.Language, ws.Dir)
 		if err != nil {
-			if e.opts.Debug {
-				log.Printf("[DEBUG] %s: ERROR: build verification failed: %v", debugPrefix, err)
-			}
+			log.Printf("%s: build verification error: %v", debugPrefix, err)
+			evalReport.Error = fmt.Sprintf("build verification error: %v", err)
+			evalReport.ErrorDetails = err.Error()
+			evalReport.Success = false
 		} else {
 			evalReport.Build = buildResult
 			if !buildResult.Success {

@@ -37,7 +37,7 @@ func rerenderRun(reportsDir, runID string) error {
 
 	// Find all report.json files under this run
 	var reportFiles []string
-	filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -45,7 +45,9 @@ func rerenderRun(reportsDir, runID string) error {
 			reportFiles = append(reportFiles, path)
 		}
 		return nil
-	})
+	}); err != nil {
+		return fmt.Errorf("walking run directory %s: %w", runDir, err)
+	}
 
 	if len(reportFiles) == 0 {
 		return fmt.Errorf("no report.json files found in %s", runDir)

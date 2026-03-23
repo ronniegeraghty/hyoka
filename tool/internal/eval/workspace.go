@@ -3,6 +3,7 @@ package eval
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,11 +97,17 @@ func listFiles(dir string) ([]string, error) {
 	return files, err
 }
 
-// copyDir recursively copies src to dst.
+// copyDir recursively copies src to dst, skipping symlinks to prevent escape.
 func copyDir(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		// Skip symlinks to prevent following links outside the source tree
+		if info.Mode()&os.ModeSymlink != 0 {
+			rel, _ := filepath.Rel(src, path)
+			log.Printf("warning: skipping symlink in starter project: %s", rel)
+			return nil
 		}
 		rel, err := filepath.Rel(src, path)
 		if err != nil {

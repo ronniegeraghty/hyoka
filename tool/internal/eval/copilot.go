@@ -284,11 +284,13 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		mu.Lock()
 		captured := make([]report.SessionEventRecord, len(sessionRecords))
 		copy(captured, sessionRecords)
+		capturedEvts := make([]copilot.SessionEvent, len(events))
+		copy(capturedEvts, events)
 		mu.Unlock()
 		return &EvalResult{
 			SessionEvents: captured,
 			EventCount:    len(captured),
-			ToolCalls:     extractToolCalls(events),
+			ToolCalls:     extractToolCalls(capturedEvts),
 			Error:         fmt.Sprintf("prompt send failed: %v", err),
 			ErrorDetails:  err.Error(),
 		}, fmt.Errorf("sending prompt: %w", err)
@@ -361,12 +363,7 @@ func detectFileCreation(content string) string {
 	return ""
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+
 
 // Client returns a new Copilot client for the given working directory.
 // Exported for use by the review package.

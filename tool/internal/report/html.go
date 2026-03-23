@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// Parsed once at package init for reuse across calls.
+var (
+	parsedReportTemplate  = template.Must(template.New("report").Funcs(htmlFuncMap()).Parse(reportTemplate))
+	parsedSummaryTemplate = template.Must(template.New("summary").Funcs(htmlFuncMap()).Parse(summaryTemplate))
+)
+
 // WriteHTMLReport writes an individual evaluation report as HTML.
 func WriteHTMLReport(r *EvalReport, outputDir string, runID string, service, plane, language, category string) (string, error) {
 	reportDir := filepath.Join(
@@ -26,14 +32,9 @@ func WriteHTMLReport(r *EvalReport, outputDir string, runID string, service, pla
 	}
 	defer f.Close()
 
-	tmpl, err := template.New("report").Funcs(htmlFuncMap()).Parse(reportTemplate)
-	if err != nil {
-		return "", fmt.Errorf("parsing report template: %w", err)
-	}
-
 	data := buildReportData(r)
 
-	if err := tmpl.Execute(f, data); err != nil {
+	if err := parsedReportTemplate.Execute(f, data); err != nil {
 		return "", fmt.Errorf("executing report template: %w", err)
 	}
 
@@ -58,11 +59,6 @@ func WriteSummaryHTML(s *RunSummary, outputDir string) (string, error) {
 	matrix := buildMatrix(s)
 	stats := ComputeSummaryStats(s)
 
-	tmpl, err := template.New("summary").Funcs(htmlFuncMap()).Parse(summaryTemplate)
-	if err != nil {
-		return "", fmt.Errorf("parsing summary template: %w", err)
-	}
-
 	data := struct {
 		Summary *RunSummary
 		Matrix  *MatrixData
@@ -73,7 +69,7 @@ func WriteSummaryHTML(s *RunSummary, outputDir string) (string, error) {
 		Stats:   stats,
 	}
 
-	if err := tmpl.Execute(f, data); err != nil {
+	if err := parsedSummaryTemplate.Execute(f, data); err != nil {
 		return "", fmt.Errorf("executing summary template: %w", err)
 	}
 
