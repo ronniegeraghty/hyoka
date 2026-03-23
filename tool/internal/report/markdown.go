@@ -274,6 +274,7 @@ func WriteSummaryMarkdown(s *RunSummary, outputDir string) (string, error) {
 	summaryPath := filepath.Join(summaryDir, "summary.md")
 
 	matrix := buildMatrix(s)
+	stats := ComputeSummaryStats(s)
 
 	var b strings.Builder
 
@@ -366,6 +367,52 @@ func WriteSummaryMarkdown(s *RunSummary, outputDir string) (string, error) {
 			promptCell, r.ConfigName, icon, score, r.Duration, len(r.GeneratedFiles))
 	}
 	b.WriteString("\n")
+
+	// Duration Analysis
+	if len(stats.DurationByConfig) > 0 {
+		b.WriteString("## Duration Analysis\n\n")
+		b.WriteString("| Config | Min | Avg | Max |\n")
+		b.WriteString("|--------|-----|-----|-----|\n")
+		for cfg, d := range stats.DurationByConfig {
+			fmt.Fprintf(&b, "| %s | %.1fs | %.1fs | %.1fs |\n", cfg, d.Min, d.Avg, d.Max)
+		}
+		b.WriteString("\n")
+		if stats.SlowestEval != "" {
+			fmt.Fprintf(&b, "⏱ **Slowest:** %s · **Fastest:** %s\n\n", stats.SlowestEval, stats.FastestEval)
+		}
+	}
+
+	// Config Comparison
+	if len(stats.ConfigPassRates) > 0 {
+		b.WriteString("## Config Comparison\n\n")
+		b.WriteString("| Config | Total | Passed | Failed | Pass Rate |\n")
+		b.WriteString("|--------|-------|--------|--------|----------|\n")
+		for _, cpr := range stats.ConfigPassRates {
+			fmt.Fprintf(&b, "| %s | %d | %d | %d | %.1f%% |\n", cpr.Config, cpr.Total, cpr.Passed, cpr.Failed, cpr.Rate)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(stats.PromptDeltas) > 0 {
+		b.WriteString("### Prompt Deltas\n\n")
+		b.WriteString("| Prompt | Passes On | Fails On |\n")
+		b.WriteString("|--------|-----------|----------|\n")
+		for _, d := range stats.PromptDeltas {
+			fmt.Fprintf(&b, "| %s | %s | %s |\n", d.PromptID, d.PassConfig, d.FailConfig)
+		}
+		b.WriteString("\n")
+	}
+
+	// Tool Usage
+	if len(stats.ToolStats) > 0 {
+		b.WriteString("## Tool Usage\n\n")
+		b.WriteString("| Tool | Calls | Successes | Failures | Success Rate |\n")
+		b.WriteString("|------|-------|-----------|----------|-------------|\n")
+		for _, ts := range stats.ToolStats {
+			fmt.Fprintf(&b, "| %s | %d | %d | %d | %.1f%% |\n", ts.Name, ts.Count, ts.Successes, ts.Failures, ts.Rate)
+		}
+		b.WriteString("\n")
+	}
 
 	if err := os.WriteFile(summaryPath, []byte(b.String()), 0644); err != nil {
 		return "", fmt.Errorf("writing markdown summary: %w", err)

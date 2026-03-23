@@ -74,13 +74,13 @@ func TestWriteHTMLReport(t *testing.T) {
 		"Good implementation",
 		"Program.cs",
 		"dotnet build",
-		"Generation Session",
+		"Generation Timeline",
 		"Write a dotnet storage auth sample",
 		"I need to create an auth sample",
 		"Code Review",
 		"Clean code structure",
 		"Missing retry logic",
-		"Tool Calls",
+		"Tool call: create",
 		"Back to Summary",
 		"File created",
 		"150ms",
@@ -358,5 +358,26 @@ func TestBuildReportData(t *testing.T) {
 	}
 	if d.FileCount != 2 {
 		t.Errorf("expected file count 2, got %d", d.FileCount)
+	}
+
+	// Verify timeline steps are built correctly
+	// Expected: prompt, reasoning, tool_call, tool_call, message, complete = 6 steps
+	if len(d.TimelineSteps) != 6 {
+		t.Errorf("expected 6 timeline steps, got %d", len(d.TimelineSteps))
+	}
+	if len(d.TimelineSteps) >= 1 && d.TimelineSteps[0].StepType != "prompt" {
+		t.Errorf("expected first step to be prompt, got %q", d.TimelineSteps[0].StepType)
+	}
+	if len(d.TimelineSteps) >= 2 && d.TimelineSteps[1].StepType != "reasoning" {
+		t.Errorf("expected second step to be reasoning, got %q", d.TimelineSteps[1].StepType)
+	}
+	if len(d.TimelineSteps) >= 3 && d.TimelineSteps[2].StepType != "tool_call" {
+		t.Errorf("expected third step to be tool_call, got %q", d.TimelineSteps[2].StepType)
+	}
+	if len(d.TimelineSteps) >= 3 && d.TimelineSteps[2].Duration != 42.5 {
+		t.Errorf("expected tool_call duration 42.5, got %f", d.TimelineSteps[2].Duration)
+	}
+	if len(d.TimelineSteps) >= 6 && d.TimelineSteps[5].StepType != "complete" {
+		t.Errorf("expected last step to be complete, got %q", d.TimelineSteps[5].StepType)
 	}
 }

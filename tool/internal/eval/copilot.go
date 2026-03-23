@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -303,7 +302,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	copy(capturedRecords, sessionRecords)
 	mu.Unlock()
 
-	generatedFiles := listWorkspaceFiles(workDir)
+	generatedFiles, _ := listFiles(workDir)
 	toolCalls := extractToolCalls(capturedEvents)
 	hasError := hasSessionError(capturedEvents)
 
@@ -443,48 +442,6 @@ func hasSessionError(events []copilot.SessionEvent) bool {
 		}
 	}
 	return false
-}
-
-// listWorkspaceFiles returns all file paths relative to the workspace dir.
-func listWorkspaceFiles(dir string) []string {
-	var files []string
-	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return nil
-		}
-		if strings.HasPrefix(filepath.Base(path), ".") {
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return nil
-		}
-		files = append(files, rel)
-		return nil
-	})
-	return files
-}
-
-// copyDir recursively copies src to dst.
-func copyDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dst, rel)
-		if info.IsDir() {
-			return os.MkdirAll(target, 0755)
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(target, data, info.Mode())
-	})
 }
 
 // isFileWriteTool returns true for tools that create or modify files.

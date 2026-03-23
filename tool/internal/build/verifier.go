@@ -1,3 +1,4 @@
+// Package build provides functionality to verify build commands for various languages.
 package build
 
 import (

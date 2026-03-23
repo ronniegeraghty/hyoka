@@ -1,3 +1,4 @@
+// Package manifest provides functionality to generate a prompt manifest from the repository.
 package manifest
 
 import (

@@ -1,16 +1,16 @@
+// Package verify provides functionality to verify generated code using Copilot.
 package verify
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/report"
+	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/utils"
 )
 
 // CopilotVerifier uses a separate Copilot session to verify generated code against requirements.
@@ -36,7 +36,7 @@ func (v *CopilotVerifier) SetSkillDirectories(dirs []string) {
 
 // Verify creates a separate Copilot session to evaluate whether generated code meets requirements.
 func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, workDir string, expectedCoverage string) (*report.VerifyResult, error) {
-	generatedFiles, err := readDirFiles(workDir)
+	generatedFiles, err := utils.ReadDirFiles(workDir)
 	if err != nil {
 		return nil, fmt.Errorf("reading generated files: %w", err)
 	}
@@ -137,7 +137,7 @@ Respond with ONLY a JSON object:
 }
 
 func parseVerifyResponse(text string) (*report.VerifyResult, error) {
-	jsonStr := extractJSON(text)
+	jsonStr := utils.ExtractJSON(text)
 	if jsonStr == "" {
 		return nil, fmt.Errorf("no JSON found in verification response: %.200s", text)
 	}
@@ -147,60 +147,4 @@ func parseVerifyResponse(text string) (*report.VerifyResult, error) {
 		return nil, fmt.Errorf("parsing verification JSON: %w (response: %.200s)", err, jsonStr)
 	}
 	return &result, nil
-}
-
-func extractJSON(text string) string {
-	text = strings.TrimSpace(text)
-	if strings.HasPrefix(text, "```json") {
-		text = strings.TrimPrefix(text, "```json")
-		if idx := strings.LastIndex(text, "```"); idx >= 0 {
-			text = text[:idx]
-		}
-	} else if strings.HasPrefix(text, "```") {
-		text = strings.TrimPrefix(text, "```")
-		if idx := strings.LastIndex(text, "```"); idx >= 0 {
-			text = text[:idx]
-		}
-	}
-	text = strings.TrimSpace(text)
-
-	start := strings.Index(text, "{")
-	end := strings.LastIndex(text, "}")
-	if start >= 0 && end > start {
-		return text[start : end+1]
-	}
-	return ""
-}
-
-func readDirFiles(dir string) (map[string]string, error) {
-	files := make(map[string]string)
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() {
-			name := info.Name()
-			if strings.HasPrefix(name, ".") && path != dir {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if info.Size() > 1<<20 {
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return nil
-		}
-		if strings.HasPrefix(filepath.Base(rel), ".") {
-			return nil
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil
-		}
-		files[rel] = string(data)
-		return nil
-	})
-	return files, err
 }

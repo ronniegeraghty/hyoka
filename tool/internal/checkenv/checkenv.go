@@ -1,3 +1,4 @@
+// Package checkenv checks for the presence of required tools and dependencies.
 package checkenv
 
 import (

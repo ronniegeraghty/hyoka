@@ -1,3 +1,4 @@
+// Package config provides configuration loading and parsing for the evaluation tool.
 package config
 
 import (

@@ -1,7 +1,9 @@
+// Package validate provides functionality to validate prompt files against schema and rules.
 package validate
 
 import (
 "fmt"
+"sort"
 "strings"
 
 "github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/prompt"
@@ -150,14 +152,6 @@ for k := range m {
 keys = append(keys, k)
 }
 // Sort for deterministic output
-sortStrings(keys)
+sort.Strings(keys)
 return strings.Join(keys, ", ")
-}
-
-func sortStrings(s []string) {
-for i := 1; i < len(s); i++ {
-for j := i; j > 0 && s[j] < s[j-1]; j-- {
-s[j], s[j-1] = s[j-1], s[j]
-}
-}
 }

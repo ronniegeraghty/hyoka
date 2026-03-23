@@ -1,3 +1,4 @@
+// Package progress provides progress reporting and display for the evaluation tool.
 package progress
 
 import (
@@ -406,3 +407,11 @@ func IsTerminal(f *os.File) bool {
 
 // TermWidth returns the assumed terminal width.
 func TermWidth() int { return 120 }
+
+func fmtDuration(d time.Duration) string {
+	secs := d.Seconds()
+	if secs < 60 {
+		return fmt.Sprintf("%.0fs", secs)
+	}
+	return fmt.Sprintf("%.1fm", secs/60)
+}

@@ -16,6 +16,8 @@ A curated library of prompts for evaluating how well AI agents generate Azure SD
 
 ### Run from the repo (recommended)
 
+The repo root has a `go.work` file, so all commands run from the repo root:
+
 ```bash
 git clone https://github.com/ronniegeraghty/azure-sdk-prompts.git
 cd azure-sdk-prompts
@@ -23,7 +25,7 @@ cd azure-sdk-prompts
 # List prompts
 go run ./tool/cmd/azsdk-prompt-eval list
 
-# Run all evaluations
+# Run all evaluations (auto-generates trend analysis after)
 go run ./tool/cmd/azsdk-prompt-eval run
 
 # Filter by service and language
@@ -47,15 +49,17 @@ azsdk-prompt-eval run --prompts ~/projects/azure-sdk-prompts/prompts
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `azsdk-prompt-eval run` | Run evaluations against prompts |
-| `azsdk-prompt-eval list` | List prompts matching filters |
-| `azsdk-prompt-eval configs` | Show available tool configurations |
-| `azsdk-prompt-eval manifest` | (Optional) Generate manifest.yaml snapshot for external tooling |
-| `azsdk-prompt-eval validate` | Validate prompt frontmatter against schema |
-| `azsdk-prompt-eval check-env` | Check for required language toolchains and tools |
-| `azsdk-prompt-eval version` | Print version |
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `azsdk-prompt-eval run` | | Run evaluations against prompts |
+| `azsdk-prompt-eval list` | `ls` | List prompts matching filters |
+| `azsdk-prompt-eval configs` | | Show available tool configurations |
+| `azsdk-prompt-eval validate` | | Validate prompt frontmatter against schema |
+| `azsdk-prompt-eval check-env` | `env` | Check for required language toolchains and tools |
+| `azsdk-prompt-eval trends` | | Generate historical trend reports with AI analysis |
+| `azsdk-prompt-eval report` | | Re-render HTML/MD reports from existing JSON data |
+| `azsdk-prompt-eval new-prompt` | | Scaffold a new prompt file interactively |
+| `azsdk-prompt-eval version` | | Print version |
 
 ### Filtering
 
@@ -82,7 +86,25 @@ azsdk-prompt-eval run --prompt-id storage-dp-dotnet-auth
 
 # Dry run — list matches without executing
 azsdk-prompt-eval run --service storage --dry-run
+
+# JSON output for scripting
+azsdk-prompt-eval list --json
 ```
+
+### Run Command Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--analyze` | `true` | AI-powered trend analysis after run |
+| `--skip-trends` | `false` | Skip automatic trend analysis after run |
+| `--progress` | `auto` | Progress display mode: `auto`, `live`, `log`, `off` |
+| `--skip-tests` | `false` | Skip test generation |
+| `--skip-review` | `false` | Skip code review |
+| `--verify-build` | `false` | Run build verification (in addition to Copilot verification) |
+| `--stub` | `false` | Use stub evaluator (no Copilot SDK) |
+| `--dry-run` | `false` | List matching prompts without running |
+| `--workers` | `4` | Parallel evaluation workers |
+| `--timeout` | `300` | Per-prompt timeout in seconds |
 
 ### Validating Prompts
 
@@ -156,7 +178,7 @@ git commit -m "prompt: add <service> <plane> <language> <category>"
 ```
 azure-sdk-prompts/
 ├── README.md
-├── manifest.yaml                      # Optional snapshot (not used by the tool at runtime)
+├── go.work                            # Go workspace (run commands from repo root)
 ├── configs/                           # Evaluation config matrix
 │   ├── all.yaml                       # Both configs (default for matrix runs)
 │   ├── baseline.yaml                  # No MCP, no skills — raw Copilot
@@ -172,24 +194,33 @@ azure-sdk-prompts/
 │   │       └── ...
 │   └── key-vault/
 │       └── ...
+├── skills/                            # Copilot skills for eval sessions
+│   ├── code-review-comments/
+│   ├── reviewer-build/
+│   ├── sdk-version-check/
+│   └── prompt-authoring/              # Skill for authoring new prompts
 ├── tool/                              # Go eval tool (azsdk-prompt-eval)
 │   ├── cmd/azsdk-prompt-eval/main.go
 │   ├── go.mod / go.sum
-│   ├── internal/                      # config, prompt, eval, build, report,
-│   │   │                              #   manifest, validate
-│   │   ├── config/
-│   │   ├── prompt/
-│   │   ├── eval/
-│   │   ├── build/
-│   │   ├── report/
-│   │   ├── manifest/
-│   │   └── validate/
-│   └── testdata/
+│   └── internal/                      # config, prompt, eval, build, report,
+│       │                              #   validate, trends, verify, review
+│       ├── config/
+│       ├── prompt/
+│       ├── eval/
+│       ├── build/
+│       ├── report/
+│       ├── trends/
+│       ├── verify/
+│       ├── review/
+│       └── validate/
 ├── reports/                           # Evaluation output
-│   └── runs/<timestamp>/
-│       ├── summary.json
+│   └── <run-id>/
+│       ├── summary.{json,html,md}
 │       └── results/<service>/<plane>/<language>/<category>/<config>/
-│           └── report.json
+│           └── report.{json,html,md}
+├── docs/                              # Documentation
+│   ├── getting-started.md
+│   └── cleanup-plan.md
 └── templates/
     └── prompt-template.prompt.md
 ```

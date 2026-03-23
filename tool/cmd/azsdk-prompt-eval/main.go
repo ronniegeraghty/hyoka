@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -45,6 +48,7 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(checkEnvCmd())
 	root.AddCommand(trendsCmd())
 	root.AddCommand(reportCmd())
+	root.AddCommand(newPromptCmd())
 
 	return root
 }
@@ -342,10 +346,12 @@ func runCmd() *cobra.Command {
 
 func listCmd() *cobra.Command {
 	f := &runFlags{}
+	var jsonOutput bool
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List matching prompts",
-		Long:  "List prompts matching the given filters (dry-run equivalent).",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List matching prompts",
+		Long:    "List prompts matching the given filters (dry-run equivalent).",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f.prompts = resolvePromptsDir(cmd)
 
@@ -362,6 +368,15 @@ func listCmd() *cobra.Command {
 				return nil
 			}
 
+			if jsonOutput {
+				data, err := json.MarshalIndent(filtered, "", "  ")
+				if err != nil {
+					return fmt.Errorf("marshaling prompts: %w", err)
+				}
+				fmt.Println(string(data))
+				return nil
+			}
+
 			fmt.Printf("Found %d prompt(s):\n\n", len(filtered))
 			for _, p := range filtered {
 				fmt.Printf("  %-30s %s/%s/%s [%s]\n", p.ID, p.Service, p.Plane, p.Language, p.Category)
@@ -374,6 +389,7 @@ func listCmd() *cobra.Command {
 	}
 
 	addFilterFlags(cmd, f)
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output prompts as JSON array")
 	return cmd
 }
 
@@ -451,9 +467,10 @@ func versionCmd() *cobra.Command {
 
 func checkEnvCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "check-env",
-		Short: "Check for required language toolchains and tools",
-		Long:  "Tests if language toolchains (dotnet, python, go, node, java, rust, cargo, cmake, etc.), Copilot CLI, and MCP prerequisites are installed.",
+		Use:     "check-env",
+		Aliases: []string{"env"},
+		Short:   "Check for required language toolchains and tools",
+		Long:    "Tests if language toolchains (dotnet, python, go, node, java, rust, cargo, cmake, etc.), Copilot CLI, and MCP prerequisites are installed.",
 		Run: func(cmd *cobra.Command, args []string) {
 			checkenv.Run()
 		},
@@ -463,6 +480,7 @@ func checkEnvCmd() *cobra.Command {
 func trendsCmd() *cobra.Command {
 	var promptID, service, language, reportsDir, output string
 	var analyze bool
+	var openBrowser bool
 
 	cmd := &cobra.Command{
 		Use:   "trends",
@@ -518,6 +536,10 @@ func trendsCmd() *cobra.Command {
 			fmt.Printf("HTML trend report:     %s\n", htmlPath)
 			fmt.Printf("\nAnalyzed %d historical evaluation(s) across %d prompt(s)\n", tr.TotalRuns, len(tr.PromptTrends))
 
+			if openBrowser && htmlPath != "" {
+				openInBrowser(htmlPath)
+			}
+
 			return nil
 		},
 	}
@@ -528,6 +550,7 @@ func trendsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&reportsDir, "reports-dir", "./reports", "Directory containing past evaluation reports")
 	cmd.Flags().StringVar(&output, "output", "./reports/trends", "Output directory for trend reports")
 	cmd.Flags().BoolVar(&analyze, "analyze", true, "Run AI-powered analysis of trends (enabled by default)")
+	cmd.Flags().BoolVar(&openBrowser, "open", false, "Auto-open the HTML trend report in the browser")
 
 	// --no-analyze opt-out: cobra doesn't auto-generate negation flags,
 	// so we register a separate bool and reconcile in RunE.
@@ -578,4 +601,148 @@ func reportCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&all, "all", false, "Re-render all runs")
 
 	return cmd
+}
+
+// openInBrowser opens the given file path in the default browser.
+func openInBrowser(path string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	case "linux":
+		cmd = exec.Command("xdg-open", path)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", path)
+	default:
+		fmt.Printf("Open the report manually: %s\n", path)
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("Could not open browser: %v\nOpen manually: %s\n", err, path)
+	}
+}
+
+var validServices = []string{
+	"storage", "key-vault", "cosmos-db", "event-hubs",
+	"app-configuration", "purview", "digital-twins",
+	"identity", "resource-manager", "service-bus",
+}
+var validLanguages = []string{"dotnet", "java", "js-ts", "python", "go", "rust", "cpp"}
+var validPlanes = []string{"data-plane", "management-plane"}
+var validCategories = []string{
+	"authentication", "pagination", "polling", "retries",
+	"error-handling", "crud", "batch", "streaming", "auth", "provisioning",
+}
+var validDifficulties = []string{"basic", "intermediate", "advanced"}
+
+func newPromptCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "new-prompt",
+		Short: "Scaffold a new prompt file interactively",
+		Long:  "Asks for service, language, plane, category, and difficulty, then generates a prompt file with populated frontmatter at the correct path.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			promptsDir := resolvePromptsDir(cmd)
+
+			service := askChoice("Service", validServices)
+			plane := askChoice("Plane", validPlanes)
+			language := askChoice("Language", validLanguages)
+			category := askChoice("Category", validCategories)
+			difficulty := askChoice("Difficulty", validDifficulties)
+			description := askFreeText("Description (what this prompt tests)")
+
+			// Build the prompt ID
+			planeAbbrev := "dp"
+			if plane == "management-plane" {
+				planeAbbrev = "mp"
+			}
+
+			// Ask for a slug to make the ID unique
+			slug := askFreeText("Short slug for filename (e.g. 'list-blobs')")
+			slug = strings.ReplaceAll(strings.TrimSpace(slug), " ", "-")
+			slug = strings.ToLower(slug)
+
+			id := fmt.Sprintf("%s-%s-%s-%s", service, planeAbbrev, language, slug)
+
+			dir := filepath.Join(promptsDir, service, plane, language)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("creating directory: %w", err)
+			}
+
+			filename := slug + ".prompt.md"
+			filePath := filepath.Join(dir, filename)
+
+			if _, err := os.Stat(filePath); err == nil {
+				return fmt.Errorf("file already exists: %s", filePath)
+			}
+
+			today := time.Now().Format("2006-01-02")
+
+			content := fmt.Sprintf(`---
+id: %s
+service: %s
+plane: %s
+language: %s
+category: %s
+difficulty: %s
+description: >
+  %s
+sdk_package: ""
+api_version: ""
+doc_url: ""
+tags: []
+created: %s
+author: ""
+---
+
+# TODO: Title — %s (%s)
+
+## Prompt
+
+TODO: Write your prompt here.
+
+## Expected Coverage
+
+The generated code should demonstrate:
+- TODO: List key aspects to test
+
+## Context
+
+TODO: Why this prompt matters.
+`, id, service, plane, language, category, difficulty, description, today, service, language)
+
+			if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				return fmt.Errorf("writing prompt file: %w", err)
+			}
+
+			fmt.Printf("\n✅ Created prompt file: %s\n", filePath)
+			fmt.Printf("   Prompt ID: %s\n", id)
+			fmt.Println("\nNext steps:")
+			fmt.Println("  1. Edit the file to add your prompt text")
+			fmt.Println("  2. Run: go run ./tool/cmd/azsdk-prompt-eval validate")
+			return nil
+		},
+	}
+}
+
+func askChoice(label string, options []string) string {
+	fmt.Printf("\n%s:\n", label)
+	for i, opt := range options {
+		fmt.Printf("  %d) %s\n", i+1, opt)
+	}
+	for {
+		fmt.Printf("Choose [1-%d]: ", len(options))
+		var choice int
+		_, err := fmt.Scanln(&choice)
+		if err == nil && choice >= 1 && choice <= len(options) {
+			return options[choice-1]
+		}
+		fmt.Println("Invalid choice, try again.")
+	}
+}
+
+func askFreeText(label string) string {
+	fmt.Printf("\n%s: ", label)
+	var input string
+	fmt.Scanln(&input)
+	return strings.TrimSpace(input)
 }

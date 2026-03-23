@@ -1,3 +1,5 @@
+// Package trends provides analysis of evaluation trends over time.
+// Package trends provides analysis of evaluation trends over time.
 package trends
 
 import (

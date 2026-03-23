@@ -1,3 +1,4 @@
+// Package eval provides the core evaluation engine, workspace management, and Copilot interaction logic.
 package eval
 
 import (
@@ -36,28 +37,7 @@ func (w *Workspace) Cleanup() error {
 
 // ListFiles returns all non-hidden files in the workspace, relative to its root.
 func (w *Workspace) ListFiles() ([]string, error) {
-	var files []string
-	err := filepath.Walk(w.Dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			if strings.HasPrefix(info.Name(), ".") && path != w.Dir {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if strings.HasPrefix(filepath.Base(path), ".") {
-			return nil
-		}
-		rel, err := filepath.Rel(w.Dir, path)
-		if err != nil {
-			return err
-		}
-		files = append(files, rel)
-		return nil
-	})
-	return files, err
+	return listFiles(w.Dir)
 }
 
 // CopyFilesTo copies all non-hidden workspace files into destDir,
@@ -88,4 +68,52 @@ func (w *Workspace) CopyFilesTo(destDir string) ([]string, error) {
 	}
 
 	return files, nil
+}
+
+// listFiles is a helper used by Workspace and CopilotSDKEvaluator.
+func listFiles(dir string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if strings.HasPrefix(info.Name(), ".") && path != dir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasPrefix(filepath.Base(path), ".") {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		files = append(files, rel)
+		return nil
+	})
+	return files, err
+}
+
+// copyDir recursively copies src to dst.
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(target, 0755)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, info.Mode())
+	})
 }

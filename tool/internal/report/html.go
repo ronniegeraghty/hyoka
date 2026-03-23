@@ -56,6 +56,7 @@ func WriteSummaryHTML(s *RunSummary, outputDir string) (string, error) {
 	defer f.Close()
 
 	matrix := buildMatrix(s)
+	stats := ComputeSummaryStats(s)
 
 	tmpl, err := template.New("summary").Funcs(htmlFuncMap()).Parse(summaryTemplate)
 	if err != nil {
@@ -65,9 +66,11 @@ func WriteSummaryHTML(s *RunSummary, outputDir string) (string, error) {
 	data := struct {
 		Summary *RunSummary
 		Matrix  *MatrixData
+		Stats   *SummaryStats
 	}{
 		Summary: s,
 		Matrix:  matrix,
+		Stats:   stats,
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {
@@ -150,11 +153,12 @@ func buildMatrix(s *RunSummary) *MatrixData {
 // ReportTemplateData is the enriched data passed to the individual report template.
 type ReportTemplateData struct {
 	*EvalReport
-	Prompt      string
-	Reasoning   string
-	FinalReply  string
-	ToolActions []ToolAction
-	FileCount   int
+	Prompt        string
+	Reasoning     string
+	FinalReply    string
+	ToolActions   []ToolAction
+	TimelineSteps []TimelineStep
+	FileCount     int
 }
 
 // ToolAction represents one tool invocation extracted from session events.
@@ -169,7 +173,24 @@ type ToolAction struct {
 	MCPServer string
 }
 
-// buildReportData extracts structured sections from session events.
+// TimelineStep represents one chronological step in the agent workflow.
+type TimelineStep struct {
+	Index     int
+	Phase     string // "generation", "verification", "review"
+	StepType  string // "prompt", "reasoning", "tool_call", "message", "complete"
+	Icon      string
+	Title     string
+	Content   string  // main content (tool result, reasoning text)
+	Detail    string  // collapsible detail (tool args, full text)
+	Duration  float64 // milliseconds
+	Success   *bool
+	Error     string
+	ToolName  string
+	MCPServer string
+}
+
+// buildReportData extracts structured sections from session events and
+// builds a chronological timeline of agent steps.
 func buildReportData(r *EvalReport) *ReportTemplateData {
 	d := &ReportTemplateData{
 		EvalReport: r,
@@ -178,6 +199,13 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 
 	var reasoningParts []string
 	var messageParts []string
+	stepIndex := 0
+
+	type pendingTool struct {
+		stepIdx int
+		name    string
+	}
+	var pendingTools []pendingTool
 
 	for _, ev := range r.SessionEvents {
 		switch ev.Type {
@@ -185,13 +213,33 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 			if d.Prompt == "" && ev.Content != "" {
 				d.Prompt = ev.Content
 			}
+			if ev.Content != "" {
+				stepIndex++
+				d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+					Index:    stepIndex,
+					Phase:    "generation",
+					StepType: "prompt",
+					Icon:     "📝",
+					Title:    "Prompt sent",
+					Content:  ev.Content,
+				})
+			}
 		case "assistant.reasoning":
 			if ev.Content != "" {
 				reasoningParts = append(reasoningParts, ev.Content)
-			}
-		case "assistant.message":
-			if ev.Content != "" {
-				messageParts = append(messageParts, ev.Content)
+				stepIndex++
+				title := ev.Content
+				if len(title) > 80 {
+					title = title[:80] + "…"
+				}
+				d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+					Index:    stepIndex,
+					Phase:    "generation",
+					StepType: "reasoning",
+					Icon:     "🤔",
+					Title:    title,
+					Content:  ev.Content,
+				})
 			}
 		case "tool.execution_start":
 			if ev.ToolName != "" {
@@ -201,8 +249,26 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 					Args:      ev.ToolArgs,
 					MCPServer: ev.MCPServerName,
 				})
+				stepIndex++
+				toolTitle := ev.ToolName
+				if ev.FilePath != "" {
+					toolTitle += " → " + ev.FilePath
+				}
+				step := TimelineStep{
+					Index:     stepIndex,
+					Phase:     "generation",
+					StepType:  "tool_call",
+					Icon:      "🔧",
+					Title:     "Tool call: " + toolTitle,
+					Detail:    ev.ToolArgs,
+					ToolName:  ev.ToolName,
+					MCPServer: ev.MCPServerName,
+				}
+				d.TimelineSteps = append(d.TimelineSteps, step)
+				pendingTools = append(pendingTools, pendingTool{len(d.TimelineSteps) - 1, ev.ToolName})
 			}
 		case "tool.execution_complete":
+			// Update ToolActions (backward compat)
 			for i := len(d.ToolActions) - 1; i >= 0; i-- {
 				if d.ToolActions[i].ToolName == ev.ToolName && d.ToolActions[i].Result == "" && d.ToolActions[i].Error == "" {
 					d.ToolActions[i].Result = ev.ToolResult
@@ -212,7 +278,48 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 					break
 				}
 			}
+			// Update matching timeline step
+			for i := len(pendingTools) - 1; i >= 0; i-- {
+				if pendingTools[i].name == ev.ToolName {
+					idx := pendingTools[i].stepIdx
+					d.TimelineSteps[idx].Content = ev.ToolResult
+					d.TimelineSteps[idx].Duration = ev.Duration
+					d.TimelineSteps[idx].Success = ev.ToolSuccess
+					if ev.Error != "" {
+						d.TimelineSteps[idx].Error = ev.Error
+					}
+					pendingTools = append(pendingTools[:i], pendingTools[i+1:]...)
+					break
+				}
+			}
+		case "assistant.message":
+			if ev.Content != "" {
+				messageParts = append(messageParts, ev.Content)
+				stepIndex++
+				d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+					Index:    stepIndex,
+					Phase:    "generation",
+					StepType: "message",
+					Icon:     "💬",
+					Title:    "Agent reply",
+					Content:  ev.Content,
+				})
+			}
 		}
+	}
+
+	// Add generation-complete step
+	if len(d.TimelineSteps) > 0 {
+		stepIndex++
+		summary := fmt.Sprintf("%d files created", d.FileCount)
+		d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+			Index:    stepIndex,
+			Phase:    "generation",
+			StepType: "complete",
+			Icon:     "✅",
+			Title:    "Generation complete",
+			Content:  summary,
+		})
 	}
 
 	d.Reasoning = strings.Join(reasoningParts, "\n\n")
@@ -333,9 +440,9 @@ const reportTemplate = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eval Report: {{.PromptID}} / {{.ConfigName}}</title>
 <style>
-  :root { 
-    --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316; 
-    --gray: #6b7280; --bg: #f8fafc; --card-bg: #fff; --border: #e2e8f0; 
+  :root {
+    --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
+    --gray: #6b7280; --bg: #f8fafc; --card-bg: #fff; --border: #e2e8f0;
     --text: #0f172a; --text-muted: #64748b; --purple: #7c3aed; --blue: #2563eb;
     --indigo: #4f46e5;
   }
@@ -384,17 +491,6 @@ const reportTemplate = `<!DOCTYPE html>
   code { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 0.85em; }
   p code, li code { background: #f1f5f9; color: var(--indigo); padding: 1px 5px; border-radius: 3px; }
 
-  /* Tool call cards */
-  .tool-card { background: #fafbfc; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
-  .tool-card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
-  .tool-card-header .tool-index { background: var(--indigo); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
-  .tool-card-header .tool-name { font-family: monospace; font-weight: 700; color: var(--purple); font-size: 0.95rem; }
-  .tool-card-header .tool-meta { margin-left: auto; display: flex; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--text-muted); }
-  .tool-card-body { padding: 0.75rem 1rem; }
-  .tool-card-body .tool-section-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
-  .tool-card-body pre { font-size: 0.8rem; margin: 0.25rem 0 0.75rem 0; max-height: 200px; overflow-y: auto; }
-  .tool-card-body details pre { max-height: 400px; }
-
   /* File cards */
   .file-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
   .file-card-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #1e293b; color: #e2e8f0; font-family: monospace; font-size: 0.85rem; }
@@ -414,15 +510,6 @@ const reportTemplate = `<!DOCTYPE html>
   .findings-list { padding-left: 1.25rem; margin: 0.5rem 0; }
   .findings-list li { padding: 0.2rem 0; font-size: 0.9rem; }
 
-  /* Event transcript */
-  .event-row { display: flex; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem; align-items: baseline; }
-  .event-row:last-child { border-bottom: none; }
-  .ev-type { font-weight: 600; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; min-width: 10rem; flex-shrink: 0; }
-  .ev-tool { color: var(--purple); font-weight: 600; }
-  .ev-content { color: var(--text); flex: 1; min-width: 0; }
-  .ev-content pre { margin: 0.25rem 0; padding: 0.5rem; font-size: 0.8rem; }
-  .ev-error { color: var(--red); }
-
   /* Error box */
   .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem; }
   .error-box h3 { margin: 0 0 0.5rem 0; color: #991b1b; }
@@ -440,6 +527,41 @@ const reportTemplate = `<!DOCTYPE html>
   /* Review comment highlighting */
   .review-comment { background: #fef3c7; color: #92400e; display: block; border-left: 3px solid #f59e0b; padding-left: 0.5rem; margin: 1px 0; }
   .reviewed-file pre { white-space: pre-wrap; word-break: break-word; }
+
+  /* ━━ Timeline ━━ */
+  .phase { margin-bottom: 1.5rem; }
+  .phase-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; font-weight: 700; font-size: 1rem; border-radius: 8px 8px 0 0; }
+  .phase-gen .phase-header { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .phase-verify .phase-header { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+  .phase-review .phase-header { background: #faf5ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+  .timeline { position: relative; padding: 1.25rem 1rem 0.5rem 3.5rem; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; background: var(--card-bg); }
+  .timeline::before { content: ''; position: absolute; left: 1.6rem; top: 0; bottom: 0; width: 2px; }
+  .phase-gen .timeline::before { background: #93c5fd; }
+  .phase-verify .timeline::before { background: #86efac; }
+  .phase-review .timeline::before { background: #c4b5fd; }
+
+  .tl-step { position: relative; margin-bottom: 1.25rem; }
+  .tl-step:last-child { margin-bottom: 0.5rem; }
+  .tl-marker { position: absolute; left: -2.65rem; top: 0.1rem; width: 1.75rem; height: 1.75rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; background: #fff; border: 2px solid var(--border); z-index: 1; }
+  .phase-gen .tl-marker { border-color: #93c5fd; }
+  .phase-verify .tl-marker { border-color: #86efac; }
+  .phase-review .tl-marker { border-color: #c4b5fd; }
+
+  .tl-card { padding: 0.6rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: #fafbfc; }
+  .tl-card-tool { border-left: 3px solid var(--indigo); }
+  .tl-card-reasoning { border-left: 3px solid #93c5fd; }
+  .tl-card-prompt { border-left: 3px solid var(--blue); }
+  .tl-card-message { border-left: 3px solid #6366f1; }
+  .tl-card-complete { border-left: 3px solid var(--green); background: #f0fdf4; }
+
+  .tl-title { font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .tl-title .tool-name { font-family: monospace; color: var(--purple); }
+  .tl-title .mcp-server { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; }
+  .tl-meta { display: flex; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; }
+  .tl-card details { margin: 0.4rem 0 0 0; }
+  .tl-card details summary { font-size: 0.85rem; font-weight: 500; }
+  .tl-card pre { font-size: 0.8rem; margin: 0.25rem 0 0 0; max-height: 300px; overflow-y: auto; }
+  .tl-error { color: var(--red); font-size: 0.85rem; margin-top: 0.3rem; }
 </style>
 </head>
 <body>
@@ -475,62 +597,132 @@ const reportTemplate = `<!DOCTYPE html>
 </div>
 {{end}}
 
-<!-- ━━ Generation Session ━━ -->
-<div class="section">
-  <div class="section-header"><span class="icon">🧪</span><h2>Generation Session</h2></div>
-  <div class="section-body">
-    {{if .Prompt}}
-    <details open>
-      <summary>📝 Prompt</summary>
-      <pre>{{.Prompt}}</pre>
-    </details>
-    {{end}}
-
-    {{if .Reasoning}}
-    <details>
-      <summary>💭 Copilot's Reasoning</summary>
-      <pre>{{.Reasoning}}</pre>
-    </details>
-    {{end}}
-
-    {{if .FinalReply}}
-    <details>
-      <summary>💬 Copilot's Reply</summary>
-      <pre>{{.FinalReply}}</pre>
-    </details>
-    {{end}}
-  </div>
-</div>
-
-<!-- ━━ Tool Calls ━━ -->
-{{if .ToolActions}}
-<div class="section">
-  <div class="section-header"><span class="icon">🔧</span><h2>Tool Calls ({{len .ToolActions}})</h2></div>
-  <div class="section-body">
-    {{range .ToolActions}}
-    <div class="tool-card">
-      <div class="tool-card-header">
-        <span class="tool-index">{{.Index}}</span>
-        <span class="tool-name">{{.ToolName}}</span>
-        {{if .MCPServer}}<span style="font-size:0.8rem;color:var(--text-muted)">via {{.MCPServer}}</span>{{end}}
-        <div class="tool-meta">
+<!-- ━━ Generation Timeline ━━ -->
+{{if .TimelineSteps}}
+<div class="phase phase-gen">
+  <div class="phase-header"><span>🧪</span> Generation Timeline</div>
+  <div class="timeline">
+    {{range .TimelineSteps}}{{if eq .Phase "generation"}}
+    <div class="tl-step">
+      <div class="tl-marker">{{.Icon}}</div>
+      <div class="tl-card tl-card-{{.StepType}}">
+        <div class="tl-title">
+          <span>{{.Index}}.</span>
+          {{if eq .StepType "tool_call"}}<span class="tool-name">Tool call: {{.ToolName}}</span>{{if .MCPServer}}<span class="mcp-server">via {{.MCPServer}}</span>{{end}}{{else}}{{.Title}}{{end}}
+        </div>
+        {{if eq .StepType "tool_call"}}
+        <div class="tl-meta">
           {{if .Success}}{{boolStr .Success}}{{end}}
           {{if gt .Duration 0.0}}<span>{{printf "%.0fms" .Duration}}</span>{{end}}
         </div>
+        {{end}}
+        {{if and (eq .StepType "prompt") .Content}}
+        <details open><summary>Show prompt</summary><pre>{{.Content}}</pre></details>
+        {{end}}
+        {{if and (eq .StepType "reasoning") .Content}}
+        <details><summary>Show reasoning</summary><pre>{{.Content}}</pre></details>
+        {{end}}
+        {{if and (eq .StepType "message") .Content}}
+        <details><summary>Show reply</summary><pre>{{.Content}}</pre></details>
+        {{end}}
+        {{if eq .StepType "tool_call"}}
+          {{if .Detail}}
+          <details><summary>Show arguments</summary><pre>{{.Detail}}</pre></details>
+          {{end}}
+          {{if .Content}}
+          <details><summary>Show result</summary><pre>{{.Content}}</pre></details>
+          {{end}}
+        {{end}}
+        {{if .Error}}<div class="tl-error">❌ {{.Error}}</div>{{end}}
       </div>
-      <div class="tool-card-body">
-        {{if .Args}}
-        <div class="tool-section-label">Input</div>
-        <details><summary style="font-size:0.85rem">Show arguments</summary><pre>{{.Args}}</pre></details>
-        {{end}}
-        {{if .Result}}
-        <div class="tool-section-label">Output</div>
-        <details><summary style="font-size:0.85rem">Show result</summary><pre>{{.Result}}</pre></details>
-        {{end}}
-        {{if .Error}}
-        <div class="tool-section-label" style="color:var(--red)">Error</div>
-        <pre style="background:#fef2f2;color:#991b1b">{{.Error}}</pre>
-        {{end}}
+    </div>
+    {{end}}{{end}}
+  </div>
+</div>
+{{end}}
+
+<!-- ━━ Verification Timeline ━━ -->
+{{if .Verification}}
+<div class="phase phase-verify">
+  <div class="phase-header"><span>🔍</span> Verification {{if .Verification.Pass}}<span class="badge badge-pass" style="margin-left:auto">PASS</span>{{else}}<span class="badge badge-fail" style="margin-left:auto">FAIL</span>{{end}}</div>
+  <div class="timeline">
+    <div class="tl-step">
+      <div class="tl-marker">{{if .Verification.Pass}}✅{{else}}❌{{end}}</div>
+      <div class="tl-card tl-card-complete">
+        <div class="tl-title">{{if .Verification.Summary}}{{.Verification.Summary}}{{else}}{{if .Verification.Pass}}Verification passed{{else}}Verification failed{{end}}{{end}}</div>
+      </div>
+    </div>
+    {{if .Verification.Reasoning}}
+    <div class="tl-step">
+      <div class="tl-marker">🤔</div>
+      <div class="tl-card tl-card-reasoning">
+        <div class="tl-title">Verifier's Reasoning</div>
+        <details open><summary>Show reasoning</summary><pre>{{.Verification.Reasoning}}</pre></details>
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+<!-- ━━ Tool Usage Evaluation ━━ -->
+{{if .ToolUsage}}
+<div class="section">
+  <div class="section-header"><span class="icon">🔧</span><h2>Tool Usage Evaluation</h2><span style="margin-left:auto">{{if .ToolUsage.Match}}<span class="badge badge-pass">MATCH</span>{{else}}<span class="badge badge-fail">MISMATCH</span>{{end}}</span></div>
+  <div class="section-body">
+    <div class="verify-banner {{if .ToolUsage.Match}}verify-pass{{else}}verify-fail{{end}}">
+      {{if .ToolUsage.Match}}✅ All expected tools were used{{else}}⚠️ Some expected tools were not used during generation{{end}}
+    </div>
+    <table class="meta-table">
+      <tr><td>Expected</td><td>{{join .ToolUsage.ExpectedTools ", "}}</td></tr>
+      <tr><td>Actual</td><td>{{join .ToolUsage.ActualTools ", "}}</td></tr>
+      {{if .ToolUsage.MatchedTools}}<tr><td>Matched</td><td style="color:var(--green)">{{join .ToolUsage.MatchedTools ", "}}</td></tr>{{end}}
+      {{if .ToolUsage.MissingTools}}<tr><td>Missing</td><td style="color:var(--red);font-weight:600">{{join .ToolUsage.MissingTools ", "}}</td></tr>{{end}}
+      {{if .ToolUsage.ExtraTools}}<tr><td>Extra</td><td style="color:var(--text-muted)">{{join .ToolUsage.ExtraTools ", "}}</td></tr>{{end}}
+    </table>
+  </div>
+</div>
+{{end}}
+
+<!-- ━━ Code Review ━━ -->
+{{if .Review}}
+<div class="phase phase-review">
+  <div class="phase-header"><span>📊</span> Code Review <span style="margin-left:auto;font-size:0.85rem">Score: {{.Review.OverallScore}}/10</span></div>
+  <div class="timeline">
+    <div class="tl-step">
+      <div class="tl-marker">📊</div>
+      <div class="tl-card">
+        <div class="overall-score">
+          <div class="value" style="color:{{scoreColor .Review.OverallScore}}">{{.Review.OverallScore}}/10</div>
+          <div class="label">Overall Score</div>
+        </div>
+        <div class="scores-grid">
+          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.Correctness}}">{{.Review.Scores.Correctness}}</div><div class="label">Correctness</div></div>
+          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.Completeness}}">{{.Review.Scores.Completeness}}</div><div class="label">Completeness</div></div>
+          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.BestPractices}}">{{.Review.Scores.BestPractices}}</div><div class="label">Best Practices</div></div>
+          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.ErrorHandling}}">{{.Review.Scores.ErrorHandling}}</div><div class="label">Error Handling</div></div>
+          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.PackageUsage}}">{{.Review.Scores.PackageUsage}}</div><div class="label">Package Usage</div></div>
+          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.CodeQuality}}">{{.Review.Scores.CodeQuality}}</div><div class="label">Code Quality</div></div>
+          {{if .Review.Scores.ReferenceSimilarity}}<div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.ReferenceSimilarity}}">{{.Review.Scores.ReferenceSimilarity}}</div><div class="label">Ref Similarity</div></div>{{end}}
+        </div>
+        {{if .Review.Summary}}<p>{{.Review.Summary}}</p>{{end}}
+      </div>
+    </div>
+    {{if .Review.Strengths}}
+    <div class="tl-step">
+      <div class="tl-marker">💪</div>
+      <div class="tl-card">
+        <div class="tl-title">Strengths</div>
+        <ul class="findings-list">{{range .Review.Strengths}}<li>{{.}}</li>{{end}}</ul>
+      </div>
+    </div>
+    {{end}}
+    {{if .Review.Issues}}
+    <div class="tl-step">
+      <div class="tl-marker">⚠️</div>
+      <div class="tl-card">
+        <div class="tl-title">Issues</div>
+        <ul class="findings-list">{{range .Review.Issues}}<li>{{.}}</li>{{end}}</ul>
       </div>
     </div>
     {{end}}
@@ -569,78 +761,6 @@ const reportTemplate = `<!DOCTYPE html>
 </div>
 {{end}}
 
-<!-- ━━ Verification ━━ -->
-{{if .Verification}}
-<div class="section">
-  <div class="section-header"><span class="icon">🔍</span><h2>Verification</h2><span style="margin-left:auto">{{if .Verification.Pass}}<span class="badge badge-pass">PASS</span>{{else}}<span class="badge badge-fail">FAIL</span>{{end}}</span></div>
-  <div class="section-body">
-    <div class="verify-banner {{if .Verification.Pass}}verify-pass{{else}}verify-fail{{end}}">
-      {{if .Verification.Pass}}✅{{else}}❌{{end}} <strong>{{if .Verification.Summary}}{{.Verification.Summary}}{{else}}{{if .Verification.Pass}}Verification passed{{else}}Verification failed{{end}}{{end}}</strong>
-    </div>
-    {{if .Verification.Reasoning}}
-    <details open>
-      <summary>💭 Verifier's Reasoning</summary>
-      <pre>{{.Verification.Reasoning}}</pre>
-    </details>
-    {{end}}
-  </div>
-</div>
-{{end}}
-
-<!-- ━━ Tool Usage Evaluation ━━ -->
-{{if .ToolUsage}}
-<div class="section">
-  <div class="section-header"><span class="icon">🔧</span><h2>Tool Usage Evaluation</h2><span style="margin-left:auto">{{if .ToolUsage.Match}}<span class="badge badge-pass">MATCH</span>{{else}}<span class="badge badge-fail">MISMATCH</span>{{end}}</span></div>
-  <div class="section-body">
-    <div class="verify-banner {{if .ToolUsage.Match}}verify-pass{{else}}verify-fail{{end}}">
-      {{if .ToolUsage.Match}}✅ All expected tools were used{{else}}⚠️ Some expected tools were not used during generation{{end}}
-    </div>
-    <table class="meta-table">
-      <tr><td>Expected</td><td>{{join .ToolUsage.ExpectedTools ", "}}</td></tr>
-      <tr><td>Actual</td><td>{{join .ToolUsage.ActualTools ", "}}</td></tr>
-      {{if .ToolUsage.MatchedTools}}<tr><td>Matched</td><td style="color:var(--green)">{{join .ToolUsage.MatchedTools ", "}}</td></tr>{{end}}
-      {{if .ToolUsage.MissingTools}}<tr><td>Missing</td><td style="color:var(--red);font-weight:600">{{join .ToolUsage.MissingTools ", "}}</td></tr>{{end}}
-      {{if .ToolUsage.ExtraTools}}<tr><td>Extra</td><td style="color:var(--text-muted)">{{join .ToolUsage.ExtraTools ", "}}</td></tr>{{end}}
-    </table>
-  </div>
-</div>
-{{end}}
-
-<!-- ━━ Code Review ━━ -->
-{{if .Review}}
-<div class="section">
-  <div class="section-header"><span class="icon">📊</span><h2>Code Review</h2></div>
-  <div class="section-body">
-    <div class="overall-score">
-      <div class="value" style="color:{{scoreColor .Review.OverallScore}}">{{.Review.OverallScore}}/10</div>
-      <div class="label">Overall Score</div>
-    </div>
-    <div class="scores-grid">
-      <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.Correctness}}">{{.Review.Scores.Correctness}}</div><div class="label">Correctness</div></div>
-      <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.Completeness}}">{{.Review.Scores.Completeness}}</div><div class="label">Completeness</div></div>
-      <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.BestPractices}}">{{.Review.Scores.BestPractices}}</div><div class="label">Best Practices</div></div>
-      <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.ErrorHandling}}">{{.Review.Scores.ErrorHandling}}</div><div class="label">Error Handling</div></div>
-      <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.PackageUsage}}">{{.Review.Scores.PackageUsage}}</div><div class="label">Package Usage</div></div>
-      <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.CodeQuality}}">{{.Review.Scores.CodeQuality}}</div><div class="label">Code Quality</div></div>
-      {{if .Review.Scores.ReferenceSimilarity}}<div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.ReferenceSimilarity}}">{{.Review.Scores.ReferenceSimilarity}}</div><div class="label">Ref Similarity</div></div>{{end}}
-    </div>
-    {{if .Review.Summary}}<p>{{.Review.Summary}}</p>{{end}}
-    {{if .Review.Strengths}}
-    <details open>
-      <summary>💪 Strengths</summary>
-      <ul class="findings-list">{{range .Review.Strengths}}<li>{{.}}</li>{{end}}</ul>
-    </details>
-    {{end}}
-    {{if .Review.Issues}}
-    <details open>
-      <summary>⚠️ Issues</summary>
-      <ul class="findings-list">{{range .Review.Issues}}<li>{{.}}</li>{{end}}</ul>
-    </details>
-    {{end}}
-  </div>
-</div>
-{{end}}
-
 <!-- ━━ Build Verification (optional) ━━ -->
 {{if .Build}}
 <div class="section">
@@ -653,30 +773,6 @@ const reportTemplate = `<!DOCTYPE html>
     </table>
     {{if .Build.Stdout}}<details><summary>Stdout</summary><pre>{{.Build.Stdout}}</pre></details>{{end}}
     {{if .Build.Stderr}}<details><summary>Stderr</summary><pre>{{.Build.Stderr}}</pre></details>{{end}}
-  </div>
-</div>
-{{end}}
-
-<!-- ━━ Session Transcript ━━ -->
-{{if .SessionEvents}}
-<div class="section">
-  <div class="section-header"><span class="icon">📜</span><h2>Session Transcript</h2><span style="margin-left:auto;font-size:0.85rem;color:var(--text-muted)">{{.EventCount}} events</span></div>
-  <div class="section-body">
-    <details>
-      <summary>Show all events</summary>
-      {{range .SessionEvents}}
-      <div class="event-row">
-        <span class="ev-type">{{.Type}}</span>
-        <div class="ev-content">
-          {{if .ToolName}}<span class="ev-tool">{{.ToolName}}</span>{{end}}
-          {{if .ToolArgs}} <span style="color:var(--text-muted)">({{truncate .ToolArgs 120}})</span>{{end}}
-          {{if .Content}}<pre>{{truncate .Content 500}}</pre>{{end}}
-          {{if .ToolResult}}<pre style="background:#f0fdf4;color:#166534">{{truncate .ToolResult 300}}</pre>{{end}}
-          {{if .Error}}<span class="ev-error">{{.Error}}</span>{{end}}
-        </div>
-      </div>
-      {{end}}
-    </details>
   </div>
 </div>
 {{end}}
@@ -799,6 +895,71 @@ const summaryTemplate = `<!DOCTYPE html>
     {{end}}
   </tbody>
 </table>
+{{end}}
+
+<!-- ━━ Duration Analysis ━━ -->
+{{if .Stats}}
+{{if .Stats.DurationByConfig}}
+<h2>Duration Analysis</h2>
+<table class="detail-table">
+  <thead><tr><th>Config</th><th>Min</th><th>Avg</th><th>Max</th></tr></thead>
+  <tbody>
+    {{range $cfg, $d := .Stats.DurationByConfig}}
+    <tr><td>{{$cfg}}</td><td>{{fmtDuration $d.Min}}</td><td>{{fmtDuration $d.Avg}}</td><td>{{fmtDuration $d.Max}}</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{if .Stats.SlowestEval}}<p style="color:var(--text-muted);font-size:0.85rem">⏱ Slowest: <strong>{{.Stats.SlowestEval}}</strong> · Fastest: <strong>{{.Stats.FastestEval}}</strong></p>{{end}}
+{{end}}
+
+<!-- ━━ Config Comparison ━━ -->
+{{if .Stats.ConfigPassRates}}
+<h2>Config Comparison</h2>
+<table class="detail-table">
+  <thead><tr><th>Config</th><th>Total</th><th>Passed</th><th>Failed</th><th>Pass Rate</th></tr></thead>
+  <tbody>
+    {{range .Stats.ConfigPassRates}}
+    <tr>
+      <td>{{.Config}}</td>
+      <td>{{.Total}}</td>
+      <td style="color:var(--green)">{{.Passed}}</td>
+      <td style="color:var(--red)">{{.Failed}}</td>
+      <td><strong>{{printf "%.1f" .Rate}}%</strong></td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{if .Stats.PromptDeltas}}
+<h3>Prompt Deltas (differ between configs)</h3>
+<table class="detail-table">
+  <thead><tr><th>Prompt</th><th>Passes On</th><th>Fails On</th></tr></thead>
+  <tbody>
+    {{range .Stats.PromptDeltas}}
+    <tr><td><code>{{.PromptID}}</code></td><td style="color:var(--green)">{{.PassConfig}}</td><td style="color:var(--red)">{{.FailConfig}}</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
+{{end}}
+
+<!-- ━━ Tool Usage ━━ -->
+{{if .Stats.ToolStats}}
+<h2>Tool Usage</h2>
+<table class="detail-table">
+  <thead><tr><th>Tool</th><th>Calls</th><th>Successes</th><th>Failures</th><th>Success Rate</th></tr></thead>
+  <tbody>
+    {{range .Stats.ToolStats}}
+    <tr>
+      <td><span class="tool-tag">{{.Name}}</span></td>
+      <td>{{.Count}}</td>
+      <td style="color:var(--green)">{{.Successes}}</td>
+      <td style="color:var(--red)">{{.Failures}}</td>
+      <td>{{printf "%.1f" .Rate}}%</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
 {{end}}
 
 </body>

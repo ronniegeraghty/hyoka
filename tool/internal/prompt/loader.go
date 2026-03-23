@@ -1,3 +1,4 @@
+// Package prompt provides functionality to load and parse prompt files.
 package prompt
 
 import (
