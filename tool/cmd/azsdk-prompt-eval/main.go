@@ -137,6 +137,7 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
+// It checks multiple candidate paths to work from both repo root and tool/ directory.
 func resolveSkillsDirs(promptsDir string) []string {
 	for _, candidate := range []string{
 		filepath.Join(filepath.Dir(promptsDir), "skills"),
@@ -149,6 +150,40 @@ func resolveSkillsDirs(promptsDir string) []string {
 		}
 	}
 	return nil
+}
+
+// resolveConfigSkillDirs resolves relative skill_directories in loaded configs
+// to absolute paths so they work regardless of which directory the tool is invoked from.
+func resolveConfigSkillDirs(configs []config.ToolConfig, promptsDir string) {
+	for i := range configs {
+		resolved := make([]string, 0, len(configs[i].SkillDirectories))
+		for _, dir := range configs[i].SkillDirectories {
+			if filepath.IsAbs(dir) {
+				resolved = append(resolved, dir)
+				continue
+			}
+			// Try the path as-is first (relative to CWD), then relative to prompts parent
+			candidates := []string{
+				dir,
+				filepath.Join(filepath.Dir(promptsDir), dir),
+			}
+			found := false
+			for _, c := range candidates {
+				if info, err := os.Stat(c); err == nil && info.IsDir() {
+					abs, _ := filepath.Abs(c)
+					resolved = append(resolved, abs)
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Keep the original path; the SDK may resolve it later
+				abs, _ := filepath.Abs(dir)
+				resolved = append(resolved, abs)
+			}
+		}
+		configs[i].SkillDirectories = resolved
+	}
 }
 
 func buildFilter(f *runFlags) prompt.Filter {
@@ -205,6 +240,9 @@ func runCmd() *cobra.Command {
 					configs[i].Model = f.model
 				}
 			}
+
+			// Resolve relative skill_directories in configs to absolute paths
+			resolveConfigSkillDirs(configs, f.prompts)
 
 			// Load and filter prompts
 			prompts, err := prompt.LoadPrompts(f.prompts)
