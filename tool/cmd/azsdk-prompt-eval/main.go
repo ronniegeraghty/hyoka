@@ -421,14 +421,14 @@ func checkEnvCmd() *cobra.Command {
 
 func trendsCmd() *cobra.Command {
 	var promptID, service, language, reportsDir, output string
+	var analyze bool
 
 	cmd := &cobra.Command{
 		Use:   "trends",
-		Short: "Generate historical trend reports from past evaluation runs",
-		Long:  "Scans all past runs in reports/ directory and generates a trend report with score changes, config comparisons, regressions, and improvements.",
+		Short: "Generate historical trend reports with time-series performance data",
+		Long:  "Scans all past runs in reports/ directory and generates a trend report with pass-rate timelines, duration trends, config comparisons, and regression detection. Use --analyze for AI-powered insights.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reportsDir = resolvePathFlag(cmd, "reports-dir", []string{"../reports", "./reports"})
-			// Derive output from resolved reports-dir when not explicitly set
 			if !cmd.Flags().Changed("output") {
 				output = filepath.Join(reportsDir, "trends")
 			}
@@ -439,6 +439,7 @@ func trendsCmd() *cobra.Command {
 				Service:    service,
 				Language:   language,
 				OutputDir:  output,
+				Analyze:    analyze,
 			})
 			if err != nil {
 				return fmt.Errorf("generating trends: %w", err)
@@ -447,6 +448,20 @@ func trendsCmd() *cobra.Command {
 			if tr.TotalRuns == 0 {
 				fmt.Println("No historical data found matching the given filters.")
 				return nil
+			}
+
+			// Run Copilot-powered analysis if requested
+			if analyze {
+				fmt.Println("🤖 Running AI-powered trend analysis...")
+				analysis, err := trends.AnalyzeTrends(context.Background(), tr)
+				if err != nil {
+					fmt.Printf("⚠️  AI analysis failed: %v (continuing without analysis)\n", err)
+				} else {
+					tr.Analysis = analysis
+					fmt.Println("\n--- AI Analysis ---")
+					fmt.Println(analysis)
+					fmt.Println("-------------------")
+				}
 			}
 
 			mdPath, err := trends.WriteMarkdown(tr, output)
@@ -460,7 +475,7 @@ func trendsCmd() *cobra.Command {
 				return fmt.Errorf("writing HTML trends: %w", err)
 			}
 			fmt.Printf("HTML trend report:     %s\n", htmlPath)
-			fmt.Printf("\nAnalyzed %d historical evaluation(s)\n", tr.TotalRuns)
+			fmt.Printf("\nAnalyzed %d historical evaluation(s) across %d prompt(s)\n", tr.TotalRuns, len(tr.PromptTrends))
 
 			return nil
 		},
@@ -471,6 +486,7 @@ func trendsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&language, "language", "", "Filter trends by programming language")
 	cmd.Flags().StringVar(&reportsDir, "reports-dir", "./reports", "Directory containing past evaluation reports")
 	cmd.Flags().StringVar(&output, "output", "./reports/trends", "Output directory for trend reports")
+	cmd.Flags().BoolVar(&analyze, "analyze", false, "Run Copilot-powered AI analysis of trends")
 
 	return cmd
 }
