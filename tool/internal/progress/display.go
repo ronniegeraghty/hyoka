@@ -32,8 +32,7 @@ type DisplayConfig struct {
 type evalStatus int
 
 const (
-	evalPending evalStatus = iota
-	evalActive
+	evalActive evalStatus = iota
 	evalPassed
 	evalFailed
 	evalError
@@ -56,10 +55,9 @@ type evalLine struct {
 //
 // In ANSI mode (real terminal), it prints a header, saves the cursor
 // position with DECSC (\0337), and redraws the eval region on a 500ms
-// timer using DECRC (\0338) + clear-to-end (\033[J). All output for
-// a redraw is buffered and written as a single Write call to avoid
-// partial renders. DECSC/DECRC are more widely supported than the
-// SCO \033[s/\033[u sequences.
+// timer using DECRC (\0338) + clear-to-end (\033[J). Lines are appended
+// dynamically as evals start — there are no pre-allocated "waiting" lines.
+// The ANSI region grows downward as new evals begin.
 //
 // In non-ANSI mode (piped output, test buffers), it prints result lines
 // inline as evals complete, then a summary on Finish.
@@ -77,10 +75,9 @@ type Display struct {
 	startTime time.Time
 	reportDir string
 
-	// Fixed-region state: ordered eval slots, assigned on EventStarting.
+	// Dynamic eval lines — grows as evals start (not pre-allocated).
 	lines     []*evalLine
 	lineIndex map[string]int
-	nextSlot  int
 
 	// ANSI redraw timer
 	ticker *time.Ticker
@@ -128,12 +125,8 @@ func NewDisplay(cfg DisplayConfig) *Display {
 		ansi:      ansi,
 		startTime: time.Now(),
 		reportDir: cfg.ReportDir,
-		lines:     make([]*evalLine, cfg.Total),
+		lines:     []*evalLine{},
 		lineIndex: make(map[string]int),
-	}
-
-	for i := range d.lines {
-		d.lines[i] = &evalLine{status: evalPending}
 	}
 
 	if d.ansi && cfg.Total > 0 {
@@ -152,13 +145,12 @@ func NewDisplay(cfg DisplayConfig) *Display {
 
 // --- ANSI fixed-region rendering (terminal only) ---
 
-// buildRegion renders the full eval region (all lines + summary) into a buffer.
-// Writing this buffer as a single io.Writer call avoids partial renders
-// where the terminal processes some lines before the rest arrive.
+// buildRegion renders the eval region (started lines + summary) into a buffer.
+// Only lines for evals that have started are included — no waiting placeholders.
 func (d *Display) buildRegion() []byte {
 	var buf bytes.Buffer
-	for i := 0; i < d.total; i++ {
-		d.writeEvalLine(&buf, d.lines[i])
+	for _, l := range d.lines {
+		d.writeEvalLine(&buf, l)
 	}
 	buf.WriteByte('\n')
 	d.writeSummaryLine(&buf)
@@ -185,8 +177,6 @@ func (d *Display) redrawRegion() {
 
 func (d *Display) writeEvalLine(buf *bytes.Buffer, l *evalLine) {
 	switch l.status {
-	case evalPending:
-		fmt.Fprintf(buf, "  \033[2m⏳ (waiting)\033[0m\n")
 	case evalActive:
 		activity := l.activity
 		if activity == "" && l.phase != "" {
@@ -249,13 +239,11 @@ func (d *Display) getOrAssignSlot(evalID, promptID, configName string) int {
 	if idx, ok := d.lineIndex[evalID]; ok {
 		return idx
 	}
-	if d.nextSlot >= len(d.lines) {
-		return -1
-	}
-	idx := d.nextSlot
-	d.nextSlot++
+	idx := len(d.lines)
+	d.lines = append(d.lines, &evalLine{
+		name: promptID + "/" + configName,
+	})
 	d.lineIndex[evalID] = idx
-	d.lines[idx].name = promptID + "/" + configName
 	return idx
 }
 
@@ -274,9 +262,6 @@ func (d *Display) HandleEvent(evt ProgressEvent) {
 	switch evt.Type {
 	case EventStarting:
 		idx := d.getOrAssignSlot(evt.EvalID, evt.PromptID, evt.ConfigName)
-		if idx < 0 {
-			return
-		}
 		l := d.lines[idx]
 		l.status = evalActive
 		l.startTime = time.Now()

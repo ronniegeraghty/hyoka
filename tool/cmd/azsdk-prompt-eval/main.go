@@ -101,6 +101,7 @@ type runFlags struct {
 	progressMode string
 	skipTests    bool
 	skipReview   bool
+	skipTrends   bool
 	verifyBuild  bool
 	debug        bool
 	dryRun       bool
@@ -128,6 +129,7 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.progressMode, "progress", "auto", "Progress display mode: auto, live, log, off")
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "List matching prompts without running")
 	cmd.Flags().BoolVar(&f.useStub, "stub", false, "Use stub evaluator (no Copilot SDK)")
+	cmd.Flags().BoolVar(&f.skipTrends, "skip-trends", false, "Skip automatic trend analysis after run")
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
@@ -291,6 +293,45 @@ func runCmd() *cobra.Command {
 			fmt.Printf("  Errors:      %d\n", summary.Errors)
 			fmt.Printf("  Duration:    %.2fs\n", summary.Duration)
 
+			// Auto-run trend analysis unless opted out
+			if !f.skipTrends && !f.dryRun {
+				fmt.Printf("\n%s\n", strings.Repeat("─", 60))
+				fmt.Println("📊 Generating trend analysis...")
+
+				trendsOutputDir := filepath.Join(f.output, "trends")
+				tr, err := trends.Generate(trends.TrendOptions{
+					ReportsDir: f.output,
+					OutputDir:  trendsOutputDir,
+					Analyze:    false, // generate data first, analyze below
+				})
+				if err != nil {
+					fmt.Printf("⚠️  Trend generation failed: %v\n", err)
+				} else if tr.TotalRuns > 0 {
+					fmt.Println("🤖 Running AI-powered trend analysis...")
+					analysis, aErr := trends.AnalyzeTrends(context.Background(), tr)
+					if aErr != nil {
+						fmt.Printf("⚠️  AI analysis failed: %v (continuing without analysis)\n", aErr)
+					} else {
+						tr.Analysis = analysis
+						fmt.Println("\n--- AI Analysis ---")
+						fmt.Println(analysis)
+						fmt.Println("-------------------")
+					}
+
+					mdPath, _ := trends.WriteMarkdown(tr, trendsOutputDir)
+					htmlPath, _ := trends.WriteHTML(tr, trendsOutputDir)
+					if mdPath != "" {
+						fmt.Printf("Trend report (MD):   %s\n", mdPath)
+					}
+					if htmlPath != "" {
+						fmt.Printf("Trend report (HTML): %s\n", htmlPath)
+					}
+					fmt.Printf("Analyzed %d evaluation(s) across %d prompt(s)\n", tr.TotalRuns, len(tr.PromptTrends))
+				} else {
+					fmt.Println("No historical data found for trend analysis.")
+				}
+			}
+
 			return nil
 		},
 	}
@@ -426,7 +467,7 @@ func trendsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "trends",
 		Short: "Generate historical trend reports with time-series performance data",
-		Long:  "Scans all past runs in reports/ directory and generates a trend report with pass-rate timelines, duration trends, config comparisons, and regression detection. Use --analyze for AI-powered insights.",
+		Long:  "Scans all past runs in reports/ directory and generates a trend report with pass-rate timelines, duration trends, config comparisons, and regression detection. AI-powered insights are included by default; use --no-analyze to skip.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reportsDir = resolvePathFlag(cmd, "reports-dir", []string{"../reports", "./reports"})
 			if !cmd.Flags().Changed("output") {
@@ -486,7 +527,20 @@ func trendsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&language, "language", "", "Filter trends by programming language")
 	cmd.Flags().StringVar(&reportsDir, "reports-dir", "./reports", "Directory containing past evaluation reports")
 	cmd.Flags().StringVar(&output, "output", "./reports/trends", "Output directory for trend reports")
-	cmd.Flags().BoolVar(&analyze, "analyze", false, "Run Copilot-powered AI analysis of trends")
+	cmd.Flags().BoolVar(&analyze, "analyze", true, "Run AI-powered analysis of trends (enabled by default)")
+
+	// --no-analyze opt-out: cobra doesn't auto-generate negation flags,
+	// so we register a separate bool and reconcile in RunE.
+	var noAnalyze bool
+	cmd.Flags().BoolVar(&noAnalyze, "no-analyze", false, "Skip AI-powered trend analysis")
+	// Wire no-analyze into analyze before RunE executes
+	origRunE := cmd.RunE
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if noAnalyze {
+			analyze = false
+		}
+		return origRunE(cmd, args)
+	}
 
 	return cmd
 }

@@ -3,6 +3,7 @@
 /tool/sdk-eval.exe
 /tool/azsdk-prompt-eval
 /tool/azsdk-prompt-eval.exe
+bin/
 
 # IDE
 .vscode/
