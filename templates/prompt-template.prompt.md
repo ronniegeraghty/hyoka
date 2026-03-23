@@ -8,8 +8,7 @@ difficulty: # basic | intermediate | advanced
 description: >
   One to three sentences describing what this prompt tests.
 sdk_package: # e.g., Azure.Storage.Blobs
-api_version: # e.g., "2024-11-04"
-doc_url: # https://learn.microsoft.com/...
+doc_url: # Library reference docs (e.g., learn.microsoft.com API overview, pkg.go.dev, docs.rs)
 tags: []
 created: # YYYY-MM-DD
 author: # GitHub username
@@ -25,7 +24,7 @@ author: # GitHub username
 Write the exact prompt text here. Be specific about what you're asking the agent
 to accomplish using the Azure SDK.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The generated code should demonstrate:
 - Key API usage the prompt tests

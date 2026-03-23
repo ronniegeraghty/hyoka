@@ -23,8 +23,7 @@ prompts/{service}/{plane}/{language}/{slug}.prompt.md
 | `created` | ✅ | string | Date in `YYYY-MM-DD` format |
 | `author` | ✅ | string | GitHub username |
 | `sdk_package` | ❌ | string | Expected SDK package (e.g., `Azure.Storage.Blobs`) |
-| `api_version` | ❌ | string | API version string (e.g., `"2024-11-04"`) |
-| `doc_url` | ❌ | string | Link to relevant Microsoft Learn docs page |
+| `doc_url` | ❌ | string | Library reference docs URL (see doc_url convention below) |
 | `tags` | ❌ | list | Free-form tags for filtering (e.g., `[identity, getting-started]`) |
 | `expected_tools` | ❌ | list | Tool names the agent should use (e.g., `[create_file, run_terminal_command]`) |
 | `expected_packages` | ❌ | list | SDK packages the generated code should import |
@@ -44,6 +43,20 @@ prompts/{service}/{plane}/{language}/{slug}.prompt.md
 **Categories:** `authentication`, `pagination`, `polling`, `retries`, `error-handling`, `crud`, `batch`, `streaming`, `auth`, `provisioning`
 
 **Difficulties:** `basic`, `intermediate`, `advanced`
+
+### doc_url Convention
+
+The `doc_url` field should point to the **library's API reference docs**, not quickstarts or tutorials:
+
+| Language | URL Pattern | Example |
+|----------|-------------|---------|
+| Python | `learn.microsoft.com/en-us/python/api/overview/azure/{pkg}-readme` | `azure/identity-readme` |
+| .NET | `learn.microsoft.com/en-us/dotnet/api/overview/azure/{pkg}-readme` | `azure/storage.blobs-readme` |
+| Java | `learn.microsoft.com/en-us/java/api/overview/azure/{pkg}-readme` | `azure/cosmos-readme` |
+| JS/TS | `learn.microsoft.com/en-us/javascript/api/overview/azure/{pkg}-readme` | `azure/identity-readme` |
+| Go | `pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/...` | `sdk/azidentity` |
+| Rust | `docs.rs/{crate}/latest/{crate}/` | `azure_identity` |
+| C++ | `github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/...` | `sdk/identity/azure-identity` |
 
 ### ID Convention
 
@@ -73,14 +86,21 @@ Every `.prompt.md` file should have these sections after the frontmatter:
 
 The exact prompt text sent to the AI agent. Be specific and actionable.
 
-## Expected Coverage
+## Evaluation Criteria
 
 Bullet list of what the generated code should demonstrate.
+The review agent uses this (along with the general rubric) to score generated code.
 
 ## Context
 
 Why this prompt matters and what quality aspect it evaluates.
+(Human-readable only — not used by the eval tool.)
 ```
+
+**How sections flow through the eval tool:**
+- **Generator agent** receives ONLY the `## Prompt` text — no frontmatter, no evaluation criteria
+- **Review agent** receives the prompt text, generated code, the general rubric (`tool/internal/review/rubric.md`), AND the `## Evaluation Criteria` section
+- **`## Context`** is for human readers only — the eval tool ignores it entirely
 
 ## Writing Good Prompts
 
@@ -91,7 +111,7 @@ Why this prompt matters and what quality aspect it evaluates.
 - **Ask for complete, runnable code**: "Show the complete setup including required packages"
 - **Include realistic constraints**: "The code should work in a console app targeting .NET 8"
 - **Test one concept per prompt**: Focus on authentication, or pagination, or error handling — not all three
-- **Set clear expectations in Expected Coverage**: List specific APIs, patterns, and imports
+- **Set clear expectations in Evaluation Criteria**: List specific APIs, patterns, and imports
 
 ### DON'T ❌
 
@@ -132,8 +152,7 @@ description: >
   Can the docs help a developer authenticate to Azure Blob Storage
   using DefaultAzureCredential in .NET?
 sdk_package: Azure.Storage.Blobs
-api_version: "2024-11-04"
-doc_url: https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-dotnet-get-started
+doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
 tags:
   - identity
   - default-azure-credential
@@ -151,7 +170,7 @@ I need to create a BlobServiceClient that uses managed identity in production
 but falls back to Azure CLI credentials during local development.
 Show me the complete setup including required NuGet packages.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The generated code should demonstrate:
 - Azure.Identity and Azure.Storage.Blobs package setup
@@ -192,7 +211,7 @@ Write Azure storage code in C#.
 - No specific SDK package mentioned
 - Description is meaningless for reports
 - Missing `sdk_package`, `doc_url`, `tags`
-- No Expected Coverage section
+- No Evaluation Criteria section
 - No Context section
 
 ## CLI Scaffolding

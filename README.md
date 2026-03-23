@@ -195,10 +195,11 @@ azure-sdk-prompts/
 │   └── key-vault/
 │       └── ...
 ├── skills/                            # Copilot skills for eval sessions
-│   ├── code-review-comments/
-│   ├── reviewer-build/
-│   ├── sdk-version-check/
-│   └── prompt-authoring/              # Skill for authoring new prompts
+│   ├── generator/                     # Skills loaded only for the generator agent
+│   └── reviewer/                      # Skills loaded only for the review agent
+│       ├── code-review-comments/
+│       ├── reviewer-build/
+│       └── sdk-version-check/
 ├── tool/                              # Go eval tool (azsdk-prompt-eval)
 │   ├── cmd/azsdk-prompt-eval/main.go
 │   ├── go.mod / go.sum
@@ -241,7 +242,7 @@ Every prompt uses YAML frontmatter:
 | `created` | ✅ | Date (YYYY-MM-DD) |
 | `author` | ✅ | GitHub username |
 | `sdk_package` | ❌ | SDK package name |
-| `doc_url` | ❌ | Link to the docs page being evaluated |
+| `doc_url` | ❌ | Library reference docs (API overview, pkg.go.dev, docs.rs) |
 | `tags` | ❌ | Free-form tags for additional filtering |
 
 ## Roadmap
