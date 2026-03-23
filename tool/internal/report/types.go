@@ -53,6 +53,7 @@ type EvalReport struct {
 	PromptMeta     map[string]any       `json:"prompt_metadata"`
 	ConfigUsed     map[string]any       `json:"config_used"`
 	GeneratedFiles []string             `json:"generated_files"`
+	StarterFiles   []string             `json:"starter_files,omitempty"`
 	ReviewedFiles  []ReviewedFile       `json:"reviewed_files,omitempty"`
 	Build          *build.BuildResult   `json:"build,omitempty"`
 	Verification   *VerifyResult        `json:"verification,omitempty"`
@@ -80,4 +81,5 @@ type RunSummary struct {
 	Duration     float64       `json:"duration_seconds"`
 	Reports      []string      `json:"report_paths"`
 	Results      []*EvalReport `json:"results,omitempty"`
+	Analysis     string        `json:"analysis,omitempty"`
 }

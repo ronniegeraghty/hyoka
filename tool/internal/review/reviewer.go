@@ -83,15 +83,47 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		}
 	}()
 
-	// Capture the assistant's response
+	// Capture the assistant's response and all session events
 	var assistantContent strings.Builder
+	var reviewEvents []ReviewEvent
 	var mu sync.Mutex
 	unsub := session.On(func(event copilot.SessionEvent) {
+		mu.Lock()
+		defer mu.Unlock()
+
 		if event.Type == copilot.SessionEventTypeAssistantMessage && event.Data.Content != nil {
-			mu.Lock()
 			assistantContent.WriteString(*event.Data.Content)
-			mu.Unlock()
 		}
+
+		// Capture all events for the report timeline
+		evt := ReviewEvent{Type: string(event.Type)}
+		if event.Data.ToolName != nil {
+			evt.ToolName = *event.Data.ToolName
+		}
+		if event.Data.Content != nil {
+			evt.Content = *event.Data.Content
+		}
+		if event.Data.Arguments != nil {
+			if argsBytes, err := json.Marshal(event.Data.Arguments); err == nil {
+				evt.ToolArgs = string(argsBytes)
+			}
+		}
+		if event.Data.Result != nil {
+			if event.Data.Result.Content != nil {
+				evt.Result = *event.Data.Result.Content
+			}
+		}
+		if event.Data.Error != nil {
+			if event.Data.Error.ErrorClass != nil {
+				evt.Error = event.Data.Error.ErrorClass.Message
+			} else if event.Data.Error.String != nil {
+				evt.Error = *event.Data.Error.String
+			}
+		}
+		if event.Data.Duration != nil {
+			evt.Duration = *event.Data.Duration
+		}
+		reviewEvents = append(reviewEvents, evt)
 	})
 	defer unsub()
 
@@ -104,9 +136,16 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 
 	mu.Lock()
 	responseText := assistantContent.String()
+	capturedEvents := make([]ReviewEvent, len(reviewEvents))
+	copy(capturedEvents, reviewEvents)
 	mu.Unlock()
 
-	return parseReviewResponse(responseText)
+	result, err := parseReviewResponse(responseText)
+	if err != nil {
+		return nil, err
+	}
+	result.Events = capturedEvents
+	return result, nil
 }
 
 // StubReviewer returns placeholder review results for testing.

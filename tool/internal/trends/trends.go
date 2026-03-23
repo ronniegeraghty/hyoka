@@ -578,13 +578,15 @@ fmt.Fprintf(b, `<!DOCTYPE html>
   .alerts { background: var(--red-bg); border: 1px solid #fecaca; border-radius: 10px; padding: 1.25rem; margin: 1.5rem 0; }
   .alerts h2 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--red); }
   .alerts ul { margin: 0; padding-left: 1.25rem; } .alerts li { margin: 0.25rem 0; font-size: 0.9rem; }
-  table { width: 100%%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; }
-  th { background: #f1f5f9; padding: 0.5rem 0.6rem; text-align: center; font-size: 0.75rem; color: var(--text-muted); border-bottom: 2px solid var(--border); white-space: nowrap; }
-  th:first-child, th:nth-child(2) { text-align: left; }
-  td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #f1f5f9; font-size: 0.82rem; text-align: center; vertical-align: middle; }
-  td:first-child { text-align: left; font-weight: 600; font-size: 0.8rem; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table { width: 100%%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; table-layout: fixed; }
+  th { background: #f1f5f9; padding: 0.5rem 0.6rem; text-align: center; font-size: 0.75rem; color: var(--text-muted); border-bottom: 2px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  th:first-child { text-align: left; width: 200px; }
+  th:nth-child(2) { text-align: left; width: 110px; }
+  th:last-child { width: 100px; }
+  td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #f1f5f9; font-size: 0.82rem; text-align: center; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+  td:first-child { text-align: left; font-weight: 600; font-size: 0.8rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   td:nth-child(2) { text-align: left; font-family: monospace; font-size: 0.78rem; }
-  .cell { position: relative; min-width: 60px; }
+  .cell { position: relative; min-width: 70px; white-space: nowrap; }
   .cell-pass { background: var(--green-bg); }
   .cell-fail { background: var(--red-bg); }
   .cell-icon { font-size: 1rem; }
@@ -597,7 +599,7 @@ fmt.Fprintf(b, `<!DOCTYPE html>
   .badge-regressing { background: var(--red-bg); color: #b91c1c; }
   .badge-flaky { background: var(--yellow-bg); color: #a16207; }
   .badge-new { background: var(--blue-bg); color: var(--blue); }
-  .config-table { margin-top: 1rem; }
+  .config-table { margin-top: 1rem; table-layout: auto; }
   .config-table td, .config-table th { text-align: left; padding: 0.5rem 0.75rem; }
   .prompt-group td:first-child { border-top: 2px solid var(--border); }
   .empty-cell { color: #cbd5e1; }
@@ -677,6 +679,12 @@ if len(displayIDs) > 10 {
 displayIDs = displayIDs[len(displayIDs)-10:]
 }
 
+// Build displayID set for filtering
+displayIDSet := make(map[string]bool, len(displayIDs))
+for _, id := range displayIDs {
+displayIDSet[id] = true
+}
+
 b.WriteString("<table>\n<thead><tr>\n")
 b.WriteString("  <th>Prompt</th>\n  <th>Config</th>\n")
 for i, rid := range displayIDs {
@@ -690,6 +698,23 @@ b.WriteString("  <th>Trend</th>\n")
 b.WriteString("</tr></thead>\n<tbody>\n")
 
 for _, pt := range tr.PromptTrends {
+// Skip prompts with no results in the displayed runs
+hasDisplayedResult := false
+for _, runs := range pt.Configs {
+for _, r := range runs {
+if displayIDSet[r.RunID] {
+hasDisplayedResult = true
+break
+}
+}
+if hasDisplayedResult {
+break
+}
+}
+if !hasDisplayedResult {
+continue
+}
+
 configs := sortedConfigNames(pt.Configs)
 firstRow := true
 for _, cfg := range configs {

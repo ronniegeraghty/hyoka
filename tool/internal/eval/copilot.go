@@ -60,6 +60,7 @@ func NewCopilotSDKEvaluator(opts CopilotEvalOptions) *CopilotSDKEvaluator {
 // Evaluate runs a prompt through a real Copilot session and returns generated files and events.
 func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cfg *config.ToolConfig, workDir string) (*EvalResult, error) {
 	// Copy starter project if configured
+	var starterFiles []string
 	if p.StarterProject != "" {
 		starterDir := p.StarterProject
 		if !filepath.IsAbs(starterDir) && p.FilePath != "" {
@@ -68,6 +69,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		if err := copyDir(starterDir, workDir); err != nil {
 			return nil, fmt.Errorf("copying starter project: %w", err)
 		}
+		starterFiles, _ = listFiles(workDir)
 	}
 
 	// Create Copilot client
@@ -340,6 +342,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		SessionEvents:  capturedRecords,
 		Success:        !hasError,
 		Error:          "",
+		StarterFiles:   starterFiles,
 	}, nil
 }
 

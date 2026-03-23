@@ -9,10 +9,11 @@ import (
 	"strings"
 )
 
-// Workspace manages a temporary directory for an evaluation run.
+// Workspace manages a directory for an evaluation run.
 type Workspace struct {
 	BaseDir string
 	Dir     string
+	persist bool // if true, Cleanup is a no-op
 }
 
 // NewWorkspace creates a new workspace in the OS temp directory.
@@ -31,8 +32,24 @@ func NewWorkspace(promptID, configName string) (*Workspace, error) {
 	}, nil
 }
 
-// Cleanup removes the workspace directory.
+// NewWorkspaceAt creates a persistent workspace at the given directory.
+// The directory is created if it doesn't exist. Cleanup is a no-op.
+func NewWorkspaceAt(dir string) (*Workspace, error) {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("creating workspace directory: %w", err)
+	}
+	return &Workspace{
+		BaseDir: filepath.Dir(dir),
+		Dir:     dir,
+		persist: true,
+	}, nil
+}
+
+// Cleanup removes the workspace directory (no-op for persistent workspaces).
 func (w *Workspace) Cleanup() error {
+	if w.persist {
+		return nil
+	}
 	return os.RemoveAll(w.Dir)
 }
 

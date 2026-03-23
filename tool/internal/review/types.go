@@ -11,11 +11,23 @@ type ReviewScores struct {
 	ReferenceSimilarity int `json:"reference_similarity,omitempty"`
 }
 
+// ReviewEvent captures a single event from the review Copilot session.
+type ReviewEvent struct {
+	Type     string  `json:"type"`
+	ToolName string  `json:"tool_name,omitempty"`
+	ToolArgs string  `json:"tool_args,omitempty"`
+	Content  string  `json:"content,omitempty"`
+	Result   string  `json:"result,omitempty"`
+	Error    string  `json:"error,omitempty"`
+	Duration float64 `json:"duration_ms,omitempty"`
+}
+
 // ReviewResult holds the full output from an LLM-as-judge code review.
 type ReviewResult struct {
-	Scores       ReviewScores `json:"scores"`
-	OverallScore int          `json:"overall_score"`
-	Summary      string       `json:"summary"`
-	Issues       []string     `json:"issues"`
-	Strengths    []string     `json:"strengths"`
+	Scores       ReviewScores  `json:"scores"`
+	OverallScore int           `json:"overall_score"`
+	Summary      string        `json:"summary"`
+	Issues       []string      `json:"issues"`
+	Strengths    []string      `json:"strengths"`
+	Events       []ReviewEvent `json:"events,omitempty"`
 }

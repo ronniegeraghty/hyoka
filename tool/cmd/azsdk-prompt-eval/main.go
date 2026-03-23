@@ -17,6 +17,7 @@ import (
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/eval"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/prompt"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/rerender"
+	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/report"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/review"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/trends"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/validate"
@@ -371,6 +372,12 @@ func runCmd() *cobra.Command {
 						fmt.Println("\n--- AI Analysis ---")
 						fmt.Println(analysis)
 						fmt.Println("-------------------")
+
+						// Re-write summary HTML with AI analysis included (Issue 7)
+						summary.Analysis = analysis
+						if _, err := report.WriteSummaryHTML(summary, f.output); err != nil {
+							fmt.Printf("⚠️  Failed to update summary with analysis: %v\n", err)
+						}
 					}
 
 					mdPath, _ := trends.WriteMarkdown(tr, trendsOutputDir)

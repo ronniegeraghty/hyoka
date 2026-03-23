@@ -28,6 +28,7 @@ type EvalResult struct {
 	Error          string
 	ErrorDetails   string
 	IsStub         bool
+	StarterFiles   []string
 }
 
 // CopilotEvaluator defines the interface for running evaluations.
@@ -193,6 +194,9 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 			evtType := progress.EventPassed
 			msg := ""
 			reviewScore := 0
+			if evalReport.Review != nil {
+				reviewScore = evalReport.Review.OverallScore
+			}
 			if evalReport.Error != "" {
 				evtType = progress.EventError
 				msg = "ERROR"
@@ -200,10 +204,6 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 				evtType = progress.EventFailed
 				if evalReport.Verification != nil && !evalReport.Verification.Pass {
 					msg = "verification failed"
-				}
-			} else {
-				if evalReport.Review != nil {
-					reviewScore = evalReport.Review.OverallScore
 				}
 			}
 			display.HandleEvent(progress.ProgressEvent{
@@ -266,30 +266,38 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		ConfigName: task.Config.Name,
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
 		PromptMeta: map[string]any{
-			"service":  task.Prompt.Service,
-			"plane":    task.Prompt.Plane,
-			"language": task.Prompt.Language,
-			"category": task.Prompt.Category,
+			"service":     task.Prompt.Service,
+			"plane":       task.Prompt.Plane,
+			"language":    task.Prompt.Language,
+			"category":    task.Prompt.Category,
+			"description": task.Prompt.Description,
+			"difficulty":  task.Prompt.Difficulty,
+			"sdk_package": task.Prompt.SDKPackage,
 		},
 		ConfigUsed: map[string]any{
 			"name":  task.Config.Name,
 			"model": task.Config.Model,
 		},
 	}
+	if len(task.Prompt.Tags) > 0 {
+		evalReport.PromptMeta["tags"] = strings.Join(task.Prompt.Tags, ", ")
+	}
 
 	if e.opts.Debug {
 		log.Printf("[DEBUG] %s: Starting Copilot session...", debugPrefix)
 	}
 
-	// Setup workspace in OS temp dir (ephemeral)
-	ws, err := NewWorkspace(task.Prompt.ID, task.Config.Name)
+	// Build the report directory path early — workspace lives in the report tree (Issue 2)
+	reportDir := filepath.Join(report.ReportDir(e.opts.OutputDir, runID, task.Prompt), task.Config.Name)
+	codeDir := filepath.Join(reportDir, "generated-code")
+
+	ws, err := NewWorkspaceAt(codeDir)
 	if err != nil {
 		evalReport.Error = fmt.Sprintf("workspace setup failed: %v", err)
 		evalReport.ErrorDetails = err.Error()
 		evalReport.Duration = time.Since(start).Seconds()
 		return evalReport
 	}
-	defer ws.Cleanup()
 
 	if e.opts.Debug {
 		log.Printf("[DEBUG] %s: Workspace: %s", debugPrefix, ws.Dir)
@@ -298,10 +306,10 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	// Run evaluation
 	sendPhase(progress.PhaseGenerating)
 	result, err := e.evaluator.Evaluate(evalCtx, task.Prompt, &task.Config, ws.Dir)
-	if err != nil {
+	evalFailed := err != nil
+	if evalFailed {
 		evalReport.Error = fmt.Sprintf("evaluation failed: %v", err)
 		evalReport.ErrorDetails = err.Error()
-		evalReport.Duration = time.Since(start).Seconds()
 		// Capture whatever session events were collected before failure
 		if result != nil {
 			evalReport.SessionEvents = result.SessionEvents
@@ -309,26 +317,29 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			evalReport.ToolCalls = result.ToolCalls
 			evalReport.IsStub = result.IsStub
 		}
-		return evalReport
+		// Don't return early — continue to collect files and run review for diagnostics
 	}
 
-	evalReport.EventCount = result.EventCount
-	evalReport.ToolCalls = result.ToolCalls
-	evalReport.SessionEvents = result.SessionEvents
-	evalReport.IsStub = result.IsStub
-	evalReport.Success = result.Success
+	if result != nil && !evalFailed {
+		evalReport.EventCount = result.EventCount
+		evalReport.ToolCalls = result.ToolCalls
+		evalReport.SessionEvents = result.SessionEvents
+		evalReport.IsStub = result.IsStub
+		evalReport.Success = result.Success
+		evalReport.StarterFiles = result.StarterFiles
+	}
 
-	// Collect generated files from workspace
+	// Collect generated files from workspace (may have files even after error)
 	generatedFiles, _ := ws.ListFiles()
 	evalReport.GeneratedFiles = generatedFiles
 
 	if e.opts.Debug {
 		log.Printf("[DEBUG] %s: Session complete: %d tool calls, %d files generated, %s",
-			debugPrefix, len(result.ToolCalls), len(generatedFiles), time.Since(start).Truncate(time.Millisecond))
+			debugPrefix, len(evalReport.ToolCalls), len(generatedFiles), time.Since(start).Truncate(time.Millisecond))
 	}
 
-	// Copilot-based verification
-	if e.verifier != nil {
+	// Copilot-based verification (skip if eval hard-failed with no files)
+	if e.verifier != nil && len(generatedFiles) > 0 {
 		sendPhase(progress.PhaseVerifying)
 		if e.opts.Debug {
 			log.Printf("[DEBUG] %s: Starting verification session...", debugPrefix)
@@ -336,12 +347,16 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		verifyResult, err := e.verifier.Verify(evalCtx, task.Prompt.PromptText, ws.Dir, task.Prompt.ExpectedCoverage)
 		if err != nil {
 			log.Printf("%s: verification error: %v", debugPrefix, err)
-			evalReport.Error = fmt.Sprintf("verification error: %v", err)
-			evalReport.ErrorDetails = err.Error()
+			if evalReport.Error == "" {
+				evalReport.Error = fmt.Sprintf("verification error: %v", err)
+				evalReport.ErrorDetails = err.Error()
+			}
 			evalReport.Success = false
 		} else {
 			evalReport.Verification = verifyResult
-			evalReport.Success = verifyResult.Pass
+			if !evalFailed {
+				evalReport.Success = verifyResult.Pass
+			}
 			if e.opts.Debug {
 				passStr := "FAIL"
 				if verifyResult.Pass {
@@ -353,12 +368,14 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	}
 
 	// Optional build verification (--verify-build flag)
-	if e.opts.VerifyBuild {
+	if e.opts.VerifyBuild && len(generatedFiles) > 0 {
 		buildResult, err := build.Verify(evalCtx, task.Prompt.Language, ws.Dir)
 		if err != nil {
 			log.Printf("%s: build verification error: %v", debugPrefix, err)
-			evalReport.Error = fmt.Sprintf("build verification error: %v", err)
-			evalReport.ErrorDetails = err.Error()
+			if evalReport.Error == "" {
+				evalReport.Error = fmt.Sprintf("build verification error: %v", err)
+				evalReport.ErrorDetails = err.Error()
+			}
 			evalReport.Success = false
 		} else {
 			evalReport.Build = buildResult
@@ -368,8 +385,8 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		}
 	}
 
-	// Code review (unless skipped)
-	if !e.opts.SkipReview && e.reviewer != nil {
+	// Code review — always run if reviewer is available and files exist (Issue 4)
+	if !e.opts.SkipReview && e.reviewer != nil && len(generatedFiles) > 0 {
 		sendPhase(progress.PhaseReviewing)
 		if e.opts.Debug {
 			log.Printf("[DEBUG] %s: Starting review session...", debugPrefix)
@@ -402,7 +419,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Tool usage evaluation (compare expected vs actual tools)
 	if len(task.Prompt.ExpectedTools) > 0 {
-		evalReport.ToolUsage = evaluateToolUsage(task.Prompt.ExpectedTools, result.ToolCalls)
+		evalReport.ToolUsage = evaluateToolUsage(task.Prompt.ExpectedTools, evalReport.ToolCalls)
 		if e.opts.Debug {
 			log.Printf("[DEBUG] %s: Tool usage: match=%v, matched=%v, missing=%v",
 				debugPrefix, evalReport.ToolUsage.Match, evalReport.ToolUsage.MatchedTools, evalReport.ToolUsage.MissingTools)
@@ -410,21 +427,6 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	}
 
 	evalReport.Duration = time.Since(start).Seconds()
-
-	// Build the report directory path (includes config name)
-	reportDir := filepath.Join(report.ReportDir(e.opts.OutputDir, runID, task.Prompt), task.Config.Name)
-
-	// Copy generated files from temp workspace into report under generated-code/
-	if len(generatedFiles) > 0 {
-		codeDir := filepath.Join(reportDir, "generated-code")
-		if _, err := ws.CopyFilesTo(codeDir); err != nil {
-			if e.opts.Debug {
-				log.Printf("[DEBUG] %s: ERROR: failed to copy generated files: %v", debugPrefix, err)
-			}
-		} else if e.opts.Debug {
-			log.Printf("[DEBUG] %s: Copied %d generated files to %s", debugPrefix, len(generatedFiles), codeDir)
-		}
-	}
 
 	// Copy reviewed (annotated) files into report under reviewed-code/
 	if len(evalReport.ReviewedFiles) > 0 {

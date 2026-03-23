@@ -34,6 +34,10 @@ func WriteHTMLReport(r *EvalReport, outputDir string, runID string, service, pla
 
 	data := buildReportData(r)
 
+	// Read file contents from the generated-code directory for expandable display (Issue 3)
+	codeDir := filepath.Join(reportDir, "generated-code")
+	data.FileContents = readFileContents(codeDir, r.GeneratedFiles, r.StarterFiles)
+
 	if err := parsedReportTemplate.Execute(f, data); err != nil {
 		return "", fmt.Errorf("executing report template: %w", err)
 	}
@@ -155,6 +159,7 @@ type ReportTemplateData struct {
 	ToolActions   []ToolAction
 	TimelineSteps []TimelineStep
 	FileCount     int
+	FileContents  map[string]string // filename → content for expandable display
 }
 
 // ToolAction represents one tool invocation extracted from session events.
@@ -323,6 +328,32 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 	return d
 }
 
+// readFileContents reads file contents from the code directory for display in the HTML report.
+// If starterFiles is non-empty, only files NOT in the starter set are included.
+func readFileContents(codeDir string, files []string, starterFiles []string) map[string]string {
+	contents := make(map[string]string)
+	starterSet := make(map[string]bool, len(starterFiles))
+	for _, f := range starterFiles {
+		starterSet[f] = true
+	}
+	for _, f := range files {
+		if len(starterFiles) > 0 && starterSet[f] {
+			continue // skip unchanged starter project files
+		}
+		path := filepath.Join(codeDir, f)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		if len(data) > 512*1024 {
+			contents[f] = "(file too large to display)"
+			continue
+		}
+		contents[f] = string(data)
+	}
+	return contents
+}
+
 func htmlFuncMap() template.FuncMap {
 	return template.FuncMap{
 		"scoreColor": func(score int) string {
@@ -407,6 +438,7 @@ func htmlFuncMap() template.FuncMap {
 			}
 		},
 		"hasPrefix": strings.HasPrefix,
+		"contains":  strings.Contains,
 		"boolStr": func(b *bool) string {
 			if b == nil {
 				return ""
@@ -492,6 +524,8 @@ const reportTemplate = `<!DOCTYPE html>
   .file-card-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #1e293b; color: #e2e8f0; font-family: monospace; font-size: 0.85rem; }
   .file-card-header .file-icon { opacity: 0.7; }
   .file-card pre { margin: 0; border-radius: 0; }
+  .file-card details { margin: 0; }
+  .file-card details > summary { padding: 0.4rem 1rem; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); }
 
   /* Scores grid */
   .scores-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin: 0.75rem 0; }
@@ -523,6 +557,9 @@ const reportTemplate = `<!DOCTYPE html>
   /* Review comment highlighting */
   .review-comment { background: #fef3c7; color: #92400e; display: block; border-left: 3px solid #f59e0b; padding-left: 0.5rem; margin: 1px 0; }
   .reviewed-file pre { white-space: pre-wrap; word-break: break-word; }
+
+  /* Tags */
+  .tag { display: inline-block; background: #f3f0ff; color: var(--purple); padding: 1px 8px; border-radius: 12px; font-size: 0.78rem; margin: 1px 2px; }
 
   /* ━━ Timeline ━━ */
   .phase { margin-bottom: 1.5rem; }
@@ -590,6 +627,25 @@ const reportTemplate = `<!DOCTYPE html>
   <h3>❌ Error</h3>
   <p>{{.Error}}</p>
   {{if .ErrorDetails}}<details><summary>Full error details</summary><pre>{{.ErrorDetails}}</pre></details>{{end}}
+</div>
+{{end}}
+
+<!-- ━━ Prompt Details (Issue 6) ━━ -->
+{{if .PromptMeta}}
+<div class="section">
+  <div class="section-header"><span class="icon">📋</span><h2>Prompt Details</h2></div>
+  <div class="section-body">
+    <table class="meta-table">
+      {{with index .PromptMeta "description"}}{{if .}}<tr><td>Description</td><td>{{.}}</td></tr>{{end}}{{end}}
+      {{with index .PromptMeta "difficulty"}}{{if .}}<tr><td>Difficulty</td><td>{{.}}</td></tr>{{end}}{{end}}
+      <tr><td>Service</td><td>{{index .PromptMeta "service"}}</td></tr>
+      <tr><td>Plane</td><td>{{index .PromptMeta "plane"}}</td></tr>
+      <tr><td>Language</td><td>{{index .PromptMeta "language"}}</td></tr>
+      <tr><td>Category</td><td>{{index .PromptMeta "category"}}</td></tr>
+      {{with index .PromptMeta "sdk_package"}}{{if .}}<tr><td>SDK Package</td><td><code>{{.}}</code></td></tr>{{end}}{{end}}
+      {{with index .PromptMeta "tags"}}{{if .}}<tr><td>Tags</td><td>{{.}}</td></tr>{{end}}{{end}}
+    </table>
+  </div>
 </div>
 {{end}}
 
@@ -680,7 +736,7 @@ const reportTemplate = `<!DOCTYPE html>
 </div>
 {{end}}
 
-<!-- ━━ Code Review ━━ -->
+<!-- ━━ Code Review (Issue 1: show review session events) ━━ -->
 {{if .Review}}
 <div class="phase phase-review">
   <div class="phase-header"><span>📊</span> Code Review <span style="margin-left:auto;font-size:0.85rem">Score: {{.Review.OverallScore}}/10</span></div>
@@ -722,11 +778,40 @@ const reportTemplate = `<!DOCTYPE html>
       </div>
     </div>
     {{end}}
+    {{if .Review.Events}}
+    <div class="tl-step">
+      <div class="tl-marker">🔍</div>
+      <div class="tl-card">
+        <div class="tl-title">Review Session Activity</div>
+        <details><summary>Show reviewer tool calls and analysis ({{len .Review.Events}} events)</summary>
+        <div style="margin-top:0.5rem">
+        {{range .Review.Events}}
+          {{if eq .Type "tool.execution_complete"}}
+          <div style="margin:0.5rem 0;padding:0.5rem;border-left:3px solid var(--purple);background:#faf5ff;border-radius:0 4px 4px 0">
+            <div style="font-weight:600;font-size:0.85rem;font-family:monospace;color:var(--purple)">🔧 {{.ToolName}}{{if gt .Duration 0.0}} <span style="font-weight:400;color:var(--text-muted)">({{printf "%.0fms" .Duration}})</span>{{end}}</div>
+            {{if .Result}}<pre style="font-size:0.78rem;max-height:200px;overflow-y:auto;margin:0.25rem 0 0 0">{{truncate .Result 2000}}</pre>{{end}}
+            {{if .Error}}<div style="color:var(--red);font-size:0.8rem;margin-top:0.25rem">❌ {{.Error}}</div>{{end}}
+          </div>
+          {{end}}
+          {{if eq .Type "assistant.message"}}
+          {{if .Content}}
+          <div style="margin:0.5rem 0;padding:0.5rem;border-left:3px solid #93c5fd;background:#eff6ff;border-radius:0 4px 4px 0">
+            <div style="font-size:0.8rem;color:var(--text-muted)">💬 Reviewer</div>
+            <pre style="font-size:0.78rem;max-height:200px;overflow-y:auto;margin:0.25rem 0 0 0">{{truncate .Content 2000}}</pre>
+          </div>
+          {{end}}
+          {{end}}
+        {{end}}
+        </div>
+        </details>
+      </div>
+    </div>
+    {{end}}
   </div>
 </div>
 {{end}}
 
-<!-- ━━ Generated Files ━━ -->
+<!-- ━━ Generated Files (Issue 3: expandable contents) ━━ -->
 {{if .GeneratedFiles}}
 <div class="section">
   <div class="section-header"><span class="icon">📁</span><h2>Generated Files ({{.FileCount}})</h2></div>
@@ -735,6 +820,12 @@ const reportTemplate = `<!DOCTYPE html>
     {{range .GeneratedFiles}}
     <div class="file-card">
       <div class="file-card-header"><span class="file-icon">📄</span> {{.}}</div>
+      {{with index $.FileContents .}}
+      <details>
+        <summary>Show contents</summary>
+        <pre>{{.}}</pre>
+      </details>
+      {{end}}
     </div>
     {{end}}
   </div>
@@ -794,6 +885,9 @@ const summaryTemplate = `<!DOCTYPE html>
   .stat { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; text-align: center; min-width: 110px; }
   .stat-value { font-size: 1.5rem; font-weight: 700; }
   .stat-label { font-size: 0.8rem; color: var(--text-muted); }
+  .analysis { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1.5rem; margin: 1.5rem 0; }
+  .analysis h2 { margin: 0 0 0.75rem; font-size: 1.1rem; }
+  .analysis-content { white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6; }
   table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   th { background: #f8fafc; padding: 0.75rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); border-bottom: 2px solid var(--border); }
   th:first-child { text-align: left; }
@@ -826,6 +920,14 @@ const summaryTemplate = `<!DOCTYPE html>
   <div class="stat"><div class="stat-value">{{fmtDuration .Summary.Duration}}</div><div class="stat-label">Duration</div></div>
 </div>
 
+<!-- ━━ AI Analysis (Issue 7) ━━ -->
+{{if .Summary.Analysis}}
+<div class="analysis">
+  <h2>🤖 AI Analysis</h2>
+  <div class="analysis-content">{{.Summary.Analysis}}</div>
+</div>
+{{end}}
+
 {{if .Matrix}}
 <h2>Prompt × Config Matrix</h2>
 <table>
@@ -842,15 +944,12 @@ const summaryTemplate = `<!DOCTYPE html>
       {{range $config := $.Matrix.Configs}}
       <td>
         {{with index (index $.Matrix.Cells $prompt) $config}}
-          {{if .Error}}<div class="cell-error">⚠️ Error</div>
-          {{else}}
-            <div class="cell-icon">{{statusIcon .Success}}</div>
-            {{if .HasReview}}<div class="cell-score" style="color:{{scoreColor .Score}}">{{.Score}}/10</div>{{end}}
-            <div class="cell-duration">{{fmtDuration .Duration}}</div>
-            <div class="cell-files">{{.FileCount}} files</div>
-            {{if .ToolCalls}}<div class="cell-tools">{{join .ToolCalls ", "}}</div>{{end}}
-            {{if .ReportLink}}<div class="cell-link"><a href="{{.ReportLink}}">View Report →</a></div>{{end}}
-          {{end}}
+          <div class="cell-icon">{{statusIcon .Success}}</div>
+          {{if .Error}}<div class="cell-error" style="font-size:0.7rem">⚠️ Error</div>{{end}}
+          {{if .HasReview}}<div class="cell-score" style="color:{{scoreColor .Score}}">{{.Score}}/10</div>{{end}}
+          <div class="cell-duration">{{fmtDuration .Duration}}</div>
+          <div class="cell-files">{{.FileCount}} files</div>
+          {{if .ReportLink}}<div class="cell-link"><a href="{{.ReportLink}}">View Report →</a></div>{{end}}
         {{else}}<span style="color:#d1d5db">—</span>{{end}}
       </td>
       {{end}}
@@ -881,12 +980,12 @@ const summaryTemplate = `<!DOCTYPE html>
     <tr>
       <td><code>{{.PromptID}}</code></td>
       <td>{{.ConfigName}}</td>
-      <td>{{statusIcon .Success}}</td>
+      <td>{{if .Error}}⚠️{{else}}{{statusIcon .Success}}{{end}}</td>
       <td>{{if .Review}}<span style="color:{{scoreColor .Review.OverallScore}};font-weight:700">{{.Review.OverallScore}}/10</span>{{else}}—{{end}}</td>
       <td>{{fmtDuration .Duration}}</td>
       <td>{{len .GeneratedFiles}}</td>
       <td>{{range .ToolCalls}}<span class="tool-tag">{{.}}</span>{{end}}</td>
-      <td>{{if not .Error}}{{with reportLink .}}<a href="{{.}}">View →</a>{{end}}{{end}}</td>
+      <td>{{with reportLink .}}<a href="{{.}}">View →</a>{{end}}</td>
     </tr>
     {{end}}
   </tbody>
