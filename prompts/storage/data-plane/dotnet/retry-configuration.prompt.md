@@ -34,7 +34,7 @@ Show me how to configure BlobClientOptions with custom RetryOptions,
 and explain which HTTP status codes the SDK considers retryable by default.
 Use the Azure.Storage.Blobs SDK.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `BlobClientOptions.Retry` configuration with `RetryOptions`
 - `MaxRetries`, `Delay`, `MaxDelay`, `Mode` (Exponential vs Fixed)

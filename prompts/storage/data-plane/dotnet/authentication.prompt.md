@@ -9,7 +9,6 @@ description: >
   Can the docs help a developer authenticate to Azure Blob Storage
   using DefaultAzureCredential in .NET?
 sdk_package: Azure.Storage.Blobs
-api_version: "2024-11-04"
 doc_url: https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-dotnet-get-started
 tags:
   - identity
@@ -28,7 +27,7 @@ I need to create a BlobServiceClient that uses managed identity in production
 but falls back to Azure CLI credentials during local development.
 Show me the complete setup including required NuGet packages.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Installing `Azure.Identity` and `Azure.Storage.Blobs` packages

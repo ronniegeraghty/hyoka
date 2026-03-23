@@ -28,7 +28,7 @@ Show me idiomatic try/except patterns with the azure-storage-blob SDK including
 how to inspect the status_code and error_code on HttpResponseError.
 Also explain the difference between HttpResponseError and ResourceNotFoundError.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `HttpResponseError` as the base exception type
 - Specific exceptions: `ResourceNotFoundError`, `ResourceExistsError`

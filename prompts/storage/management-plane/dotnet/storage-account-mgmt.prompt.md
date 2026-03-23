@@ -9,7 +9,6 @@ description: >
   Can a developer create, configure, and manage Azure Storage Accounts
   using the .NET management SDK documentation?
 sdk_package: Azure.ResourceManager.Storage
-api_version: "2023-05-01"
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager.storage-readme
 tags:
   - storage-account
@@ -35,7 +34,7 @@ Azure Storage Accounts using the management plane SDK:
 Show required NuGet packages and proper error handling.
 Use the Azure.ResourceManager.Storage SDK.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `Azure.ResourceManager.Storage` NuGet package

@@ -9,7 +9,6 @@ description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
   using the .NET SDK documentation?
 sdk_package: Azure.Identity
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/dotnet/azure/sdk/authentication/
 tags:
   - authentication
@@ -34,7 +33,7 @@ an Azure SDK client using DefaultAzureCredential in C#. Explain:
 Provide a complete, runnable example that creates a BlobServiceClient using
 DefaultAzureCredential.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `Azure.Identity` NuGet package installation

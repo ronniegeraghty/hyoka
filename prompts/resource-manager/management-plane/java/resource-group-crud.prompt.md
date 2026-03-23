@@ -9,7 +9,6 @@ description: >
   Can a developer create, list, update, and delete Azure Resource Groups
   using the Java management SDK documentation?
 sdk_package: azure-resourcemanager-resources
-api_version: "2024-03-01"
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/resourcemanager-resources-readme
 tags:
   - resource-groups
@@ -36,7 +35,7 @@ Azure Resource Groups using the management plane SDK:
 Show required Maven dependencies and include proper exception handling.
 Use the modern azure-resourcemanager SDK.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Maven dependency for `azure-resourcemanager` and `azure-identity`

@@ -34,7 +34,7 @@ performs CRUD operations on Azure Blob Storage:
 Show required npm packages and proper error handling with RestError.
 Use async/await throughout.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - Installing `@azure/storage-blob` and `@azure/identity` packages
 - `BlobServiceClient` construction with `DefaultAzureCredential`

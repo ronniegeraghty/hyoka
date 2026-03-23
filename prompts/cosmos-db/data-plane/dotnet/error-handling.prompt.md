@@ -29,7 +29,7 @@ catch CosmosException, extract the status code and retry-after header,
 and implement proper retry logic. Also cover handling 404 (item not found)
 and 409 (conflict) responses. Use the Microsoft.Azure.Cosmos SDK v3.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `CosmosException` as the primary exception type
 - Extracting `StatusCode`, `SubStatusCode`, and `RetryAfter` properties

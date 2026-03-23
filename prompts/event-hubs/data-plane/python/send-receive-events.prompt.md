@@ -9,7 +9,6 @@ description: >
   Can a developer send and receive events using Azure Event Hubs
   with the Python SDK documentation?
 sdk_package: azure-eventhub
-api_version: "5.x"
 doc_url: https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-python-get-started-send
 tags:
   - event-hubs
@@ -38,7 +37,7 @@ demonstrates sending and receiving events with Azure Event Hubs:
 Show required pip packages (azure-eventhub and
 azure-eventhub-checkpointstoreblob-aio) and async patterns.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure-eventhub` and `azure-eventhub-checkpointstoreblob-aio` pip packages

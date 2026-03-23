@@ -10,7 +10,6 @@ type Prompt struct {
 	Difficulty      string            `yaml:"difficulty" json:"difficulty"`
 	Description     string            `yaml:"description" json:"description"`
 	SDKPackage      string            `yaml:"sdk_package" json:"sdk_package"`
-	APIVersion      string            `yaml:"api_version" json:"api_version"`
 	DocURL          string            `yaml:"doc_url" json:"doc_url"`
 	Tags            []string          `yaml:"tags" json:"tags"`
 	Created         string            `yaml:"created" json:"created"`
@@ -25,8 +24,8 @@ type Prompt struct {
 	// The prompt text extracted from the ## Prompt section
 	PromptText string `yaml:"-" json:"prompt_text"`
 
-	// The expected coverage text extracted from the ## Expected Coverage section
-	ExpectedCoverage string `yaml:"-" json:"expected_coverage,omitempty"`
+	// The evaluation criteria text extracted from the ## Evaluation Criteria section
+	EvaluationCriteria string `yaml:"-" json:"evaluation_criteria,omitempty"`
 
 	// Source file path
 	FilePath string `yaml:"-" json:"file_path"`

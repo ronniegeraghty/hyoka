@@ -9,7 +9,6 @@ description: >
   Can a developer create, read, update, and delete secrets in Azure Key Vault
   using the JavaScript/TypeScript SDK based on the documentation alone?
 sdk_package: "@azure/keyvault-secrets"
-api_version: "7.5"
 doc_url: https://learn.microsoft.com/en-us/azure/key-vault/secrets/quick-create-node
 tags:
   - secrets
@@ -33,7 +32,7 @@ Using only the Azure SDK for JavaScript/TypeScript documentation, write a Node.j
 Use DefaultAzureCredential for authentication. Show required npm packages
 and include proper error handling with try/catch.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Installing `@azure/keyvault-secrets` and `@azure/identity` npm packages

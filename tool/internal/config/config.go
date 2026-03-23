@@ -18,13 +18,15 @@ Tools   []string `yaml:"tools" json:"tools"`
 
 // ToolConfig represents a single evaluation configuration.
 type ToolConfig struct {
-Name             string                `yaml:"name" json:"name"`
-Description      string                `yaml:"description" json:"description"`
-Model            string                `yaml:"model" json:"model"`
-MCPServers       map[string]*MCPServer `yaml:"mcp_servers" json:"mcp_servers"`
-SkillDirectories []string              `yaml:"skill_directories" json:"skill_directories"`
-AvailableTools   []string              `yaml:"available_tools" json:"available_tools"`
-ExcludedTools    []string              `yaml:"excluded_tools" json:"excluded_tools"`
+Name                       string                `yaml:"name" json:"name"`
+Description                string                `yaml:"description" json:"description"`
+Model                      string                `yaml:"model" json:"model"`
+MCPServers                 map[string]*MCPServer `yaml:"mcp_servers" json:"mcp_servers"`
+SkillDirectories           []string              `yaml:"skill_directories" json:"skill_directories"`
+GeneratorSkillDirectories  []string              `yaml:"generator_skill_directories" json:"generator_skill_directories"`
+ReviewerSkillDirectories   []string              `yaml:"reviewer_skill_directories" json:"reviewer_skill_directories"`
+AvailableTools             []string              `yaml:"available_tools" json:"available_tools"`
+ExcludedTools              []string              `yaml:"excluded_tools" json:"excluded_tools"`
 }
 
 // ConfigFile represents the top-level config file structure.

@@ -29,7 +29,7 @@ Show me try/except patterns with the azure-keyvault-secrets SDK including
 how to inspect the status_code and error message on HttpResponseError.
 Also explain what happens when I try to get a soft-deleted secret.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `HttpResponseError` and `ResourceNotFoundError` exception types
 - Extracting `status_code`, `error.code`, and `message`

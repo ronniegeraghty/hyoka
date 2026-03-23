@@ -9,7 +9,6 @@ description: >
   Can a developer correctly paginate through a large list of blobs in
   Azure Storage using the Python SDK based on docs alone?
 sdk_package: azure-storage-blob
-api_version: "2024-11-04"
 doc_url: https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-list-python
 tags:
   - blob
@@ -33,7 +32,7 @@ in a container that has over 10,000 blobs. The script should:
 
 Use DefaultAzureCredential for authentication. Show all required pip packages.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Using `list_blobs()` with `results_per_page` parameter

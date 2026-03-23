@@ -9,7 +9,6 @@ description: >
   Can a developer create, configure, and manage Azure Storage Accounts
   using the Python management SDK documentation?
 sdk_package: azure-mgmt-storage
-api_version: "2023-05-01"
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/mgmt-storage-readme
 tags:
   - storage-account
@@ -34,7 +33,7 @@ Azure Storage Accounts using the management plane SDK:
 
 Show required pip packages and include proper error handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure-mgmt-storage` and `azure-identity` pip packages

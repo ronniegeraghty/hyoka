@@ -9,7 +9,6 @@ description: >
   Can a developer read and write configuration values and feature flags
   in Azure App Configuration using the Java SDK documentation?
 sdk_package: azure-data-appconfiguration
-api_version: "2023-11-01"
 doc_url: https://learn.microsoft.com/en-us/azure/azure-app-configuration/quickstart-java-spring-app
 tags:
   - app-configuration
@@ -37,7 +36,7 @@ configuration settings in Azure App Configuration:
 Show required Maven dependency (com.azure:azure-data-appconfiguration) and
 proper error handling with HttpResponseException.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure-data-appconfiguration` Maven dependency

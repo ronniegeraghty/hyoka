@@ -40,7 +40,7 @@ func (v *CopilotVerifier) SetSkillDirectories(dirs []string) {
 const minVerifyTimeout = 2 * time.Minute
 
 // Verify creates a separate Copilot session to evaluate whether generated code meets requirements.
-func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, workDir string, expectedCoverage string) (*report.VerifyResult, error) {
+func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, workDir string, evaluationCriteria string) (*report.VerifyResult, error) {
 	// Ensure verification has adequate time even if the parent eval context
 	// is nearly expired (e.g. generation consumed most of the shared timeout).
 	if deadline, ok := ctx.Deadline(); ok {
@@ -64,7 +64,7 @@ func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, wor
 		}, nil
 	}
 
-	verifyPrompt := buildVerifyPrompt(originalPrompt, generatedFiles, expectedCoverage)
+	verifyPrompt := buildVerifyPrompt(originalPrompt, generatedFiles, evaluationCriteria)
 
 	// Create a fresh Copilot client for verification
 	opts := *v.clientOpts
@@ -130,7 +130,7 @@ func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, wor
 	return parseVerifyResponse(responseText)
 }
 
-func buildVerifyPrompt(originalPrompt string, generatedFiles map[string]string, expectedCoverage string) string {
+func buildVerifyPrompt(originalPrompt string, generatedFiles map[string]string, evaluationCriteria string) string {
 	var b strings.Builder
 
 	b.WriteString("You are a code verification judge. Evaluate whether the generated code meets the requirements.\n\n")
@@ -139,9 +139,9 @@ func buildVerifyPrompt(originalPrompt string, generatedFiles map[string]string, 
 	b.WriteString(originalPrompt)
 	b.WriteString("\n\n")
 
-	if expectedCoverage != "" {
-		b.WriteString("## Expected Coverage\n\n")
-		b.WriteString(expectedCoverage)
+	if evaluationCriteria != "" {
+		b.WriteString("## Evaluation Criteria\n\n")
+		b.WriteString(evaluationCriteria)
 		b.WriteString("\n\n")
 	}
 
@@ -150,7 +150,7 @@ func buildVerifyPrompt(originalPrompt string, generatedFiles map[string]string, 
 		fmt.Fprintf(&b, "### %s\n```\n%s\n```\n\n", name, content)
 	}
 
-	b.WriteString(`## Evaluation Criteria
+	b.WriteString(`## Verification Checks
 
 Determine if this code meets the prompt's requirements:
 1. Does it address the main task described in the prompt?

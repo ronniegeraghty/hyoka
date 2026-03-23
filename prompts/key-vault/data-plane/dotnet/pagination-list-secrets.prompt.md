@@ -32,7 +32,7 @@ secrets in an Azure Key Vault that contains hundreds of secrets. The program sho
 I want to understand how Azure.Page<T> and AsyncPageable<T> work
 for large result sets. Show required NuGet packages.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `SecretClient.GetPropertiesOfSecretsAsync()` returning `AsyncPageable<SecretProperties>`
 - `await foreach` pattern for async iteration

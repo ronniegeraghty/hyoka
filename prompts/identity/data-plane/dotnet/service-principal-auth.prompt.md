@@ -9,7 +9,6 @@ description: >
   Can a developer authenticate with a Service Principal (client secret)
   using the .NET SDK documentation?
 sdk_package: Azure.Identity
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/dotnet/azure/sdk/authentication/
 tags:
   - authentication
@@ -33,7 +32,7 @@ to Azure using a Service Principal with client secret in C#. I need:
 
 Provide a complete example with proper error handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `Azure.Identity` package with `ClientSecretCredential` class

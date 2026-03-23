@@ -9,7 +9,6 @@ description: >
   Can a developer send and receive events using Azure Event Hubs
   with the JavaScript/TypeScript SDK documentation?
 sdk_package: "@azure/event-hubs"
-api_version: "5.x"
 doc_url: https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-node-get-started-send
 tags:
   - event-hubs
@@ -37,7 +36,7 @@ that demonstrates sending and receiving events with Azure Event Hubs:
 Show required npm packages (@azure/event-hubs and
 @azure/eventhubs-checkpointstore-blob) and proper async/await patterns.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `@azure/event-hubs` and `@azure/eventhubs-checkpointstore-blob` npm packages

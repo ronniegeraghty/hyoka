@@ -34,7 +34,7 @@ and batch set tier capabilities. Include proper error handling for
 partial batch failures and explain the difference between batch
 operations and sequential operations.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `ContainerClient.delete_blobs()` for bulk deletion
 - `ContainerClient.set_standard_blob_tier_blobs()` for bulk tier changes

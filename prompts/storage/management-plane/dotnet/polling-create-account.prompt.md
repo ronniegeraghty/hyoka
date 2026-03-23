@@ -34,7 +34,7 @@ long-running operation (LRO):
 Use Azure.ResourceManager.Storage with DefaultAzureCredential. Show required
 NuGet packages and explain the ArmOperation<T> pattern.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `StorageAccountCollection.CreateOrUpdateAsync()` returning `ArmOperation<StorageAccountResource>`
 - `ArmOperation<T>.WaitForCompletionAsync()` for simple completion

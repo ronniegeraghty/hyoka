@@ -9,7 +9,6 @@ description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
   using the C++ SDK documentation?
 sdk_package: azure-identity-cpp
-api_version: "1.x"
 doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
 tags:
   - authentication
@@ -34,7 +33,7 @@ an Azure SDK client using DefaultAzureCredential. Explain:
 Provide a complete C++ example that creates a Key Vault SecretClient using
 DefaultAzureCredential with proper exception handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - vcpkg/CMake setup for `azure-identity-cpp`

@@ -9,7 +9,6 @@ description: >
   Can a developer authenticate with a Service Principal (client secret)
   using the Java SDK documentation?
 sdk_package: azure-identity
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/azure/developer/java/sdk/identity
 tags:
   - authentication
@@ -33,7 +32,7 @@ to Azure using a Service Principal with client secret in Java. I need:
 
 Provide a complete example with proper exception handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Maven dependency for `azure-identity`

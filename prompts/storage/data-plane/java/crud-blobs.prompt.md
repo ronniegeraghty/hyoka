@@ -33,7 +33,7 @@ CRUD operations on Azure Blob Storage:
 
 Show required Maven dependencies and proper error handling with BlobStorageException.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - Maven dependency for `azure-storage-blob` and `azure-identity`
 - `BlobServiceClientBuilder` with `DefaultAzureCredential`

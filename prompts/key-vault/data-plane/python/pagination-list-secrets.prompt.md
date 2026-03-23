@@ -32,7 +32,7 @@ secrets in an Azure Key Vault that contains hundreds of secrets. The script shou
 I need to understand how the azure-keyvault-secrets SDK handles pagination
 for large vaults. Show required pip packages.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `SecretClient.list_properties_of_secrets()` returning `ItemPaged`
 - Direct iteration via `for secret in client.list_properties_of_secrets()`

@@ -9,7 +9,6 @@ description: >
   Can a developer authenticate with a Service Principal (client secret)
   using the Python SDK documentation?
 sdk_package: azure-identity
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme
 tags:
   - authentication
@@ -33,7 +32,7 @@ to Azure using a Service Principal with client secret in Python. I need:
 
 Provide a complete example with proper exception handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure-identity` package with `ClientSecretCredential` class

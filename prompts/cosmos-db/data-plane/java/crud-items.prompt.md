@@ -9,7 +9,6 @@ description: >
   Can a developer create, read, query, and delete items in an Azure Cosmos DB
   container using the Java SDK documentation?
 sdk_package: azure-cosmos
-api_version: "4.x"
 doc_url: https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/quickstart-java
 tags:
   - cosmos-db
@@ -36,7 +35,7 @@ CRUD operations on items in an Azure Cosmos DB NoSQL container:
 
 Show required Maven dependency and handle CosmosException appropriately.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure-cosmos` Maven dependency (com.azure:azure-cosmos)

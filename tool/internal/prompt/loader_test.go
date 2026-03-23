@@ -15,7 +15,6 @@ category: authentication
 difficulty: beginner
 description: "Authenticate to Azure Blob Storage using DefaultAzureCredential"
 sdk_package: Azure.Storage.Blobs
-api_version: "2023-11-03"
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/azure.storage.blobs
 tags:
   - authentication

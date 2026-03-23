@@ -9,7 +9,6 @@ description: >
   Can a developer authenticate with a Service Principal (client secret)
   using the C++ SDK documentation?
 sdk_package: azure-identity-cpp
-api_version: "1.x"
 doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
 tags:
   - authentication
@@ -33,7 +32,7 @@ to Azure using a Service Principal with client secret in C++. I need:
 
 Provide a complete C++ example with proper exception handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - vcpkg/CMake setup for `azure-identity-cpp`

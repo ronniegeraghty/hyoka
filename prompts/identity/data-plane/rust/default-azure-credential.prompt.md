@@ -9,7 +9,6 @@ description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
   using the Rust SDK documentation?
 sdk_package: azure_identity
-api_version: "1.x"
 doc_url: https://docs.rs/azure_identity/latest/azure_identity/
 tags:
   - authentication
@@ -34,7 +33,7 @@ an Azure SDK client using DefaultAzureCredential. Explain:
 Provide a complete Rust example that creates a Key Vault SecretClient using
 DefaultAzureCredential with proper error handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Cargo.toml dependencies for `azure_identity`

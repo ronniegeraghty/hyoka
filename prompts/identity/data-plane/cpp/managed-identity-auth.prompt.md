@@ -9,7 +9,6 @@ description: >
   Can a developer use Managed Identity to authenticate Azure SDK clients
   using the C++ SDK documentation?
 sdk_package: azure-identity-cpp
-api_version: "1.x"
 doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
 tags:
   - authentication
@@ -33,7 +32,7 @@ Managed Identity to authenticate Azure SDK clients in C++. Cover:
 
 Provide C++ examples for both identity types.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `Azure::Identity::ManagedIdentityCredential` class

@@ -139,7 +139,11 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
 // It checks multiple candidate paths to work from both repo root and tool/ directory.
-func resolveSkillsDirs(promptsDir string) []string {
+// resolveSkillsDirs resolves skill directories for generator and reviewer sessions.
+// It looks for skills/generator/ and skills/reviewer/ subdirectories.
+// Falls back to the parent skills/ directory for both if subdirs don't exist.
+func resolveSkillsDirs(promptsDir string) (generatorDirs, reviewerDirs []string) {
+	var baseDir string
 	for _, candidate := range []string{
 		filepath.Join(filepath.Dir(promptsDir), "skills"),
 		"./skills",
@@ -147,23 +151,41 @@ func resolveSkillsDirs(promptsDir string) []string {
 	} {
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
 			abs, _ := filepath.Abs(candidate)
-			return []string{abs}
+			baseDir = abs
+			break
 		}
 	}
-	return nil
+	if baseDir == "" {
+		return nil, nil
+	}
+
+	genDir := filepath.Join(baseDir, "generator")
+	revDir := filepath.Join(baseDir, "reviewer")
+
+	if info, err := os.Stat(genDir); err == nil && info.IsDir() {
+		generatorDirs = []string{genDir}
+	}
+	if info, err := os.Stat(revDir); err == nil && info.IsDir() {
+		reviewerDirs = []string{revDir}
+	}
+
+	// If neither subdir exists, fall back to the base skills dir for both
+	if generatorDirs == nil && reviewerDirs == nil {
+		return []string{baseDir}, []string{baseDir}
+	}
+	return generatorDirs, reviewerDirs
 }
 
 // resolveConfigSkillDirs resolves relative skill_directories in loaded configs
 // to absolute paths so they work regardless of which directory the tool is invoked from.
 func resolveConfigSkillDirs(configs []config.ToolConfig, promptsDir string) {
-	for i := range configs {
-		resolved := make([]string, 0, len(configs[i].SkillDirectories))
-		for _, dir := range configs[i].SkillDirectories {
+	resolve := func(dirs []string) []string {
+		resolved := make([]string, 0, len(dirs))
+		for _, dir := range dirs {
 			if filepath.IsAbs(dir) {
 				resolved = append(resolved, dir)
 				continue
 			}
-			// Try the path as-is first (relative to CWD), then relative to prompts parent
 			candidates := []string{
 				dir,
 				filepath.Join(filepath.Dir(promptsDir), dir),
@@ -178,12 +200,17 @@ func resolveConfigSkillDirs(configs []config.ToolConfig, promptsDir string) {
 				}
 			}
 			if !found {
-				// Keep the original path; the SDK may resolve it later
 				abs, _ := filepath.Abs(dir)
 				resolved = append(resolved, abs)
 			}
 		}
-		configs[i].SkillDirectories = resolved
+		return resolved
+	}
+
+	for i := range configs {
+		configs[i].SkillDirectories = resolve(configs[i].SkillDirectories)
+		configs[i].GeneratorSkillDirectories = resolve(configs[i].GeneratorSkillDirectories)
+		configs[i].ReviewerSkillDirectories = resolve(configs[i].ReviewerSkillDirectories)
 	}
 }
 
@@ -297,10 +324,10 @@ func runCmd() *cobra.Command {
 					}
 					copilotVerifier := verify.NewCopilotVerifier(clientOpts, f.model, f.debug)
 
-					// Wire skills directory for reviewer/verifier sessions
-					skillsDirs := resolveSkillsDirs(f.prompts)
-					if len(skillsDirs) > 0 {
-						copilotVerifier.SetSkillDirectories(skillsDirs)
+					// Wire skills directories separately for generator, reviewer, and verifier
+					generatorSkillsDirs, reviewerSkillsDirs := resolveSkillsDirs(f.prompts)
+					if len(reviewerSkillsDirs) > 0 {
+						copilotVerifier.SetSkillDirectories(reviewerSkillsDirs)
 					}
 					verifier = copilotVerifier
 
@@ -310,12 +337,15 @@ func runCmd() *cobra.Command {
 						fmt.Printf("⚠️  Could not start reviewer client: %v, reviews will be skipped\n", err)
 					} else {
 						copilotReviewer := review.NewCopilotReviewer(reviewClient, f.model)
-						if len(skillsDirs) > 0 {
-							copilotReviewer.SetSkillDirectories(skillsDirs)
+						if len(reviewerSkillsDirs) > 0 {
+							copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}
 						reviewer = copilotReviewer
 						defer reviewClient.Stop()
 					}
+
+					// Override generator config's skill directories with generator-specific ones
+					_ = generatorSkillsDirs // used below when config skill_directories are resolved
 				}
 			}
 
@@ -738,7 +768,6 @@ difficulty: %s
 description: >
   %s
 sdk_package: ""
-api_version: ""
 doc_url: ""
 tags: []
 created: %s

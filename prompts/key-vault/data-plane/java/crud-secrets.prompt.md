@@ -9,7 +9,6 @@ description: >
   Can a developer create, read, update, and delete secrets in Azure Key Vault
   using the Java SDK based on the documentation alone?
 sdk_package: azure-security-keyvault-secrets
-api_version: "7.5"
 doc_url: https://learn.microsoft.com/en-us/azure/key-vault/secrets/quick-create-java
 tags:
   - secrets
@@ -33,7 +32,7 @@ all four CRUD operations on Azure Key Vault secrets:
 Use DefaultAzureCredential for authentication. Show the Maven dependency
 for azure-security-keyvault-secrets and azure-identity. Include proper exception handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Maven dependency for `azure-security-keyvault-secrets` and `azure-identity`

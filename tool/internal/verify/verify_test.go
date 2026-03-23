@@ -14,9 +14,9 @@ func TestBuildVerifyPrompt(t *testing.T) {
 
 	checks := []string{
 		"Original Prompt",
-		"Expected Coverage",
-		"Generated Code",
 		"Evaluation Criteria",
+		"Generated Code",
+		"Verification Checks",
 		"DefaultAzureCredential",
 		"Program.cs",
 	}
@@ -27,14 +27,19 @@ func TestBuildVerifyPrompt(t *testing.T) {
 	}
 }
 
-func TestBuildVerifyPromptNoExpectedCoverage(t *testing.T) {
+func TestBuildVerifyPromptNoEvaluationCriteria(t *testing.T) {
 	prompt := "Write code"
 	generated := map[string]string{"main.go": "package main"}
 
 	result := buildVerifyPrompt(prompt, generated, "")
 
-	if containsStr(result, "Expected Coverage") {
-		t.Error("should not include Expected Coverage section when empty")
+	// When no evaluation criteria provided, the prompt-specific section should be absent
+	// but the generic "Verification Checks" section should still be present
+	if containsStr(result, "## Evaluation Criteria") {
+		t.Error("should not include Evaluation Criteria section when empty")
+	}
+	if !containsStr(result, "## Verification Checks") {
+		t.Error("should include generic Verification Checks section")
 	}
 }
 

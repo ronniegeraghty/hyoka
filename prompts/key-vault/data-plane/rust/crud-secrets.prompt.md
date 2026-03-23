@@ -9,7 +9,6 @@ description: >
   Can a developer create, read, update, and delete secrets in Azure Key Vault
   using the Rust SDK based on the documentation alone?
 sdk_package: azure_security_keyvault_secrets
-api_version: "7.5"
 doc_url: https://github.com/Azure/azure-sdk-for-rust
 tags:
   - secrets
@@ -33,7 +32,7 @@ all four CRUD operations on Azure Key Vault secrets:
 Use DefaultAzureCredential from azure_identity for authentication.
 Show the Cargo.toml dependencies and include proper error handling with Result types.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Cargo.toml dependencies for `azure_security_keyvault_secrets` and `azure_identity`

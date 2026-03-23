@@ -29,7 +29,7 @@ the status_code and sub_status, and use the retry_after header for backoff.
 Also cover 404 (item not found) and 409 (conflict on create) scenarios.
 Use the azure-cosmos Python SDK.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `CosmosHttpResponseError` as the primary exception type
 - Extracting `status_code`, `sub_status`, and `message`

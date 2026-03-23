@@ -33,7 +33,7 @@ items in a Cosmos DB container with proper pagination:
 Use the Microsoft.Azure.Cosmos SDK v3. Show how to configure MaxItemCount
 and explain the difference between FeedIterator and LINQ-based queries.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `Container.GetItemQueryIterator<T>()` with `QueryDefinition`
 - `QueryRequestOptions.MaxItemCount` for page size control

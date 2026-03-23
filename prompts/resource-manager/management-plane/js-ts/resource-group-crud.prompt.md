@@ -9,7 +9,6 @@ description: >
   Can a developer create, list, update, and delete Azure Resource Groups
   using the JavaScript/TypeScript management SDK documentation?
 sdk_package: "@azure/arm-resources"
-api_version: "2024-03-01"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/arm-resources-readme
 tags:
   - resource-groups
@@ -37,7 +36,7 @@ that manages Azure Resource Groups using the management plane SDK:
 Show required npm packages and proper async/await patterns.
 Use the @azure/arm-resources package.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `@azure/arm-resources` and `@azure/identity` npm packages

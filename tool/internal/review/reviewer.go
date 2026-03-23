@@ -15,7 +15,7 @@ import (
 
 // Reviewer runs LLM-as-judge code reviews via a separate Copilot session.
 type Reviewer interface {
-	Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string) (*ReviewResult, error)
+	Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (*ReviewResult, error)
 }
 
 // CopilotReviewer uses a Copilot session to perform code reviews.
@@ -39,7 +39,7 @@ func (r *CopilotReviewer) SetSkillDirectories(dirs []string) {
 }
 
 // Review creates a separate Copilot session, sends the review prompt, and parses results.
-func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string) (*ReviewResult, error) {
+func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (*ReviewResult, error) {
 	generatedFiles, err := utils.ReadDirFiles(workDir)
 	if err != nil {
 		return nil, fmt.Errorf("reading generated files: %w", err)
@@ -57,13 +57,13 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		}
 	}
 
-	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles)
+	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles, evaluationCriteria)
 
 	session, err := r.client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: r.model,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "append",
-			Content: "You are a code review judge. Respond with ONLY valid JSON. No markdown, no explanation.",
+			Content: "You are a code review judge evaluating another AI agent's work. The agent was given a prompt and asked to produce code. Score the generated code using the rubric and any prompt-specific evaluation criteria provided. Respond with ONLY valid JSON. No markdown, no explanation.",
 		},
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
@@ -152,7 +152,7 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 type StubReviewer struct{}
 
 // Review returns a stub review result.
-func (s *StubReviewer) Review(_ context.Context, _ string, _ string, _ string) (*ReviewResult, error) {
+func (s *StubReviewer) Review(_ context.Context, _ string, _ string, _ string, _ string) (*ReviewResult, error) {
 	return &ReviewResult{
 		Scores: ReviewScores{
 			Correctness:   0,

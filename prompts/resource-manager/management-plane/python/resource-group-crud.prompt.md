@@ -9,7 +9,6 @@ description: >
   Can a developer create, list, update, and delete Azure Resource Groups
   using the Python management SDK documentation?
 sdk_package: azure-mgmt-resource
-api_version: "2024-03-01"
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/resourcemanager-resources-readme
 tags:
   - resource-groups
@@ -35,7 +34,7 @@ Azure Resource Groups using the management plane SDK:
 
 Show required pip packages and include proper error handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure-mgmt-resource` and `azure-identity` pip packages

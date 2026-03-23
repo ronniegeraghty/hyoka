@@ -9,7 +9,6 @@ description: >
   Can a developer use Managed Identity to authenticate Azure SDK clients
   using the Python SDK documentation?
 sdk_package: azure-identity
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme
 tags:
   - authentication
@@ -33,7 +32,7 @@ Managed Identity to authenticate Azure SDK clients in Python. Cover:
 
 Provide examples for both system-assigned and user-assigned identity.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `ManagedIdentityCredential` class from `azure.identity`

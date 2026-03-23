@@ -9,7 +9,6 @@ description: >
   Can a developer read and write configuration values and feature flags
   in Azure App Configuration using the .NET SDK documentation?
 sdk_package: Azure.Data.AppConfiguration
-api_version: "2023-11-01"
 doc_url: https://learn.microsoft.com/en-us/azure/azure-app-configuration/quickstart-dotnet-core-app
 tags:
   - app-configuration
@@ -36,7 +35,7 @@ configuration settings in Azure App Configuration:
 
 Show required NuGet packages and proper error handling with RequestFailedException.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `Azure.Data.AppConfiguration` NuGet package

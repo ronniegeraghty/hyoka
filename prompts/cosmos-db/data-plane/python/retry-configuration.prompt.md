@@ -34,7 +34,7 @@ I need to:
 Show me how to configure CosmosClient with custom retry settings
 and explain the interaction between SDK retries and provisioned throughput.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `CosmosClient` retry configuration via `connection_policy` or constructor kwargs
 - `retry_total`, `retry_backoff_factor`, `retry_backoff_max` settings

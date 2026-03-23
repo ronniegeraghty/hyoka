@@ -33,7 +33,7 @@ Show me how to use BlobBatchClient to submit batch requests with
 the Azure.Storage.Blobs.Batch package. Include proper error handling
 for partial batch failures.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `BlobBatchClient` from `Azure.Storage.Blobs.Batch` package
 - `BlobBatchClient.DeleteBlobsAsync()` for bulk delete

@@ -9,7 +9,6 @@ description: >
   Can a developer create, read, update, and delete secrets in Azure Key Vault
   using the C++ SDK based on the documentation alone?
 sdk_package: azure-security-keyvault-secrets-cpp
-api_version: "7.5"
 doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/keyvault/azure-security-keyvault-secrets
 tags:
   - secrets
@@ -34,7 +33,7 @@ Use DefaultAzureCredential from Azure Identity for authentication.
 Show the required CMake configuration and vcpkg dependencies.
 Include proper exception handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - vcpkg/CMake setup for `azure-security-keyvault-secrets-cpp` and `azure-identity-cpp`

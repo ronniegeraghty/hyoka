@@ -9,7 +9,6 @@ description: >
   Can a developer use Managed Identity to authenticate Azure SDK clients
   using the Go SDK documentation?
 sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
-api_version: "1.x"
 doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
 tags:
   - authentication
@@ -33,7 +32,7 @@ Managed Identity to authenticate Azure SDK clients in Go. Cover:
 
 Provide Go examples for both identity types.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azidentity.NewManagedIdentityCredential()` function

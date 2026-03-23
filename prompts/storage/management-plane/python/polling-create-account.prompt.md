@@ -34,7 +34,7 @@ long-running operation (LRO):
 Use azure-mgmt-storage with DefaultAzureCredential. Show required pip packages
 and explain the LROPoller pattern used across Azure management SDKs.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `StorageManagementClient.storage_accounts.begin_create()` returning `LROPoller`
 - `LROPoller.result()` for blocking wait

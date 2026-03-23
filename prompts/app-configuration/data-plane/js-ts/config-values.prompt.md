@@ -9,7 +9,6 @@ description: >
   Can a developer read and write configuration values and feature flags
   in Azure App Configuration using the JavaScript/TypeScript SDK documentation?
 sdk_package: "@azure/app-configuration"
-api_version: "2023-11-01"
 doc_url: https://learn.microsoft.com/en-us/azure/azure-app-configuration/quickstart-javascript
 tags:
   - app-configuration
@@ -37,7 +36,7 @@ that manages configuration settings in Azure App Configuration:
 Show required npm package (@azure/app-configuration) and
 proper error handling with RestError.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `@azure/app-configuration` npm package

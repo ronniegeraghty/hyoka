@@ -34,7 +34,7 @@ operation:
 Use azure-mgmt-keyvault with DefaultAzureCredential. Show required pip packages
 and explain how to configure access policies vs RBAC during creation.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `KeyVaultManagementClient.vaults.begin_create_or_update()` returning `LROPoller`
 - `VaultCreateOrUpdateParameters` with `VaultProperties`

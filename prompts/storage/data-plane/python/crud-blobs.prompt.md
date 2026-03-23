@@ -33,7 +33,7 @@ CRUD operations on Azure Blob Storage:
 
 Show required pip packages and proper error handling with HttpResponseError.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - Installing `azure-storage-blob` and `azure-identity` packages
 - `BlobServiceClient` with `DefaultAzureCredential`

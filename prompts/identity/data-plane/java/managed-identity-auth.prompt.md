@@ -9,7 +9,6 @@ description: >
   Can a developer use Managed Identity to authenticate Azure SDK clients
   using the Java SDK documentation?
 sdk_package: azure-identity
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/azure/developer/java/sdk/identity
 tags:
   - authentication
@@ -33,7 +32,7 @@ Managed Identity to authenticate Azure SDK clients in Java. Cover:
 
 Provide examples for both system-assigned and user-assigned identity.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `ManagedIdentityCredentialBuilder` class

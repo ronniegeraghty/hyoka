@@ -9,7 +9,6 @@ description: >
   Can a developer send and receive events using Azure Event Hubs
   with the .NET SDK documentation?
 sdk_package: Azure.Messaging.EventHubs
-api_version: "5.x"
 doc_url: https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-dotnet-standard-getstarted-send
 tags:
   - event-hubs
@@ -38,7 +37,7 @@ sending and receiving events with Azure Event Hubs:
 Show required NuGet packages (Azure.Messaging.EventHubs and
 Azure.Messaging.EventHubs.Processor) and proper disposal patterns.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `Azure.Messaging.EventHubs` and `Azure.Messaging.EventHubs.Processor` NuGet packages

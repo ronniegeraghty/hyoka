@@ -9,7 +9,6 @@ description: >
   Can a developer upload, download, list, and delete blobs in Azure Blob Storage
   using the C++ SDK based on the documentation alone?
 sdk_package: azure-storage-blobs-cpp
-api_version: "2024-11-04"
 doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/storage/azure-storage-blobs
 tags:
   - blobs
@@ -36,7 +35,7 @@ Show the required CMake configuration and vcpkg dependencies.
 Include proper exception handling for cases like container already existing
 or blob not found.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - vcpkg/CMake setup for `azure-storage-blobs-cpp` and `azure-identity-cpp`

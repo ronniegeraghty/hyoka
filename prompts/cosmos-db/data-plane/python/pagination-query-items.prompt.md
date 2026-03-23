@@ -32,7 +32,7 @@ items in a Cosmos DB container with proper pagination:
 Use the azure-cosmos Python SDK. Show how to use query_items with
 enable_cross_partition_query when the query doesn't filter by partition key.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `ContainerProxy.query_items()` with SQL query string
 - `max_item_count` parameter for page size

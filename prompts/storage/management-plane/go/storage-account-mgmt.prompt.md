@@ -9,7 +9,6 @@ description: >
   Can a developer create, configure, and manage Azure Storage Accounts
   using the Go management SDK documentation?
 sdk_package: github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
-api_version: "2023-05-01"
 doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
 tags:
   - storage-account
@@ -36,7 +35,7 @@ Azure Storage Accounts using the management plane SDK:
 
 Show required Go module imports and proper error handling with poller patterns.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage` module

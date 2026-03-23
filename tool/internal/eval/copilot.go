@@ -387,12 +387,18 @@ func (e *CopilotSDKEvaluator) Client(ctx context.Context, workDir string) (*copi
 }
 
 func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir string) *copilot.SessionConfig {
+	// Use generator-specific skills if configured, otherwise fall back to shared
+	skillDirs := cfg.GeneratorSkillDirectories
+	if len(skillDirs) == 0 {
+		skillDirs = cfg.SkillDirectories
+	}
+
 	sc := &copilot.SessionConfig{
 		Model: cfg.Model,
 		// No system message — test the LLM's native ability with just the prompt.
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
-		SkillDirectories:    cfg.SkillDirectories,
+		SkillDirectories:    skillDirs,
 	}
 
 	// Only set AvailableTools/ExcludedTools when non-empty.

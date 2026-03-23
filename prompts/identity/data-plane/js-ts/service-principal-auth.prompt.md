@@ -9,7 +9,6 @@ description: >
   Can a developer authenticate with a Service Principal (client secret)
   using the JavaScript/TypeScript SDK documentation?
 sdk_package: "@azure/identity"
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/identity-readme
 tags:
   - authentication
@@ -33,7 +32,7 @@ authenticate to Azure using a Service Principal with client secret. I need:
 
 Provide a complete TypeScript example.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `@azure/identity` package with `ClientSecretCredential` class

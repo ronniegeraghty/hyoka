@@ -9,7 +9,6 @@ description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
   using the JavaScript/TypeScript SDK documentation?
 sdk_package: "@azure/identity"
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/identity-readme
 tags:
   - authentication
@@ -34,7 +33,7 @@ authenticate an Azure SDK client using DefaultAzureCredential. Explain:
 Provide a complete TypeScript example that creates a SecretClient using
 DefaultAzureCredential.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `@azure/identity` npm package installation

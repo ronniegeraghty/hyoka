@@ -9,7 +9,6 @@ description: >
   Can a developer use Managed Identity to authenticate Azure SDK clients
   using the Rust SDK documentation?
 sdk_package: azure_identity
-api_version: "1.x"
 doc_url: https://docs.rs/azure_identity/latest/azure_identity/
 tags:
   - authentication
@@ -33,7 +32,7 @@ Managed Identity to authenticate Azure SDK clients in Rust. Cover:
 
 Provide Rust examples for both identity types.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - Managed identity credential types in `azure_identity`

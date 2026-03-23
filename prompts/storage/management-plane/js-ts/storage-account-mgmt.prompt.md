@@ -9,7 +9,6 @@ description: >
   Can a developer create, configure, and manage Azure Storage Accounts
   using the JavaScript/TypeScript management SDK documentation?
 sdk_package: "@azure/arm-storage"
-api_version: "2023-05-01"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/arm-storage-readme
 tags:
   - storage-account
@@ -35,7 +34,7 @@ that manages Azure Storage Accounts using the management plane SDK:
 
 Show required npm packages (@azure/arm-storage) and proper async/await patterns.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `@azure/arm-storage` and `@azure/identity` npm packages

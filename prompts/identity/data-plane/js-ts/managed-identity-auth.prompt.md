@@ -9,7 +9,6 @@ description: >
   Can a developer use Managed Identity to authenticate Azure SDK clients
   using the JavaScript/TypeScript SDK documentation?
 sdk_package: "@azure/identity"
-api_version: "1.x"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/identity-readme
 tags:
   - authentication
@@ -33,7 +32,7 @@ use Managed Identity to authenticate Azure SDK clients in Node.js. Cover:
 
 Provide TypeScript examples for both identity types.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `ManagedIdentityCredential` class from `@azure/identity`

@@ -9,7 +9,6 @@ description: >
   Can a developer authenticate with a Service Principal (client secret)
   using the Rust SDK documentation?
 sdk_package: azure_identity
-api_version: "1.x"
 doc_url: https://docs.rs/azure_identity/latest/azure_identity/
 tags:
   - authentication
@@ -33,7 +32,7 @@ to Azure using a Service Principal with client secret in Rust. I need:
 
 Provide a complete Rust example with proper error handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure_identity` crate with `ClientSecretCredential`

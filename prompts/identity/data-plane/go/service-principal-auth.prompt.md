@@ -9,7 +9,6 @@ description: >
   Can a developer authenticate with a Service Principal (client secret)
   using the Go SDK documentation?
 sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
-api_version: "1.x"
 doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
 tags:
   - authentication
@@ -33,7 +32,7 @@ to Azure using a Service Principal with client secret in Go. I need:
 
 Provide a complete Go example with proper error handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azidentity` module with `NewClientSecretCredential()` function

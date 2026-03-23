@@ -13,7 +13,7 @@ func TestBuildReviewPrompt(t *testing.T) {
 		"Program.cs": "using Azure.Storage.Blobs;\n// reference",
 	}
 
-	result := BuildReviewPrompt(prompt, generated, reference)
+	result := BuildReviewPrompt(prompt, generated, reference, "")
 
 	if result == "" {
 		t.Fatal("expected non-empty review prompt")
@@ -39,13 +39,28 @@ func TestBuildReviewPromptNoReference(t *testing.T) {
 	prompt := "Write code"
 	generated := map[string]string{"main.go": "package main"}
 
-	result := BuildReviewPrompt(prompt, generated, nil)
+	result := BuildReviewPrompt(prompt, generated, nil, "")
 
 	if !contains(result, "No reference answer provided") {
 		t.Error("expected 'No reference answer provided' when no reference given")
 	}
 	if !contains(result, "Skip (no reference provided)") {
 		t.Error("expected reference_similarity to be skipped")
+	}
+}
+
+func TestBuildReviewPromptWithEvaluationCriteria(t *testing.T) {
+	prompt := "Write Azure code"
+	generated := map[string]string{"main.go": "package main"}
+	criteria := "- Must use DefaultAzureCredential\n- Must handle errors"
+
+	result := BuildReviewPrompt(prompt, generated, nil, criteria)
+
+	if !contains(result, "Prompt-Specific Evaluation Criteria") {
+		t.Error("expected evaluation criteria section")
+	}
+	if !contains(result, "DefaultAzureCredential") {
+		t.Error("expected criteria content in prompt")
 	}
 }
 
@@ -99,7 +114,7 @@ func TestParseReviewResponse(t *testing.T) {
 
 func TestStubReviewer(t *testing.T) {
 	s := &StubReviewer{}
-	result, err := s.Review(nil, "test prompt", "/tmp/test", "")
+	result, err := s.Review(nil, "test prompt", "/tmp/test", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

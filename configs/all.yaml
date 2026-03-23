@@ -16,5 +16,7 @@ configs:
         args: ["-y", "@azure/mcp@latest"]
         tools: ["*"]
     # Skills loaded for reviewer/verifier sessions
-    skill_directories:
-      - "./skills"
+    reviewer_skill_directories:
+      - "./skills/reviewer"
+    # generator_skill_directories:
+    #   - "./skills/generator"

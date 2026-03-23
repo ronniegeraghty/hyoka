@@ -27,7 +27,7 @@ container not found (404), access denied (403), and throttling (429).
 Show me idiomatic try/catch patterns with the Azure.Storage.Blobs SDK
 including how to extract the error code and HTTP status from RequestFailedException.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `RequestFailedException` as the primary exception type
 - Extracting `Status` and `ErrorCode` from the exception

@@ -9,7 +9,6 @@ description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
   using the Go SDK documentation?
 sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
-api_version: "1.x"
 doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
 tags:
   - authentication
@@ -34,7 +33,7 @@ an Azure SDK client using DefaultAzureCredential. Explain:
 Provide a complete Go example that creates a Key Vault SecretClient using
 DefaultAzureCredential.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azidentity` module import

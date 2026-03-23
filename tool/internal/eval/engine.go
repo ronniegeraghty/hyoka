@@ -67,7 +67,7 @@ type EngineOptions struct {
 
 // Verifier evaluates generated code against prompt requirements.
 type Verifier interface {
-	Verify(ctx context.Context, originalPrompt string, workDir string, expectedCoverage string) (*report.VerifyResult, error)
+	Verify(ctx context.Context, originalPrompt string, workDir string, evaluationCriteria string) (*report.VerifyResult, error)
 }
 
 // StubVerifier returns a placeholder pass result.
@@ -354,7 +354,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		if e.opts.Debug {
 			log.Printf("[DEBUG] %s: Starting verification session...", debugPrefix)
 		}
-		verifyResult, err := e.verifier.Verify(evalCtx, task.Prompt.PromptText, ws.Dir, task.Prompt.ExpectedCoverage)
+		verifyResult, err := e.verifier.Verify(evalCtx, task.Prompt.PromptText, ws.Dir, task.Prompt.EvaluationCriteria)
 		if err != nil {
 			log.Printf("%s: verification error: %v", debugPrefix, err)
 			if evalReport.Error == "" {
@@ -405,7 +405,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		if task.Prompt.ReferenceAnswer != "" {
 			referenceDir = task.Prompt.ReferenceAnswer
 		}
-		reviewResult, err := e.reviewer.Review(evalCtx, task.Prompt.PromptText, ws.Dir, referenceDir)
+		reviewResult, err := e.reviewer.Review(evalCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
 		if err != nil {
 			if e.opts.Debug {
 				log.Printf("[DEBUG] %s: ERROR: code review failed: %v", debugPrefix, err)

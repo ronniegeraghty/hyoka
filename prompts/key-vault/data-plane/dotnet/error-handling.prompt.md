@@ -29,7 +29,7 @@ conflicts, and throttling when hitting Key Vault rate limits (429).
 Show me try/catch patterns with Azure.Security.KeyVault.Secrets including
 how to extract the error code and HTTP status from RequestFailedException.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `RequestFailedException` for all Key Vault errors
 - Extracting `Status` and `ErrorCode` properties

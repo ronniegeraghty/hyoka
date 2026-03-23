@@ -9,7 +9,6 @@ description: >
   Can a developer send and receive events using Azure Event Hubs
   with the Java SDK documentation?
 sdk_package: azure-messaging-eventhubs
-api_version: "5.x"
 doc_url: https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-java-get-started-send
 tags:
   - event-hubs
@@ -37,7 +36,7 @@ sending and receiving events with Azure Event Hubs:
 Show required Maven dependencies (azure-messaging-eventhubs and
 azure-messaging-eventhubs-checkpointstore-blob) and proper resource cleanup.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure-messaging-eventhubs` and `azure-messaging-eventhubs-checkpointstore-blob` Maven deps

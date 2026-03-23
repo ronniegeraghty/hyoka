@@ -33,7 +33,7 @@ CRUD operations on Azure Blob Storage:
 
 Show required Go modules and proper error handling using ResponseError.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `go get` for `github.com/Azure/azure-sdk-for-go/sdk/storage/azblob` and `azidentity`
 - `azblob.NewClient()` with `azidentity.NewDefaultAzureCredential()`

@@ -9,7 +9,6 @@ description: >
   Can a developer create, configure, and manage Azure Storage Accounts
   using the Java management SDK documentation?
 sdk_package: azure-resourcemanager-storage
-api_version: "2023-05-01"
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/resourcemanager-storage-readme
 tags:
   - storage-account
@@ -36,7 +35,7 @@ Azure Storage Accounts using the management plane SDK:
 Show required Maven dependency (com.azure.resourcemanager:azure-resourcemanager-storage)
 and proper error handling.
 
-## Expected Coverage
+## Evaluation Criteria
 
 The documentation should cover:
 - `azure-resourcemanager-storage` Maven dependency

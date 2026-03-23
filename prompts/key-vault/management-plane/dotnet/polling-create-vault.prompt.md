@@ -34,7 +34,7 @@ operation:
 Use Azure.ResourceManager.KeyVault. Show required NuGet packages and how
 to set access policies or RBAC roles during creation.
 
-## Expected Coverage
+## Evaluation Criteria
 
 - `KeyVaultCollection.CreateOrUpdateAsync()` returning `ArmOperation<KeyVaultResource>`
 - `KeyVaultCreateOrUpdateContent` with `KeyVaultProperties`
