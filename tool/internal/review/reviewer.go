@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/utils"
@@ -71,7 +72,16 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 	if err != nil {
 		return nil, fmt.Errorf("creating review session: %w", err)
 	}
-	defer session.Disconnect()
+	// SDK's Disconnect() can block if the CLI subprocess is stuck.
+	// Timeout and let the owning client's Stop handle final cleanup.
+	defer func() {
+		done := make(chan struct{})
+		go func() { session.Disconnect(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+		}
+	}()
 
 	// Capture the assistant's response
 	var assistantContent strings.Builder

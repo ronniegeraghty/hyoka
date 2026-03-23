@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/report"
@@ -57,7 +58,15 @@ func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, wor
 	if err := client.Start(ctx); err != nil {
 		return nil, fmt.Errorf("starting verification client: %w", err)
 	}
-	defer client.Stop()
+	defer func() {
+		done := make(chan struct{})
+		go func() { client.Stop(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			client.ForceStop()
+		}
+	}()
 
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: v.model,
@@ -72,7 +81,14 @@ func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, wor
 	if err != nil {
 		return nil, fmt.Errorf("creating verification session: %w", err)
 	}
-	defer session.Disconnect()
+	defer func() {
+		done := make(chan struct{})
+		go func() { session.Disconnect(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+		}
+	}()
 
 	var assistantContent strings.Builder
 	var mu sync.Mutex

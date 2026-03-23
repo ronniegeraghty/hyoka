@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/config"
@@ -80,7 +81,17 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			ErrorDetails: err.Error(),
 		}, fmt.Errorf("starting copilot client: %w", err)
 	}
-	defer client.Stop()
+	// SDK's Stop() can block indefinitely if the CLI subprocess is stuck
+	// (jsonrpc2.Request has no context/timeout support). Use ForceStop as fallback.
+	defer func() {
+		done := make(chan struct{})
+		go func() { client.Stop(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			client.ForceStop()
+		}
+	}()
 
 	// Build session config from tool config
 	sessionCfg := e.buildSessionConfig(cfg, workDir)
@@ -92,7 +103,16 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			ErrorDetails: err.Error(),
 		}, fmt.Errorf("creating session: %w", err)
 	}
-	defer session.Disconnect()
+	// SDK's Disconnect() can also block (same jsonrpc2 issue). Timeout and
+	// let the deferred client.Stop/ForceStop handle final cleanup.
+	defer func() {
+		done := make(chan struct{})
+		go func() { session.Disconnect(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+		}
+	}()
 
 	// Subscribe to events with detailed capture and debug logging
 	var events []copilot.SessionEvent
