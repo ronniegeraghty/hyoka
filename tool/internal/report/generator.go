@@ -11,10 +11,12 @@ import (
 )
 
 // ReportDir returns the directory path for a specific evaluation report.
+// The path includes the prompt ID so that different prompts sharing the same
+// service/plane/language/category get isolated workspace directories.
 func ReportDir(outputDir string, runID string, p *prompt.Prompt) string {
 	return filepath.Join(
 		outputDir, runID, "results",
-		p.Service, p.Plane, p.Language, p.Category,
+		p.Service, p.Plane, p.Language, p.Category, p.ID,
 	)
 }
 
