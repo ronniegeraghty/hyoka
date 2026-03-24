@@ -6,7 +6,7 @@ language: dotnet
 category: error-handling
 difficulty: intermediate
 description: >
-  Can the docs help a developer handle Cosmos DB errors including
+  Can a developer handle Cosmos DB errors including
   throttling (429), conflicts (409), and not-found (404) in .NET?
 sdk_package: Microsoft.Azure.Cosmos
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/microsoft.azure.cosmos-readme
@@ -44,5 +44,5 @@ and 409 (conflict) responses. Use the Microsoft.Azure.Cosmos SDK v3.
 ## Context
 
 Cosmos DB's Request Unit model means 429 throttling is expected behavior
-under load, not an error to panic about. Developers need docs that clearly
+under load, not an error to panic about. The generated code needs to clearly
 explain how to handle rate limiting gracefully with proper retry logic.

@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, read, query, and delete items in an Azure Cosmos DB
-  container using the Java SDK documentation?
+  container using the Java SDK?
 sdk_package: azure-cosmos
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/cosmos-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, write a Java program that performs
+Write a Java program that performs
 CRUD operations on items in an Azure Cosmos DB NoSQL container:
 1. Create a CosmosClient using endpoint and key with CosmosClientBuilder
 2. Create a database "TestDB" and container "Items" with partition key "/category"
@@ -37,7 +37,7 @@ Show required Maven dependency and handle CosmosException appropriately.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-cosmos` Maven dependency (com.azure:azure-cosmos)
 - `CosmosClientBuilder` and `CosmosClient`
 - `CosmosDatabase` and `CosmosContainer` creation
@@ -49,5 +49,5 @@ The documentation should cover:
 ## Context
 
 Cosmos DB Java SDK uses a builder pattern and typed POJO-based operations. This tests
-whether the Java docs properly cover the fluent API and parameterized queries,
+whether the generated code properly covers the fluent API and parameterized queries,
 which differ significantly from the .NET SDK approach.

@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, list, update, and delete Azure Resource Groups
-  using the Python management SDK documentation?
+  using the Python management SDK?
 sdk_package: azure-mgmt-resource
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/mgmt-resource-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that manages
+Write a Python script that manages
 Azure Resource Groups using the management plane SDK:
 1. Authenticate using DefaultAzureCredential
 2. Create a new resource group in "eastus" region
@@ -36,7 +36,7 @@ Show required pip packages and include proper error handling.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-mgmt-resource` and `azure-identity` pip packages
 - `ResourceManagementClient` creation with credential and subscription_id
 - `resource_groups.create_or_update()` with `ResourceGroup` model
@@ -48,5 +48,5 @@ The documentation should cover:
 ## Context
 
 Resource group management is the foundation of Azure management plane operations.
-This tests whether the Python docs clearly explain the management client pattern
+This tests whether the generated code clearly demonstrates the management client pattern
 including subscription ID requirements and the long-running delete operation.

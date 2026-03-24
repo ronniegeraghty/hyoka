@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the JavaScript/TypeScript SDK documentation?
+  using the JavaScript/TypeScript SDK?
 sdk_package: "@azure/storage-blob"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/storage-blob-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript documentation, write a TypeScript program that
+Write a TypeScript program that
 performs CRUD operations on Azure Blob Storage:
 1. Create a BlobServiceClient using DefaultAzureCredential
 2. Create a container named "my-container" if it doesn't exist
@@ -48,5 +48,5 @@ Use async/await throughout.
 ## Context
 
 JavaScript/TypeScript is the most used language on npm and critical for
-full-stack Azure developers. This tests whether the JS docs provide clear
+full-stack Azure developers. This tests whether the generated code provides clear
 guidance on blob CRUD including the async streaming download pattern.

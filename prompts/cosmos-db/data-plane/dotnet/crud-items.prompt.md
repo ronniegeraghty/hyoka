@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, read, query, and delete items in an Azure Cosmos DB
-  container using the .NET SDK documentation?
+  container using the .NET SDK?
 sdk_package: Microsoft.Azure.Cosmos
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/microsoft.azure.cosmos-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that performs
+Write a C# program that performs
 CRUD operations on items in an Azure Cosmos DB NoSQL container:
 1. Create a CosmosClient using a connection string
 2. Create a database named "TestDB" and a container named "Items" with partition key "/category"
@@ -37,7 +37,7 @@ Show required NuGet packages and proper error handling with CosmosException.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `Microsoft.Azure.Cosmos` NuGet package
 - `CosmosClient` creation and configuration
 - `Database.CreateDatabaseIfNotExistsAsync()`
@@ -49,5 +49,5 @@ The documentation should cover:
 ## Context
 
 Cosmos DB is one of the most popular Azure data services. CRUD operations test
-whether the .NET docs cover the full item lifecycle including partitioning
+whether the generated code covers the full item lifecycle including partitioning
 and SQL-like query syntax in the NoSQL API.

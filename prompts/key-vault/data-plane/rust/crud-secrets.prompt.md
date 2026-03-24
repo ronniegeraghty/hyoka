@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the Rust SDK based on the documentation alone?
+  using the Rust SDK?
 sdk_package: azure_security_keyvault_secrets
 doc_url: https://docs.rs/azure_security_keyvault_secrets/latest/azure_security_keyvault_secrets/
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Rust documentation, write a Rust program that performs
+Write a Rust program that performs
 all four CRUD operations on Azure Key Vault secrets:
 1. Create a new secret called "my-secret" with value "my-secret-value"
 2. Read the secret back and print its value
@@ -34,7 +34,7 @@ Show the Cargo.toml dependencies and include proper error handling with Result t
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - Cargo.toml dependencies for `azure_security_keyvault_secrets` and `azure_identity`
 - Creating a `SecretClient` with vault URL and credential
 - Methods for set, get, delete, and purge operations

@@ -6,7 +6,7 @@ language: python
 category: error-handling
 difficulty: intermediate
 description: >
-  Can the docs help a developer handle common Azure Blob Storage errors
+  Can a developer handle common Azure Blob Storage errors
   including 404, 403, and 429 responses in Python?
 sdk_package: azure-storage-blob
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/storage-blob-readme

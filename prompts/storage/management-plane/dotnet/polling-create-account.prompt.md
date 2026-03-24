@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that creates
+Write a C# program that creates
 an Azure Storage Account using the management plane SDK and properly handles the
 long-running operation (LRO):
 1. Start the create operation using CreateOrUpdateAsync

@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, list, update, and delete Azure Resource Groups
-  using the JavaScript/TypeScript management SDK documentation?
+  using the JavaScript/TypeScript management SDK?
 sdk_package: "@azure/arm-resources"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/arm-resources-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript documentation, write a TypeScript program
+Write a TypeScript program
 that manages Azure Resource Groups using the management plane SDK:
 1. Authenticate using DefaultAzureCredential from @azure/identity
 2. Create a ResourceManagementClient with the credential and subscription ID
@@ -38,7 +38,7 @@ Use the @azure/arm-resources package.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `@azure/arm-resources` and `@azure/identity` npm packages
 - `DefaultAzureCredential` for authentication
 - `ResourceManagementClient` constructor with credential and subscriptionId
@@ -51,5 +51,5 @@ The documentation should cover:
 ## Context
 
 The JavaScript management SDK uses a client-per-service pattern. This tests
-whether the JS/TS docs cover the ARM client creation, async iteration for
+whether the generated code covers the ARM client creation, async iteration for
 listing operations, and the beginAndWait pattern for LROs.

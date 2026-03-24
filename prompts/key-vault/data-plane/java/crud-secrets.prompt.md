@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the Java SDK based on the documentation alone?
+  using the Java SDK?
 sdk_package: azure-security-keyvault-secrets
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/security-keyvault-secrets-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, write a Java application that performs
+Write a Java application that performs
 all four CRUD operations on Azure Key Vault secrets:
 1. Create a new secret called "my-secret" with value "my-secret-value"
 2. Read the secret back and print its value
@@ -34,7 +34,7 @@ for azure-security-keyvault-secrets and azure-identity. Include proper exception
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - Maven dependency for `azure-security-keyvault-secrets` and `azure-identity`
 - Creating a `SecretClient` with `SecretClientBuilder`
 - `setSecret()`, `getSecret()`, `beginDeleteSecret()`, `purgeDeletedSecret()`
@@ -44,5 +44,5 @@ The documentation should cover:
 ## Context
 
 CRUD operations on secrets are the most fundamental Key Vault use case.
-This tests whether the Java docs provide a complete, runnable flow
+This tests whether the generated code provides a complete, runnable flow
 covering the full lifecycle including the SyncPoller pattern for long-running deletes.

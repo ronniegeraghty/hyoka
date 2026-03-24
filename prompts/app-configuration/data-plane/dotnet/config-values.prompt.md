@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer read and write configuration values and feature flags
-  in Azure App Configuration using the .NET SDK documentation?
+  in Azure App Configuration using the .NET SDK?
 sdk_package: Azure.Data.AppConfiguration
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/data.appconfiguration-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that manages
+Write a C# program that manages
 configuration settings in Azure App Configuration:
 1. Create a ConfigurationClient using a connection string
 2. Set a configuration setting with key "app:Settings:FontSize" and value "24"
@@ -37,7 +37,7 @@ Show required NuGet packages and proper error handling with RequestFailedExcepti
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `Azure.Data.AppConfiguration` NuGet package
 - `ConfigurationClient` creation with connection string or `DefaultAzureCredential`
 - `SetConfigurationSetting()` with key, value, and optional label

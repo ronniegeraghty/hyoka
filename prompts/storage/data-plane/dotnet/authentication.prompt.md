@@ -6,7 +6,7 @@ language: dotnet
 category: authentication
 difficulty: basic
 description: >
-  Can the docs help a developer authenticate to Azure Blob Storage
+  Can a developer authenticate to Azure Blob Storage
   using DefaultAzureCredential in .NET?
 sdk_package: Azure.Storage.Blobs
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
@@ -29,7 +29,7 @@ Show me the complete setup including required NuGet packages.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - Installing `Azure.Identity` and `Azure.Storage.Blobs` packages
 - Creating a `DefaultAzureCredential` instance
 - Passing the credential to `BlobServiceClient`
@@ -39,4 +39,4 @@ The documentation should cover:
 ## Context
 
 This is one of the most common first tasks for a developer using Azure Storage.
-The docs should make this easy to find and follow without prior Azure SDK experience.
+The generated code should be easy to follow without prior Azure SDK experience.
