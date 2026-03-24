@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the Python SDK documentation?
+  using the Python SDK?
 sdk_package: azure-storage-blob
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/storage-blob-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that performs
+Write a Python script that performs
 CRUD operations on Azure Blob Storage:
 1. Create a BlobServiceClient using DefaultAzureCredential
 2. Create a container named "my-container" if it doesn't exist
@@ -47,5 +47,5 @@ Show required pip packages and proper error handling with HttpResponseError.
 ## Context
 
 Python is the most popular language for data engineering and ML workflows
-that use Azure Blob Storage. This tests whether the Python docs provide a
+that use Azure Blob Storage. This tests whether the generated code provides a
 complete blob lifecycle tutorial that a data engineer can follow end-to-end.

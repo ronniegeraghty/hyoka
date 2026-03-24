@@ -35,23 +35,8 @@ func (v *CopilotVerifier) SetSkillDirectories(dirs []string) {
 	v.skillDirectories = dirs
 }
 
-// minVerifyTimeout is the minimum time budget for verification, ensuring it
-// doesn't get starved when the parent eval context is nearly exhausted.
-const minVerifyTimeout = 2 * time.Minute
-
 // Verify creates a separate Copilot session to evaluate whether generated code meets requirements.
 func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, workDir string, evaluationCriteria string) (*report.VerifyResult, error) {
-	// Ensure verification has adequate time even if the parent eval context
-	// is nearly expired (e.g. generation consumed most of the shared timeout).
-	if deadline, ok := ctx.Deadline(); ok {
-		remaining := time.Until(deadline)
-		if remaining < minVerifyTimeout {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(context.Background(), minVerifyTimeout)
-			defer cancel()
-		}
-	}
-
 	generatedFiles, err := utils.ReadDirFiles(workDir)
 	if err != nil {
 		return nil, fmt.Errorf("reading generated files: %w", err)

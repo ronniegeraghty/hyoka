@@ -7,7 +7,7 @@ category: streaming
 difficulty: intermediate
 description: >
   Can a developer send and receive events using Azure Event Hubs
-  with the Java SDK documentation?
+  with the Java SDK?
 sdk_package: azure-messaging-eventhubs
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-eventhubs-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, write a Java program that demonstrates
+Write a Java program that demonstrates
 sending and receiving events with Azure Event Hubs:
 1. Create an EventHubProducerClient using EventHubClientBuilder with a connection string
 2. Create an EventDataBatch and add 10 events with custom properties
@@ -38,7 +38,7 @@ azure-messaging-eventhubs-checkpointstore-blob) and proper resource cleanup.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-messaging-eventhubs` and `azure-messaging-eventhubs-checkpointstore-blob` Maven deps
 - `EventHubClientBuilder` and `EventHubProducerClient`
 - `createBatch()` and `EventDataBatch.tryAdd()`
@@ -50,5 +50,5 @@ The documentation should cover:
 ## Context
 
 The Java Event Hubs SDK uses a builder pattern and functional-style event handlers.
-This tests whether the Java docs cover the producer/consumer pattern with checkpoint
+This tests whether the generated code covers the producer/consumer pattern with checkpoint
 store integration using Azure Blob Storage.

@@ -154,24 +154,44 @@ var codeFileExts = map[string]bool{
 	".cfg": true, ".ini": true, ".env": true, ".dockerfile": true,
 }
 
-// snapshotDir returns a set of non-hidden file names in a directory (non-recursive).
+// junkDirs lists directory names that are build/runtime artifacts and should
+// be deleted rather than recovered into the workspace.
+var junkDirs = map[string]bool{
+	"__pycache__":  true,
+	"node_modules": true,
+	"venv":         true,
+	".venv":        true,
+	"env":          true,
+	".tox":         true,
+	"dist":         true,
+	"build":        true,
+	"target":       true,
+	"bin":          true,
+	"obj":          true,
+}
+
+// snapshotDir returns a set of non-hidden entry names (files AND directories) in
+// a directory (non-recursive). Capturing directories lets recoverMisplacedFiles
+// detect new directories created during an eval run.
 func snapshotDir(dir string) map[string]bool {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil
 	}
-	files := make(map[string]bool, len(entries))
+	names := make(map[string]bool, len(entries))
 	for _, e := range entries {
-		if !e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
-			files[e.Name()] = true
+		if !strings.HasPrefix(e.Name(), ".") {
+			names[e.Name()] = true
 		}
 	}
-	return files
+	return names
 }
 
-// recoverMisplacedFiles moves files that appeared in dir since the snapshot
-// into destDir. Only moves files with recognized code extensions.
-// Returns the count of recovered files.
+// recoverMisplacedFiles moves files and directories that appeared in dir since
+// the snapshot into destDir. Files with recognized code extensions (or no
+// extension) are moved; new directories are either moved into the workspace or
+// deleted if they match a known junk pattern. Returns the count of recovered
+// items (files + directories moved or cleaned up).
 func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir string, debugPrefix string, debug bool) int {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -179,19 +199,50 @@ func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir stri
 	}
 	recovered := 0
 	for _, e := range entries {
-		if e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+		if strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		if preSnapshot[e.Name()] {
 			continue // existed before eval
 		}
+
+		src := filepath.Join(dir, e.Name())
+
+		if e.IsDir() {
+			// Junk directories → just delete
+			if junkDirs[e.Name()] {
+				if err := os.RemoveAll(src); err == nil {
+					recovered++
+					if debug {
+						log.Printf("[DEBUG] %s: Deleted junk directory: %s", debugPrefix, src)
+					}
+				}
+				continue
+			}
+			// Other new directories → move into workspace
+			dst := filepath.Join(destDir, e.Name())
+			if err := os.Rename(src, dst); err != nil {
+				// Rename may fail across filesystems; fall back to copy+delete
+				if err := copyDir(src, dst); err == nil {
+					os.RemoveAll(src)
+				} else {
+					continue
+				}
+			}
+			recovered++
+			if debug {
+				log.Printf("[DEBUG] %s: Recovered misplaced directory: %s → %s", debugPrefix, src, dst)
+			}
+			continue
+		}
+
+		// Regular file handling (unchanged logic)
 		ext := strings.ToLower(filepath.Ext(e.Name()))
 		// Also recover extensionless files like "Dockerfile", "Makefile"
 		if !codeFileExts[ext] && ext != "" {
 			continue
 		}
 
-		src := filepath.Join(dir, e.Name())
 		dst := filepath.Join(destDir, e.Name())
 		data, err := os.ReadFile(src)
 		if err != nil {

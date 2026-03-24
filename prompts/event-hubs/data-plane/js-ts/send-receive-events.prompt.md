@@ -7,7 +7,7 @@ category: streaming
 difficulty: intermediate
 description: >
   Can a developer send and receive events using Azure Event Hubs
-  with the JavaScript/TypeScript SDK documentation?
+  with the JavaScript/TypeScript SDK?
 sdk_package: "@azure/event-hubs"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/event-hubs-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript documentation, write a TypeScript program
+Write a TypeScript program
 that demonstrates sending and receiving events with Azure Event Hubs:
 1. Create an EventHubProducerClient using a connection string
 2. Create a batch with createBatch() and add 10 events with custom properties
@@ -38,7 +38,7 @@ Show required npm packages (@azure/event-hubs and
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `@azure/event-hubs` and `@azure/eventhubs-checkpointstore-blob` npm packages
 - `EventHubProducerClient` constructor
 - `createBatch()` and `EventDataBatch.tryAdd()`
@@ -51,5 +51,5 @@ The documentation should cover:
 ## Context
 
 The JavaScript Event Hubs SDK uses a subscribe pattern with handler objects.
-This tests whether the JS/TS docs cover the subscription model and proper
+This tests whether the generated code covers the subscription model and proper
 checkpoint integration for reliable event processing.

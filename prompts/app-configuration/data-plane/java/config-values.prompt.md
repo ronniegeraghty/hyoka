@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer read and write configuration values and feature flags
-  in Azure App Configuration using the Java SDK documentation?
+  in Azure App Configuration using the Java SDK?
 sdk_package: azure-data-appconfiguration
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/data-appconfiguration-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, write a Java program that manages
+Write a Java program that manages
 configuration settings in Azure App Configuration:
 1. Create a ConfigurationClient using ConfigurationClientBuilder with a connection string
 2. Set a configuration setting with key "app:Settings:FontSize" and value "24"
@@ -38,7 +38,7 @@ proper error handling with HttpResponseException.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-data-appconfiguration` Maven dependency
 - `ConfigurationClientBuilder` and `ConfigurationClient`
 - `setConfigurationSetting()` with key, value, label
@@ -50,5 +50,5 @@ The documentation should cover:
 ## Context
 
 The Java App Configuration SDK uses the Azure SDK builder pattern. This tests
-whether the Java docs cover the builder setup, labeled settings, and the
+whether the generated code covers the builder setup, labeled settings, and the
 feature flag model using FeatureFlagConfigurationSetting.

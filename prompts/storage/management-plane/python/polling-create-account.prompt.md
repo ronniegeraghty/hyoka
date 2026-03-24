@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that creates
+Write a Python script that creates
 an Azure Storage Account using the management plane SDK and properly handles the
 long-running operation (LRO):
 1. Start the create operation using begin_create

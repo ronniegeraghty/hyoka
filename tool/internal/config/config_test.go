@@ -265,3 +265,66 @@ if err == nil {
 t.Fatal("expected error for nonexistent file")
 }
 }
+
+func TestParseSkillsAndPlugins(t *testing.T) {
+data := []byte(`
+configs:
+  - name: with-skills
+    description: "Config with skills and plugins"
+    model: "gpt-4"
+    skills:
+      - "@anthropic/tool-use"
+      - "github:org/repo"
+    plugins:
+      - "@azure/functions"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+if len(c.Skills) != 2 {
+t.Errorf("expected 2 skills, got %d", len(c.Skills))
+}
+if c.Skills[0] != "@anthropic/tool-use" {
+t.Errorf("expected skill '@anthropic/tool-use', got %q", c.Skills[0])
+}
+if c.Skills[1] != "github:org/repo" {
+t.Errorf("expected skill 'github:org/repo', got %q", c.Skills[1])
+}
+if len(c.Plugins) != 1 {
+t.Errorf("expected 1 plugin, got %d", len(c.Plugins))
+}
+if c.Plugins[0] != "@azure/functions" {
+t.Errorf("expected plugin '@azure/functions', got %q", c.Plugins[0])
+}
+}
+
+func TestParseNoSkillsOrPlugins(t *testing.T) {
+data := []byte(`
+configs:
+  - name: no-extras
+    description: "Config without skills or plugins"
+    model: "gpt-4"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+if len(c.Skills) != 0 {
+t.Errorf("expected 0 skills, got %d", len(c.Skills))
+}
+if len(c.Plugins) != 0 {
+t.Errorf("expected 0 plugins, got %d", len(c.Plugins))
+}
+}
+
+func TestInstallSkillsAndPluginsEmpty(t *testing.T) {
+configs := []ToolConfig{
+{Name: "empty", Description: "No skills", Model: "gpt-4"},
+}
+if err := InstallSkillsAndPlugins(configs); err != nil {
+t.Fatalf("expected no error for empty skills/plugins, got: %v", err)
+}
+}

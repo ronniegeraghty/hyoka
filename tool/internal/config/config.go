@@ -4,6 +4,7 @@ package config
 import (
 "fmt"
 "os"
+"os/exec"
 "path/filepath"
 
 "gopkg.in/yaml.v3"
@@ -32,6 +33,8 @@ GeneratorSkillDirectories  []string              `yaml:"generator_skill_director
 ReviewerSkillDirectories   []string              `yaml:"reviewer_skill_directories" json:"reviewer_skill_directories"`
 AvailableTools             []string              `yaml:"available_tools" json:"available_tools"`
 ExcludedTools              []string              `yaml:"excluded_tools" json:"excluded_tools"`
+Skills                     []string              `yaml:"skills" json:"skills"`
+Plugins                    []string              `yaml:"plugins" json:"plugins"`
 }
 
 // EffectiveReviewerModels returns the list of reviewer models to use.
@@ -153,4 +156,47 @@ missing = append(missing, n)
 return nil, fmt.Errorf("configs not found: %v", missing)
 }
 return result, nil
+}
+
+// InstallSkillsAndPlugins runs "npx skills add <entry>" for each declared
+// skill and plugin across the given configs. It deduplicates entries so each
+// package is only installed once.
+func InstallSkillsAndPlugins(configs []ToolConfig) error {
+seen := make(map[string]bool)
+type entry struct {
+kind  string
+value string
+}
+var entries []entry
+
+for _, c := range configs {
+for _, s := range c.Skills {
+if !seen["skill:"+s] {
+seen["skill:"+s] = true
+entries = append(entries, entry{"skill", s})
+}
+}
+for _, p := range c.Plugins {
+if !seen["plugin:"+p] {
+seen["plugin:"+p] = true
+entries = append(entries, entry{"plugin", p})
+}
+}
+}
+
+if len(entries) == 0 {
+return nil
+}
+
+for _, e := range entries {
+fmt.Printf("Installing %s: %s\n", e.kind, e.value)
+cmd := exec.Command("npx", "skills", "add", e.value)
+cmd.Stdout = os.Stdout
+cmd.Stderr = os.Stderr
+if err := cmd.Run(); err != nil {
+return fmt.Errorf("installing %s %q: %w", e.kind, e.value, err)
+}
+}
+
+return nil
 }

@@ -7,7 +7,7 @@ category: auth
 difficulty: basic
 description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
-  using the JavaScript/TypeScript SDK documentation?
+  using the JavaScript/TypeScript SDK?
 sdk_package: "@azure/identity"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/identity-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript/TypeScript documentation, show me how to
+Show me how to
 authenticate an Azure SDK client using DefaultAzureCredential. Explain:
 1. What npm packages are needed
 2. How to create and use a DefaultAzureCredential instance
@@ -35,7 +35,7 @@ DefaultAzureCredential.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `@azure/identity` npm package installation
 - `DefaultAzureCredential` constructor and options
 - Credential chain: Environment → Workload Identity → Managed Identity → Azure CLI → etc.
@@ -46,4 +46,4 @@ The documentation should cover:
 
 DefaultAzureCredential is the recommended starting point for Azure SDK authentication.
 It abstracts away the complexity of credential selection and works across environments.
-This tests whether the JavaScript/TypeScript docs explain it clearly enough for first-time users.
+This tests whether the generated code demonstrates it clearly enough for first-time users.

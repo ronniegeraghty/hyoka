@@ -105,9 +105,12 @@ type runFlags struct {
 	configName   string
 	configFile   string
 	configDir    string
-	workers      int
-	timeout      int
-	model        string
+	workers         int
+	timeout         int
+	generateTimeout int
+	verifyTimeout   int
+	reviewTimeout   int
+	model           string
 	output       string
 	progressMode string
 	skipTests    bool
@@ -131,7 +134,10 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.configFile, "config-file", "", "Path to a specific configuration YAML file (default: load all from configs/)")
 	cmd.Flags().StringVar(&f.configDir, "config-dir", "./configs", "Directory containing configuration YAML files")
 	cmd.Flags().IntVar(&f.workers, "workers", 4, "Parallel evaluation workers")
-	cmd.Flags().IntVar(&f.timeout, "timeout", 600, "Per-prompt timeout in seconds")
+	cmd.Flags().IntVar(&f.timeout, "timeout", 600, "Per-prompt generation timeout in seconds (deprecated: use --generate-timeout)")
+	cmd.Flags().IntVar(&f.generateTimeout, "generate-timeout", 0, "Generation phase timeout in seconds (default: --timeout value or 600)")
+	cmd.Flags().IntVar(&f.verifyTimeout, "verify-timeout", 300, "Verification phase timeout in seconds")
+	cmd.Flags().IntVar(&f.reviewTimeout, "review-timeout", 300, "Review phase timeout in seconds")
 	cmd.Flags().StringVar(&f.model, "model", "", "Override model for all configs")
 	cmd.Flags().StringVar(&f.output, "output", "./reports", "Report output directory")
 	cmd.Flags().BoolVar(&f.skipTests, "skip-tests", false, "Skip test generation")
@@ -290,6 +296,11 @@ func runCmd() *cobra.Command {
 			// Resolve relative skill_directories in configs to absolute paths
 			resolveConfigSkillDirs(configs, f.prompts)
 
+			// Install declared skills and plugins (npx skills add)
+			if err := config.InstallSkillsAndPlugins(configs); err != nil {
+				return fmt.Errorf("installing skills/plugins: %w", err)
+			}
+
 			// Load and filter prompts
 			prompts, err := prompt.LoadPrompts(f.prompts)
 			if err != nil {
@@ -396,15 +407,18 @@ func runCmd() *cobra.Command {
 
 			// Create and run engine
 			engine := eval.NewEngineWithReviewer(evaluator, verifier, reviewer, eval.EngineOptions{
-				Workers:      f.workers,
-				Timeout:      time.Duration(f.timeout) * time.Second,
-				OutputDir:    f.output,
-				SkipTests:    f.skipTests,
-				SkipReview:   f.skipReview,
-				VerifyBuild:  f.verifyBuild,
-				Debug:        f.debug,
-				DryRun:       f.dryRun,
-				ProgressMode: f.progressMode,
+				Workers:         f.workers,
+				Timeout:         time.Duration(f.timeout) * time.Second,
+				GenerateTimeout: time.Duration(f.generateTimeout) * time.Second,
+				VerifyTimeout:   time.Duration(f.verifyTimeout) * time.Second,
+				ReviewTimeout:   time.Duration(f.reviewTimeout) * time.Second,
+				OutputDir:       f.output,
+				SkipTests:       f.skipTests,
+				SkipReview:      f.skipReview,
+				VerifyBuild:     f.verifyBuild,
+				Debug:           f.debug,
+				DryRun:          f.dryRun,
+				ProgressMode:    f.progressMode,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)

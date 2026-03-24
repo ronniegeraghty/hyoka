@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, read, query, and delete items in an Azure Cosmos DB
-  container using the Python SDK documentation?
+  container using the Python SDK?
 sdk_package: azure-cosmos
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that performs
+Write a Python script that performs
 CRUD operations on items in an Azure Cosmos DB NoSQL container:
 1. Create a CosmosClient using endpoint and key
 2. Create a database "TestDB" and container "Items" with partition key "/category"
@@ -37,7 +37,7 @@ Show required pip packages and handle exceptions from azure.cosmos.exceptions.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-cosmos` pip package
 - `CosmosClient` creation
 - `database_client.create_database_if_not_exists()`
@@ -49,5 +49,5 @@ The documentation should cover:
 ## Context
 
 The Python Cosmos DB SDK uses dictionary-based items rather than typed models.
-This tests whether the Python docs cover the dict-based API and the differences
+This tests whether the generated code covers the dict-based API and the differences
 in query behavior (especially cross-partition queries).

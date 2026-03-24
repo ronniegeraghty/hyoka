@@ -7,7 +7,7 @@ category: crud
 difficulty: intermediate
 description: >
   Can a developer send and receive messages using Azure Service Bus
-  queues and topics with the JavaScript/TypeScript SDK documentation?
+  queues and topics with the JavaScript/TypeScript SDK?
 sdk_package: "@azure/service-bus"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/service-bus-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript documentation, write a TypeScript program
+Write a TypeScript program
 that demonstrates messaging with Azure Service Bus:
 1. Create a ServiceBusClient using a connection string
 2. Create a sender for a queue and send a single message
@@ -37,7 +37,7 @@ Show required npm package (@azure/service-bus) and proper close() cleanup.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `@azure/service-bus` npm package
 - `ServiceBusClient` constructor with connection string
 - `createSender()` for queue or topic
@@ -50,5 +50,5 @@ The documentation should cover:
 ## Context
 
 The JavaScript Service Bus SDK supports both pull-based (receiveMessages) and
-push-based (subscribe) receiving patterns. This tests whether the JS/TS docs
-cover both patterns and proper resource cleanup.
+push-based (subscribe) receiving patterns. This tests whether the generated code
+covers both patterns and proper resource cleanup.

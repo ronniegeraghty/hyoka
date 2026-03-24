@@ -50,4 +50,4 @@ Use the Azure.Storage.Blobs SDK.
 
 Default retry policies work for simple scenarios, but production applications
 need fine-tuned retry behavior. Developers building resilient storage pipelines
-need docs that explain the full retry model and when to override defaults.
+need to understand the full retry model and when to override defaults.

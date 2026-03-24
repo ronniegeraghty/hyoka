@@ -7,7 +7,7 @@ category: provisioning
 difficulty: intermediate
 description: >
   Can a developer create, configure, and manage Azure Storage Accounts
-  using the JavaScript/TypeScript management SDK documentation?
+  using the JavaScript/TypeScript management SDK?
 sdk_package: "@azure/arm-storage"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/arm-storage-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript documentation, write a TypeScript program
+Write a TypeScript program
 that manages Azure Storage Accounts using the management plane SDK:
 1. Authenticate using DefaultAzureCredential from @azure/identity
 2. Create a StorageManagementClient with the credential and subscription ID
@@ -36,7 +36,7 @@ Show required npm packages (@azure/arm-storage) and proper async/await patterns.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `@azure/arm-storage` and `@azure/identity` npm packages
 - `StorageManagementClient` constructor with credential and subscriptionId
 - `storageAccounts.beginCreateAndWait()` with `StorageAccountCreateParameters`
@@ -49,5 +49,5 @@ The documentation should cover:
 ## Context
 
 The JavaScript storage management SDK uses the ARM client pattern with beginAndWait
-for LROs. This tests whether the JS/TS docs cover the full storage account lifecycle
+for LROs. This tests whether the generated code covers the full storage account lifecycle
 including the async creation pattern.

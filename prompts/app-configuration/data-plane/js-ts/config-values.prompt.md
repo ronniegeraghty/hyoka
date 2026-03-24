@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer read and write configuration values and feature flags
-  in Azure App Configuration using the JavaScript/TypeScript SDK documentation?
+  in Azure App Configuration using the JavaScript/TypeScript SDK?
 sdk_package: "@azure/app-configuration"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/app-configuration-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript documentation, write a TypeScript program
+Write a TypeScript program
 that manages configuration settings in Azure App Configuration:
 1. Create an AppConfigurationClient using a connection string
 2. Set a configuration setting with key "app:Settings:FontSize" and value "24"
@@ -38,7 +38,7 @@ proper error handling with RestError.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `@azure/app-configuration` npm package
 - `AppConfigurationClient` constructor with connection string
 - `setConfigurationSetting()` with key, value, label
@@ -51,5 +51,5 @@ The documentation should cover:
 ## Context
 
 The JavaScript App Configuration SDK uses async iterators for listing.
-This tests whether the JS/TS docs cover the async iteration pattern and
+This tests whether the generated code covers the async iteration pattern and
 the feature flag content type approach.

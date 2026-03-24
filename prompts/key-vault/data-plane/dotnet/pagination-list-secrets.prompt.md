@@ -7,7 +7,7 @@ category: pagination
 difficulty: intermediate
 description: >
   Can a developer paginate through a large list of Key Vault secrets
-  using the .NET SDK documentation?
+  using the .NET SDK?
 sdk_package: Azure.Security.KeyVault.Secrets
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/security.keyvault.secrets-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that lists all
+Write a C# program that lists all
 secrets in an Azure Key Vault that contains hundreds of secrets. The program should:
 1. Use SecretClient with DefaultAzureCredential
 2. Iterate through secrets page-by-page using AsyncPageable

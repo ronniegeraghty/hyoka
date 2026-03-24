@@ -7,7 +7,7 @@ category: crud
 difficulty: intermediate
 description: >
   Can a developer send and receive messages using Azure Service Bus
-  queues and topics with the .NET SDK documentation?
+  queues and topics with the .NET SDK?
 sdk_package: Azure.Messaging.ServiceBus
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/messaging.servicebus-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that demonstrates
+Write a C# program that demonstrates
 messaging with Azure Service Bus:
 1. Create a ServiceBusClient using a connection string
 2. Create a ServiceBusSender for a queue and send a single message
@@ -37,7 +37,7 @@ Show required NuGet packages and proper disposal with await using.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `Azure.Messaging.ServiceBus` NuGet package
 - `ServiceBusClient` creation with connection string or `DefaultAzureCredential`
 - `ServiceBusSender` and `ServiceBusMessage` for sending

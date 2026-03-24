@@ -7,7 +7,7 @@ category: auth
 difficulty: basic
 description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
-  using the Java SDK documentation?
+  using the Java SDK?
 sdk_package: azure-identity
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, show me how to authenticate
+Show me how to authenticate
 an Azure SDK client using DefaultAzureCredential in Java. Explain:
 1. What Maven dependencies are needed
 2. How to create and use a DefaultAzureCredential instance
@@ -34,7 +34,7 @@ Provide a complete example that creates a SecretClient using DefaultAzureCredent
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - Maven dependency for `azure-identity`
 - `DefaultAzureCredentialBuilder` pattern
 - Credential chain order in Java SDK
@@ -45,4 +45,4 @@ The documentation should cover:
 
 DefaultAzureCredential is the recommended starting point for Azure SDK authentication.
 It abstracts away the complexity of credential selection and works across environments.
-This tests whether the Java docs explain it clearly enough for first-time users.
+This tests whether the generated code demonstrates it clearly enough for first-time users.

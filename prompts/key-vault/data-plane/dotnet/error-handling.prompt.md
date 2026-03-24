@@ -6,7 +6,7 @@ language: dotnet
 category: error-handling
 difficulty: intermediate
 description: >
-  Can the docs help a developer handle Key Vault errors including
+  Can a developer handle Key Vault errors including
   access denied (403), secret not found (404), and throttling (429) in .NET?
 sdk_package: Azure.Security.KeyVault.Secrets
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/security.keyvault.secrets-readme
@@ -43,5 +43,5 @@ how to extract the error code and HTTP status from RequestFailedException.
 ## Context
 
 Key Vault errors are often caused by misconfigured access policies or RBAC roles,
-which are notoriously difficult to debug. Developers need docs that explain
+which are notoriously difficult to debug. The generated code needs to demonstrate
 not just how to catch exceptions but how to diagnose the root cause of 403 errors.

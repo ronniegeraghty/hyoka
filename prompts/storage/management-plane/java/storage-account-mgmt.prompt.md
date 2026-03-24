@@ -7,7 +7,7 @@ category: provisioning
 difficulty: intermediate
 description: >
   Can a developer create, configure, and manage Azure Storage Accounts
-  using the Java management SDK documentation?
+  using the Java management SDK?
 sdk_package: azure-resourcemanager-storage
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/resourcemanager-storage-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, write a Java program that manages
+Write a Java program that manages
 Azure Storage Accounts using the management plane SDK:
 1. Authenticate using DefaultAzureCredential
 2. Create a StorageManager instance with the credential and subscription
@@ -37,7 +37,7 @@ and proper error handling.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-resourcemanager-storage` Maven dependency
 - `StorageManager.authenticate()` with credential and profile
 - `storageAccounts().define().withRegion().withExistingResourceGroup().withSku().create()`
@@ -50,5 +50,5 @@ The documentation should cover:
 ## Context
 
 The Java management SDK uses a fluent builder pattern (define/create/update) that
-differs significantly from other languages. This tests whether the Java docs cover
+differs significantly from other languages. This tests whether the generated code covers
 the fluent API for storage account lifecycle management.

@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, read, query, and delete items in an Azure Cosmos DB
-  container using the JavaScript/TypeScript SDK documentation?
+  container using the JavaScript/TypeScript SDK?
 sdk_package: "@azure/cosmos"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/cosmos-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript documentation, write a TypeScript program
+Write a TypeScript program
 that performs CRUD operations on items in an Azure Cosmos DB NoSQL container:
 1. Create a CosmosClient using endpoint and key
 2. Create a database "TestDB" and container "Items" with partition key "/category"
@@ -37,7 +37,7 @@ Show required npm package and handle errors with appropriate status code checks.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `@azure/cosmos` npm package
 - `CosmosClient` constructor with endpoint and key
 - `client.databases.createIfNotExists()` and `database.containers.createIfNotExists()`
@@ -49,5 +49,5 @@ The documentation should cover:
 ## Context
 
 The JavaScript Cosmos DB SDK uses a fluent chain pattern (container.item().read()).
-This tests whether the JS/TS docs cover the chained resource model and the
+This tests whether the generated code covers the chained resource model and the
 FeedResponse pattern for query results.

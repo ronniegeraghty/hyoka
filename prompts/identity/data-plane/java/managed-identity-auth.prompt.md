@@ -7,7 +7,7 @@ category: auth
 difficulty: intermediate
 description: >
   Can a developer use Managed Identity to authenticate Azure SDK clients
-  using the Java SDK documentation?
+  using the Java SDK?
 sdk_package: azure-identity
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, show me how to use
+Show me how to use
 Managed Identity to authenticate Azure SDK clients in Java. Cover:
 1. System-assigned vs user-assigned managed identity
 2. How to create a ManagedIdentityCredential for each type
@@ -34,7 +34,7 @@ Provide examples for both system-assigned and user-assigned identity.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `ManagedIdentityCredentialBuilder` class
 - System-assigned: default builder with no client ID
 - User-assigned: `.clientId()` on the builder
@@ -46,5 +46,5 @@ The documentation should cover:
 
 Managed Identity is the recommended auth pattern for code running in Azure.
 It eliminates the need for managing secrets entirely. This tests whether the
-Java docs explain both system-assigned and user-assigned identity clearly,
+generated code demonstrates both system-assigned and user-assigned identity clearly,
 including the critical local development fallback story.
