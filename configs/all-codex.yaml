@@ -1,0 +1,20 @@
+# All configs with GPT-5.3-Codex as the generator model
+# azsdk-prompt-eval run --config-file configs/all-codex.yaml
+configs:
+  - name: baseline-codex
+    description: "No MCP servers, no skills — GPT-5.3-Codex"
+    model: "gpt-5.3-codex"
+    reviewer_model: "gpt-4.1"
+
+  - name: azure-mcp-codex
+    description: "Azure MCP server attached — GPT-5.3-Codex"
+    model: "gpt-5.3-codex"
+    reviewer_model: "gpt-4.1"
+    mcp_servers:
+      azure:
+        type: local
+        command: npx
+        args: ["-y", "@azure/mcp@latest"]
+        tools: ["*"]
+    reviewer_skill_directories:
+      - "./skills/reviewer"

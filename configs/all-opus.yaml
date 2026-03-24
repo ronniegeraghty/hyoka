@@ -1,0 +1,20 @@
+# All configs with Claude Opus 4.6 as the generator model
+# azsdk-prompt-eval run --config-file configs/all-opus.yaml
+configs:
+  - name: baseline-opus
+    description: "No MCP servers, no skills — Claude Opus 4.6"
+    model: "claude-opus-4.6"
+    reviewer_model: "gpt-4.1"
+
+  - name: azure-mcp-opus
+    description: "Azure MCP server attached — Claude Opus 4.6"
+    model: "claude-opus-4.6"
+    reviewer_model: "gpt-4.1"
+    mcp_servers:
+      azure:
+        type: local
+        command: npx
+        args: ["-y", "@azure/mcp@latest"]
+        tools: ["*"]
+    reviewer_skill_directories:
+      - "./skills/reviewer"
