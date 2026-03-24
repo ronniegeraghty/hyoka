@@ -143,14 +143,22 @@ return fmt.Errorf("config %q: duplicate reviewer model %q", c.Name, rm)
 seen[rm] = true
 }
 // For each expanded config (per generator model), check that
-// ALL reviewer models differ from THAT generator model.
-// This allows reviewer model X even if X is one of the other generators,
-// as long as X isn't reviewing its own generation.
+// at least one reviewer model differs from the generator model.
+// A reviewer model matching the generator is allowed — it will be
+// auto-skipped at runtime — but ALL reviewers matching is an error.
 for _, expanded := range c.Expand() {
-for _, rm := range reviewerModels {
-if expanded.Model != "" && rm == expanded.Model {
-return fmt.Errorf("config %q: reviewer model %q must differ from generator model %q", c.Name, rm, expanded.Model)
+if expanded.Model == "" {
+continue
 }
+allMatch := true
+for _, rm := range reviewerModels {
+if rm != expanded.Model {
+allMatch = false
+break
+}
+}
+if allMatch && len(reviewerModels) > 0 {
+return fmt.Errorf("config %q: all reviewer models match generator model %q — at least one must differ", c.Name, expanded.Model)
 }
 }
 }

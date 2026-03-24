@@ -311,8 +311,8 @@ func runCmd() *cobra.Command {
 				return nil
 			}
 
-			fmt.Printf("Found %d prompt(s), %d config(s) × %d model(s) → %d evaluation(s)\n",
-				len(filtered), len(configs), expandedCount/max(len(configs), 1), len(filtered)*expandedCount)
+			fmt.Printf("Found %d prompt(s), %d expanded config(s) → %d evaluation(s)\n",
+				len(filtered), expandedCount, len(filtered)*expandedCount)
 
 			// Select evaluator, verifier, and reviewer
 			var evaluator eval.CopilotEvaluator

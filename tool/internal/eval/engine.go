@@ -445,7 +445,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			if e.opts.Debug {
 				log.Printf("[DEBUG] %s: Starting review panel...", debugPrefix)
 			}
-			panel, consolidated, err := e.panelReviewer.ReviewPanel(evalCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
+			panel, consolidated, err := e.panelReviewer.ReviewPanel(evalCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria, task.Config.Model)
 			if err != nil {
 				if e.opts.Debug {
 					log.Printf("[DEBUG] %s: ERROR: review panel failed: %v", debugPrefix, err)

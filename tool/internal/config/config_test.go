@@ -95,10 +95,10 @@ configs:
 `)
 _, err := Parse(data)
 if err == nil {
-t.Fatal("expected error when reviewer model matches generator model")
+t.Fatal("expected error when all reviewer models match generator model")
 }
-if !strings.Contains(err.Error(), "must differ") {
-t.Errorf("expected 'must differ' in error, got: %v", err)
+if !strings.Contains(err.Error(), "at least one must differ") {
+t.Errorf("expected 'at least one must differ' in error, got: %v", err)
 }
 }
 
@@ -119,6 +119,24 @@ t.Fatalf("unexpected error: %v", err)
 models := cfg.Configs[0].EffectiveReviewerModels()
 if len(models) != 2 {
 t.Errorf("expected 2 reviewer models, got %d", len(models))
+}
+}
+
+func TestValidateReviewerMatchingOneGeneratorAccepted(t *testing.T) {
+data := []byte(`
+configs:
+  - name: overlap-ok
+    description: "Reviewer matches one generator but not all"
+    models:
+      - "claude-sonnet-4.5"
+      - "claude-opus-4.6"
+    reviewer_models:
+      - "claude-opus-4.6"
+      - "gpt-4.1"
+`)
+_, err := Parse(data)
+if err != nil {
+t.Fatalf("expected no error when reviewer overlaps with only some generators, got: %v", err)
 }
 }
 
