@@ -208,19 +208,11 @@ func (p *PanelReviewer) SetSkillDirectories(dirs []string) {
 }
 
 // ReviewPanel runs all reviewer models in parallel and returns individual results
-// plus a consolidated result. The consolidated result is produced by the first
-// eligible model in the list, which receives all other reviewers' outputs.
-// generatorModel is excluded from the reviewer panel to avoid self-review.
-func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string, generatorModel string) (panel []ReviewResult, consolidated *ReviewResult, err error) {
-	// Filter out the generator model from reviewers
-	var activeModels []string
-	for _, m := range p.models {
-		if m != generatorModel {
-			activeModels = append(activeModels, m)
-		}
-	}
-	if len(activeModels) == 0 {
-		return nil, nil, fmt.Errorf("no reviewer models available after excluding generator model %q", generatorModel)
+// plus a consolidated result. The consolidated result is produced by the first model
+// in the list, which receives all other reviewers' outputs.
+func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (panel []ReviewResult, consolidated *ReviewResult, err error) {
+	if len(p.models) == 0 {
+		return nil, nil, fmt.Errorf("no reviewer models configured")
 	}
 
 	generatedFiles, err := utils.ReadDirFiles(workDir)
@@ -243,10 +235,10 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 		err    error
 	}
 
-	results := make(chan reviewOutput, len(activeModels))
+	results := make(chan reviewOutput, len(p.models))
 	var wg sync.WaitGroup
 
-	for i, model := range activeModels {
+	for i, model := range p.models {
 		wg.Add(1)
 		go func(idx int, m string) {
 			defer wg.Done()
@@ -265,7 +257,7 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 	}()
 
 	// Collect results in order
-	ordered := make([]*ReviewResult, len(activeModels))
+	ordered := make([]*ReviewResult, len(p.models))
 	for out := range results {
 		if out.err != nil && p.debug {
 			fmt.Printf("[DEBUG] reviewer %s failed: %v\n", out.model, out.err)
@@ -303,7 +295,7 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 
 // Review implements the Reviewer interface using the panel (for backward compat).
 func (p *PanelReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (*ReviewResult, error) {
-	_, consolidated, err := p.ReviewPanel(ctx, originalPrompt, workDir, referenceDir, evaluationCriteria, "")
+	_, consolidated, err := p.ReviewPanel(ctx, originalPrompt, workDir, referenceDir, evaluationCriteria)
 	return consolidated, err
 }
 

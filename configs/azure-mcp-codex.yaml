@@ -1,0 +1,17 @@
+# Azure MCP with GPT 5.3 Codex — Azure MCP server attached
+configs:
+  - name: azure-mcp/gpt-5.3-codex
+    description: "Azure MCP — GPT 5.3 Codex"
+    model: "gpt-5.3-codex"
+    reviewer_models:
+      - "claude-opus-4.6"
+      - "gemini-3-pro-preview"
+      - "gpt-4.1"
+    mcp_servers:
+      azure:
+        type: local
+        command: npx
+        args: ["-y", "@azure/mcp@latest"]
+        tools: ["*"]
+    reviewer_skill_directories:
+      - "./skills/reviewer"

@@ -135,16 +135,10 @@ type EvalTask struct {
 
 // Run executes evaluations for the given prompts crossed with configs.
 func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []config.ToolConfig) (*report.RunSummary, error) {
-	// Expand multi-model configs: a config with models: [A, B] becomes two configs
-	var expandedConfigs []config.ToolConfig
-	for _, c := range configs {
-		expandedConfigs = append(expandedConfigs, c.Expand()...)
-	}
-
-	// Build task list (cross product: prompts × expanded configs)
+	// Build task list (cross product: prompts × configs)
 	var tasks []EvalTask
 	for _, p := range prompts {
-		for _, c := range expandedConfigs {
+		for _, c := range configs {
 			tasks = append(tasks, EvalTask{Prompt: p, Config: c})
 		}
 	}
@@ -158,7 +152,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		RunID:        runID,
 		Timestamp:    time.Now().UTC().Format(time.RFC3339),
 		TotalPrompts: len(prompts),
-		TotalConfigs: len(expandedConfigs),
+		TotalConfigs: len(configs),
 		TotalEvals:   len(tasks),
 	}
 
@@ -445,7 +439,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			if e.opts.Debug {
 				log.Printf("[DEBUG] %s: Starting review panel...", debugPrefix)
 			}
-			panel, consolidated, err := e.panelReviewer.ReviewPanel(evalCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria, task.Config.Model)
+			panel, consolidated, err := e.panelReviewer.ReviewPanel(evalCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
 			if err != nil {
 				if e.opts.Debug {
 					log.Printf("[DEBUG] %s: ERROR: review panel failed: %v", debugPrefix, err)

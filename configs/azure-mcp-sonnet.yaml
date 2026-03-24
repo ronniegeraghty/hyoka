@@ -1,11 +1,8 @@
-# Azure MCP: Azure MCP server attached — tests tool-augmented ability
+# Azure MCP with Claude Sonnet 4.5 — Azure MCP server attached
 configs:
-  - name: azure-mcp
-    description: "Azure MCP server attached"
-    models:
-      - "claude-sonnet-4.5"
-      - "claude-opus-4.6"
-      - "gpt-5.3-codex"
+  - name: azure-mcp/claude-sonnet-4.5
+    description: "Azure MCP — Claude Sonnet 4.5"
+    model: "claude-sonnet-4.5"
     reviewer_models:
       - "claude-opus-4.6"
       - "gemini-3-pro-preview"

@@ -3,7 +3,6 @@ package config
 import (
 "os"
 "path/filepath"
-"strings"
 "testing"
 )
 
@@ -84,21 +83,19 @@ t.Fatal("expected error for invalid YAML")
 }
 }
 
-func TestValidateSameModelRejected(t *testing.T) {
+func TestValidateSameModelAccepted(t *testing.T) {
 data := []byte(`
 configs:
-  - name: bad-config
-    description: "Same model for generator and reviewer"
-    model: "claude-sonnet-4.5"
+  - name: same-model-ok
+    description: "Same model for generator and reviewer is allowed"
+    model: "claude-opus-4.6"
     reviewer_models:
-      - "claude-sonnet-4.5"
+      - "claude-opus-4.6"
+      - "gpt-4.1"
 `)
 _, err := Parse(data)
-if err == nil {
-t.Fatal("expected error when all reviewer models match generator model")
-}
-if !strings.Contains(err.Error(), "at least one must differ") {
-t.Errorf("expected 'at least one must differ' in error, got: %v", err)
+if err != nil {
+t.Fatalf("expected no error when reviewer model matches generator, got: %v", err)
 }
 }
 
@@ -119,24 +116,6 @@ t.Fatalf("unexpected error: %v", err)
 models := cfg.Configs[0].EffectiveReviewerModels()
 if len(models) != 2 {
 t.Errorf("expected 2 reviewer models, got %d", len(models))
-}
-}
-
-func TestValidateReviewerMatchingOneGeneratorAccepted(t *testing.T) {
-data := []byte(`
-configs:
-  - name: overlap-ok
-    description: "Reviewer matches one generator but not all"
-    models:
-      - "claude-sonnet-4.5"
-      - "claude-opus-4.6"
-    reviewer_models:
-      - "claude-opus-4.6"
-      - "gpt-4.1"
-`)
-_, err := Parse(data)
-if err != nil {
-t.Fatalf("expected no error when reviewer overlaps with only some generators, got: %v", err)
 }
 }
 
