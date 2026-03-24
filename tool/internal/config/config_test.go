@@ -3,6 +3,7 @@ package config
 import (
 "os"
 "path/filepath"
+"strings"
 "testing"
 )
 
@@ -80,6 +81,53 @@ data := []byte(`not: valid: yaml: [`)
 _, err := Parse(data)
 if err == nil {
 t.Fatal("expected error for invalid YAML")
+}
+}
+
+func TestValidateSameModelRejected(t *testing.T) {
+data := []byte(`
+configs:
+  - name: bad-config
+    description: "Same model for generator and reviewer"
+    model: "claude-sonnet-4.5"
+    reviewer_model: "claude-sonnet-4.5"
+`)
+_, err := Parse(data)
+if err == nil {
+t.Fatal("expected error when model and reviewer_model are the same")
+}
+if !strings.Contains(err.Error(), "must be different") {
+t.Errorf("expected 'must be different' in error, got: %v", err)
+}
+}
+
+func TestValidateDifferentModelsAccepted(t *testing.T) {
+data := []byte(`
+configs:
+  - name: good-config
+    description: "Different models"
+    model: "claude-sonnet-4.5"
+    reviewer_model: "gpt-4.1"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if cfg.Configs[0].ReviewerModel != "gpt-4.1" {
+t.Errorf("expected reviewer_model 'gpt-4.1', got %q", cfg.Configs[0].ReviewerModel)
+}
+}
+
+func TestValidateNoReviewerModelAccepted(t *testing.T) {
+data := []byte(`
+configs:
+  - name: no-reviewer
+    description: "No reviewer model specified"
+    model: "claude-sonnet-4.5"
+`)
+_, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
 }
 }
 

@@ -4,11 +4,13 @@ configs:
   - name: baseline
     description: "No MCP servers, no skills — just base Copilot"
     model: "claude-sonnet-4.5"
+    reviewer_model: "gpt-4.1"
     # Omit available_tools/excluded_tools to get all default tools
 
   - name: azure-mcp
     description: "Azure MCP server attached"
     model: "claude-sonnet-4.5"
+    reviewer_model: "gpt-4.1"
     mcp_servers:
       azure:
         type: local

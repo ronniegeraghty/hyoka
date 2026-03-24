@@ -21,6 +21,7 @@ type ToolConfig struct {
 Name                       string                `yaml:"name" json:"name"`
 Description                string                `yaml:"description" json:"description"`
 Model                      string                `yaml:"model" json:"model"`
+ReviewerModel              string                `yaml:"reviewer_model" json:"reviewer_model"`
 MCPServers                 map[string]*MCPServer `yaml:"mcp_servers" json:"mcp_servers"`
 SkillDirectories           []string              `yaml:"skill_directories" json:"skill_directories"`
 GeneratorSkillDirectories  []string              `yaml:"generator_skill_directories" json:"generator_skill_directories"`
@@ -49,15 +50,26 @@ var cfg ConfigFile
 if err := yaml.Unmarshal(data, &cfg); err != nil {
 return nil, fmt.Errorf("parsing config YAML: %w", err)
 }
-if len(cfg.Configs) == 0 {
-return nil, fmt.Errorf("no configs defined")
-}
-for i, c := range cfg.Configs {
-if c.Name == "" {
-return nil, fmt.Errorf("config at index %d has no name", i)
-}
+if err := cfg.Validate(); err != nil {
+return nil, err
 }
 return &cfg, nil
+}
+
+// Validate checks all configs for required fields and constraint violations.
+func (cf *ConfigFile) Validate() error {
+if len(cf.Configs) == 0 {
+return fmt.Errorf("no configs defined")
+}
+for i, c := range cf.Configs {
+if c.Name == "" {
+return fmt.Errorf("config at index %d has no name", i)
+}
+if c.Model != "" && c.ReviewerModel != "" && c.Model == c.ReviewerModel {
+return fmt.Errorf("config %q: model and reviewer_model must be different (both set to %q). The reviewer should use a different model than the generator to provide an independent evaluation", c.Name, c.Model)
+}
+}
+return nil
 }
 
 // GetConfig returns a config by name, or an error if not found.

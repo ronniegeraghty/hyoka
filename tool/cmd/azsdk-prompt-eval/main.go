@@ -336,7 +336,15 @@ func runCmd() *cobra.Command {
 					if err := reviewClient.Start(context.Background()); err != nil {
 						fmt.Printf("⚠️  Could not start reviewer client: %v, reviews will be skipped\n", err)
 					} else {
-						copilotReviewer := review.NewCopilotReviewer(reviewClient, f.model)
+						// Use reviewer_model from first config that specifies one, else fall back to CLI --model
+						reviewerModel := f.model
+						for _, c := range configs {
+							if c.ReviewerModel != "" {
+								reviewerModel = c.ReviewerModel
+								break
+							}
+						}
+						copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel)
 						if len(reviewerSkillsDirs) > 0 {
 							copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}

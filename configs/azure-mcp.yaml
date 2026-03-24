@@ -2,6 +2,7 @@ configs:
   - name: azure-mcp
     description: "Azure MCP server attached"
     model: "claude-sonnet-4.5"
+    reviewer_model: "gpt-4.1"
     mcp_servers:
       azure:
         type: local
