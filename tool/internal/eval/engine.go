@@ -218,6 +218,9 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 				if evalReport.Verification != nil && !evalReport.Verification.Pass {
 					msg = "verification failed"
 				}
+				if evalReport.Review != nil {
+					msg = fmt.Sprintf("%d/%d criteria", evalReport.Review.OverallScore, evalReport.Review.MaxScore)
+				}
 			}
 			display.HandleEvent(progress.ProgressEvent{
 				EvalID:      taskName,
@@ -447,9 +450,13 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			} else {
 				evalReport.ReviewPanel = panel
 				evalReport.Review = consolidated
+				// With criteria-based scoring, success = all criteria passed
+				if !evalFailed {
+					evalReport.Success = consolidated.Scores.AllPassed()
+				}
 				if e.opts.Debug {
-					log.Printf("[DEBUG] %s: Review panel: %d reviewers, consensus score: %d/10",
-						debugPrefix, len(panel), consolidated.OverallScore)
+					log.Printf("[DEBUG] %s: Review panel: %d reviewers, consensus score: %d/%d criteria",
+						debugPrefix, len(panel), consolidated.OverallScore, consolidated.MaxScore)
 				}
 			}
 		} else if e.reviewer != nil {
@@ -463,8 +470,12 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 				}
 			} else {
 				evalReport.Review = reviewResult
+				// With criteria-based scoring, success = all criteria passed
+				if !evalFailed {
+					evalReport.Success = reviewResult.Scores.AllPassed()
+				}
 				if e.opts.Debug {
-					log.Printf("[DEBUG] %s: Review score: %d/10", debugPrefix, reviewResult.OverallScore)
+					log.Printf("[DEBUG] %s: Review score: %d/%d criteria", debugPrefix, reviewResult.OverallScore, reviewResult.MaxScore)
 				}
 			}
 		}

@@ -215,21 +215,21 @@ func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service,
 	// Review scores
 	if r.Review != nil {
 		b.WriteString("## Code Review (LLM-as-Judge)\n\n")
-		fmt.Fprintf(&b, "**Overall Score: %d/10**\n\n", r.Review.OverallScore)
+		fmt.Fprintf(&b, "**Score: %d/%d criteria passed**\n\n", r.Review.OverallScore, r.Review.MaxScore)
 
-		b.WriteString("### Dimension Scores\n\n")
-		b.WriteString("| Dimension | Score |\n")
-		b.WriteString("|-----------|-------|\n")
-		fmt.Fprintf(&b, "| Correctness | %d/10 |\n", r.Review.Scores.Correctness)
-		fmt.Fprintf(&b, "| Completeness | %d/10 |\n", r.Review.Scores.Completeness)
-		fmt.Fprintf(&b, "| Best Practices | %d/10 |\n", r.Review.Scores.BestPractices)
-		fmt.Fprintf(&b, "| Error Handling | %d/10 |\n", r.Review.Scores.ErrorHandling)
-		fmt.Fprintf(&b, "| Package Usage | %d/10 |\n", r.Review.Scores.PackageUsage)
-		fmt.Fprintf(&b, "| Code Quality | %d/10 |\n", r.Review.Scores.CodeQuality)
-		if r.Review.Scores.ReferenceSimilarity > 0 {
-			fmt.Fprintf(&b, "| Reference Similarity | %d/10 |\n", r.Review.Scores.ReferenceSimilarity)
+		if len(r.Review.Scores.Criteria) > 0 {
+			b.WriteString("### Criteria Results\n\n")
+			b.WriteString("| Criterion | Result | Reason |\n")
+			b.WriteString("|-----------|--------|--------|\n")
+			for _, c := range r.Review.Scores.Criteria {
+				icon := "❌"
+				if c.Passed {
+					icon = "✅"
+				}
+				fmt.Fprintf(&b, "| %s | %s | %s |\n", c.Name, icon, c.Reason)
+			}
+			b.WriteString("\n")
 		}
-		b.WriteString("\n")
 
 		if r.Review.Summary != "" {
 			b.WriteString("### Summary\n\n")
@@ -337,7 +337,7 @@ func WriteSummaryMarkdown(s *RunSummary, outputDir string) (string, error) {
 					icon = "✅"
 				}
 				if cell.HasReview {
-					fmt.Fprintf(&b, " %s %d/10 |", icon, cell.Score)
+					fmt.Fprintf(&b, " %s %d/%d |", icon, cell.Score, cell.MaxScore)
 				} else if cell.Error != "" {
 					fmt.Fprintf(&b, " ⚠️ Error |")
 				} else {
@@ -360,7 +360,7 @@ func WriteSummaryMarkdown(s *RunSummary, outputDir string) (string, error) {
 		}
 		score := "—"
 		if r.Review != nil {
-			score = fmt.Sprintf("%d/10", r.Review.OverallScore)
+			score = fmt.Sprintf("%d/%d", r.Review.OverallScore, r.Review.MaxScore)
 		}
 		// Build relative link to individual report
 		service, _ := r.PromptMeta["service"].(string)
@@ -377,18 +377,37 @@ func WriteSummaryMarkdown(s *RunSummary, outputDir string) (string, error) {
 	}
 	b.WriteString("\n")
 
-	// Duration Analysis
-	if len(stats.DurationByConfig) > 0 {
-		b.WriteString("## Duration Analysis\n\n")
-		b.WriteString("| Config | Min | Avg | Max |\n")
+	// Duration Analysis (by Prompt)
+	if len(stats.DurationByPrompt) > 0 {
+		b.WriteString("## Duration Analysis (by Prompt)\n\n")
+		b.WriteString("| Prompt | Min | Avg | Max |\n")
 		b.WriteString("|--------|-----|-----|-----|\n")
-		for cfg, d := range stats.DurationByConfig {
-			fmt.Fprintf(&b, "| %s | %.1fs | %.1fs | %.1fs |\n", cfg, d.Min, d.Avg, d.Max)
+		for pid, d := range stats.DurationByPrompt {
+			minLabel := fmt.Sprintf("%.1fs", d.Min)
+			maxLabel := fmt.Sprintf("%.1fs", d.Max)
+			if d.MinSource != "" {
+				minLabel = fmt.Sprintf("%.1fs (%s)", d.Min, d.MinSource)
+			}
+			if d.MaxSource != "" {
+				maxLabel = fmt.Sprintf("%.1fs (%s)", d.Max, d.MaxSource)
+			}
+			fmt.Fprintf(&b, "| %s | %s | %.1fs | %s |\n", pid, minLabel, d.Avg, maxLabel)
 		}
 		b.WriteString("\n")
 		if stats.SlowestEval != "" {
 			fmt.Fprintf(&b, "⏱ **Slowest:** %s · **Fastest:** %s\n\n", stats.SlowestEval, stats.FastestEval)
 		}
+	}
+
+	// Prompt Comparison
+	if len(stats.PromptPassRates) > 0 {
+		b.WriteString("## Prompt Comparison\n\n")
+		b.WriteString("| Prompt | Total | Passed | Failed | Pass Rate |\n")
+		b.WriteString("|--------|-------|--------|--------|----------|\n")
+		for _, ppr := range stats.PromptPassRates {
+			fmt.Fprintf(&b, "| %s | %d | %d | %d | %.1f%% |\n", ppr.Prompt, ppr.Total, ppr.Passed, ppr.Failed, ppr.Rate)
+		}
+		b.WriteString("\n")
 	}
 
 	// Config Comparison
@@ -403,7 +422,7 @@ func WriteSummaryMarkdown(s *RunSummary, outputDir string) (string, error) {
 	}
 
 	if len(stats.PromptDeltas) > 0 {
-		b.WriteString("### Prompt Deltas\n\n")
+		b.WriteString("## Prompt Deltas\n\n")
 		b.WriteString("| Prompt | Passes On | Fails On |\n")
 		b.WriteString("|--------|-----------|----------|\n")
 		for _, d := range stats.PromptDeltas {

@@ -24,8 +24,7 @@ func TestBuildReviewPrompt(t *testing.T) {
 		"Generated Code",
 		"Reference Answer",
 		"Scoring Rubric",
-		"correctness",
-		"completeness",
+		"passed",
 		"Program.cs",
 	}
 	for _, check := range checks {
@@ -43,9 +42,6 @@ func TestBuildReviewPromptNoReference(t *testing.T) {
 
 	if !contains(result, "No reference answer provided") {
 		t.Error("expected 'No reference answer provided' when no reference given")
-	}
-	if !contains(result, "Skip (no reference provided)") {
-		t.Error("expected reference_similarity to be skipped")
 	}
 }
 
@@ -72,14 +68,14 @@ func TestParseReviewResponse(t *testing.T) {
 		score   int
 	}{
 		{
-			name:  "clean json",
-			input: `{"scores":{"correctness":8,"completeness":7,"best_practices":6,"error_handling":5,"package_usage":9,"code_quality":7,"reference_similarity":0},"overall_score":7,"summary":"Good code","issues":["Missing retry"],"strengths":["Clean"]}`,
-			score: 7,
+			name:  "clean json with criteria",
+			input: `{"scores":{"criteria":[{"name":"Code Builds","passed":true,"reason":"OK"},{"name":"Best Practices","passed":true,"reason":"Good"},{"name":"Error Handling","passed":false,"reason":"Missing"}]},"overall_score":2,"max_score":3,"summary":"Good code","issues":["Missing retry"],"strengths":["Clean"]}`,
+			score: 2,
 		},
 		{
 			name:  "wrapped in markdown",
-			input: "```json\n" + `{"scores":{"correctness":8,"completeness":7,"best_practices":6,"error_handling":5,"package_usage":9,"code_quality":7},"overall_score":7,"summary":"Good","issues":[],"strengths":[]}` + "\n```",
-			score: 7,
+			input: "```json\n" + `{"scores":{"criteria":[{"name":"Code Builds","passed":true}]},"overall_score":1,"max_score":1,"summary":"Good","issues":[],"strengths":[]}` + "\n```",
+			score: 1,
 		},
 		{
 			name:    "no json",

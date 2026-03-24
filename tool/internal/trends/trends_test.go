@@ -43,7 +43,8 @@ PromptMeta: map[string]any{
 },
 GeneratedFiles: []string{"main.py"},
 Review: &review.ReviewResult{
-OverallScore: 8,
+OverallScore: 4,
+MaxScore:     5,
 },
 }
 data, _ := json.MarshalIndent(r, "", "  ")
@@ -61,8 +62,8 @@ t.Fatalf("expected 1 entry, got %d", len(entries))
 if entries[0].PromptID != "key-vault-dp-python-crud" {
 t.Errorf("unexpected prompt ID: %s", entries[0].PromptID)
 }
-if entries[0].Score != 8 {
-t.Errorf("expected score 8, got %d", entries[0].Score)
+if entries[0].Score != 4 {
+t.Errorf("expected score 4, got %d", entries[0].Score)
 }
 if !entries[0].HasReview {
 t.Error("expected HasReview to be true")

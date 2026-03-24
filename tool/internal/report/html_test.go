@@ -30,14 +30,16 @@ func TestWriteHTMLReport(t *testing.T) {
 		},
 		Review: &review.ReviewResult{
 			Scores: review.ReviewScores{
-				Correctness:   8,
-				Completeness:  7,
-				BestPractices: 9,
-				ErrorHandling: 6,
-				PackageUsage:  8,
-				CodeQuality:   7,
+				Criteria: []review.CriterionResult{
+					{Name: "Code Builds", Passed: true, Reason: "Compiles successfully"},
+					{Name: "Latest Packages", Passed: true, Reason: "Using latest versions"},
+					{Name: "Best Practices", Passed: true, Reason: "Uses DefaultAzureCredential"},
+					{Name: "Error Handling", Passed: false, Reason: "Missing retry logic"},
+					{Name: "Code Quality", Passed: true, Reason: "Clean structure"},
+				},
 			},
-			OverallScore: 8,
+			OverallScore: 4,
+			MaxScore:     5,
 			Summary:      "Good implementation",
 			Issues:       []string{"Missing retry logic"},
 			Strengths:    []string{"Clean code structure"},
@@ -69,8 +71,8 @@ func TestWriteHTMLReport(t *testing.T) {
 		"test-prompt",
 		"baseline",
 		"PASSED",
-		"8/10",
-		"Correctness",
+		"4/5",
+		"Code Builds",
 		"Good implementation",
 		"Program.cs",
 		"dotnet build",
@@ -150,14 +152,14 @@ func TestWriteSummaryHTML(t *testing.T) {
 				ConfigName: "baseline",
 				Success:    true,
 				Build:      &build.BuildResult{Success: true},
-				Review:     &review.ReviewResult{OverallScore: 8},
+				Review:     &review.ReviewResult{OverallScore: 4, MaxScore: 5},
 			},
 			{
 				PromptID:   "prompt-a",
 				ConfigName: "azure-mcp",
 				Success:    true,
 				Build:      &build.BuildResult{Success: true},
-				Review:     &review.ReviewResult{OverallScore: 9},
+				Review:     &review.ReviewResult{OverallScore: 5, MaxScore: 5},
 			},
 			{
 				PromptID:   "prompt-b",
@@ -170,7 +172,7 @@ func TestWriteSummaryHTML(t *testing.T) {
 				ConfigName: "azure-mcp",
 				Success:    true,
 				Build:      &build.BuildResult{Success: true},
-				Review:     &review.ReviewResult{OverallScore: 7},
+				Review:     &review.ReviewResult{OverallScore: 3, MaxScore: 5},
 			},
 		},
 	}
@@ -193,9 +195,9 @@ func TestWriteSummaryHTML(t *testing.T) {
 		"prompt-b",
 		"baseline",
 		"azure-mcp",
-		"8/10",
-		"9/10",
-		"7/10",
+		"4/5",
+		"5/5",
+		"3/5",
 	}
 	for _, check := range checks {
 		if !strings.Contains(content, check) {
@@ -228,7 +230,7 @@ func TestWriteSummaryHTMLNoBuild(t *testing.T) {
 		Duration:   60.0,
 		Results: []*EvalReport{
 			{PromptID: "p1", ConfigName: "baseline", Success: true, Verification: &VerifyResult{Pass: true}},
-			{PromptID: "p1", ConfigName: "mcp", Success: true, Verification: &VerifyResult{Pass: true}, Review: &review.ReviewResult{OverallScore: 7}},
+			{PromptID: "p1", ConfigName: "mcp", Success: true, Verification: &VerifyResult{Pass: true}, Review: &review.ReviewResult{OverallScore: 3, MaxScore: 5}},
 			{PromptID: "p2", ConfigName: "baseline", Success: false, Verification: &VerifyResult{Pass: false}},
 		},
 	}
@@ -258,7 +260,7 @@ func TestWriteSummaryHTMLNoBuild(t *testing.T) {
 func TestBuildMatrix(t *testing.T) {
 	s := &RunSummary{
 		Results: []*EvalReport{
-			{PromptID: "p1", ConfigName: "c1", Success: true, Build: &build.BuildResult{Success: true}, Review: &review.ReviewResult{OverallScore: 8}},
+			{PromptID: "p1", ConfigName: "c1", Success: true, Build: &build.BuildResult{Success: true}, Review: &review.ReviewResult{OverallScore: 4, MaxScore: 5}},
 			{PromptID: "p1", ConfigName: "c2", Success: false, Build: &build.BuildResult{Success: false}},
 			{PromptID: "p2", ConfigName: "c1", Error: "timeout"},
 		},
@@ -277,8 +279,8 @@ func TestBuildMatrix(t *testing.T) {
 	if cell == nil {
 		t.Fatal("expected cell for p1/c1")
 	}
-	if cell.Score != 8 {
-		t.Errorf("expected score 8, got %d", cell.Score)
+	if cell.Score != 4 {
+		t.Errorf("expected score 4, got %d", cell.Score)
 	}
 	if !cell.BuildPass {
 		t.Error("expected build pass")

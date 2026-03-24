@@ -5,11 +5,13 @@ import (
 	"sort"
 )
 
-// DurationStats holds min/avg/max duration statistics.
+// DurationStats holds min/avg/max duration statistics with source labels for tooltips.
 type DurationStats struct {
-	Min float64 `json:"min"`
-	Avg float64 `json:"avg"`
-	Max float64 `json:"max"`
+	Min       float64 `json:"min"`
+	Avg       float64 `json:"avg"`
+	Max       float64 `json:"max"`
+	MinSource string  `json:"min_source,omitempty"` // config or prompt that produced the min
+	MaxSource string  `json:"max_source,omitempty"` // config or prompt that produced the max
 }
 
 // ConfigPassRate holds pass rate info for a single config.
@@ -26,6 +28,15 @@ type PromptDelta struct {
 	PromptID   string `json:"prompt_id"`
 	PassConfig string `json:"pass_config"`
 	FailConfig string `json:"fail_config"`
+}
+
+// PromptPassRate holds pass rate info for a single prompt across all configs.
+type PromptPassRate struct {
+	Prompt string  `json:"prompt"`
+	Total  int     `json:"total"`
+	Passed int     `json:"passed"`
+	Failed int     `json:"failed"`
+	Rate   float64 `json:"rate"` // 0-100
 }
 
 // ToolStat holds aggregate stats for a single tool.
@@ -47,7 +58,12 @@ type SummaryStats struct {
 
 	// Config comparison
 	ConfigPassRates []ConfigPassRate `json:"config_pass_rates"`
-	PromptDeltas    []PromptDelta    `json:"prompt_deltas"`
+
+	// Prompt comparison
+	PromptPassRates []PromptPassRate `json:"prompt_pass_rates"`
+
+	// Prompt deltas
+	PromptDeltas []PromptDelta `json:"prompt_deltas"`
 
 	// Tool usage
 	ToolStats []ToolStat `json:"tool_stats"`
@@ -61,9 +77,10 @@ func ComputeSummaryStats(s *RunSummary) *SummaryStats {
 	}
 
 	// Group durations by config and prompt
-	configDurations := make(map[string][]float64)
-	promptDurations := make(map[string][]float64)
+	configDurations := make(map[string][]durEntry)
+	promptDurations := make(map[string][]durEntry)
 	configCounts := make(map[string]struct{ total, passed int })
+	promptCounts := make(map[string]struct{ total, passed int })
 	// Track per-prompt-per-config pass/fail for delta analysis
 	promptConfigPass := make(map[string]map[string]bool)
 
@@ -71,8 +88,8 @@ func ComputeSummaryStats(s *RunSummary) *SummaryStats {
 	var fastestDur float64 = math.MaxFloat64
 
 	for _, r := range s.Results {
-		configDurations[r.ConfigName] = append(configDurations[r.ConfigName], r.Duration)
-		promptDurations[r.PromptID] = append(promptDurations[r.PromptID], r.Duration)
+		configDurations[r.ConfigName] = append(configDurations[r.ConfigName], durEntry{r.Duration, r.PromptID})
+		promptDurations[r.PromptID] = append(promptDurations[r.PromptID], durEntry{r.Duration, r.ConfigName})
 
 		cc := configCounts[r.ConfigName]
 		cc.total++
@@ -80,6 +97,13 @@ func ComputeSummaryStats(s *RunSummary) *SummaryStats {
 			cc.passed++
 		}
 		configCounts[r.ConfigName] = cc
+
+		pc := promptCounts[r.PromptID]
+		pc.total++
+		if r.Success {
+			pc.passed++
+		}
+		promptCounts[r.PromptID] = pc
 
 		if promptConfigPass[r.PromptID] == nil {
 			promptConfigPass[r.PromptID] = make(map[string]bool)
@@ -97,12 +121,12 @@ func ComputeSummaryStats(s *RunSummary) *SummaryStats {
 		}
 	}
 
-	// Compute duration stats
-	for cfg, durs := range configDurations {
-		stats.DurationByConfig[cfg] = calcDurationStats(durs)
+	// Compute duration stats with source tracking
+	for cfg, entries := range configDurations {
+		stats.DurationByConfig[cfg] = calcDurationStatsWithSource(entries)
 	}
-	for pid, durs := range promptDurations {
-		stats.DurationByPrompt[pid] = calcDurationStats(durs)
+	for pid, entries := range promptDurations {
+		stats.DurationByPrompt[pid] = calcDurationStatsWithSource(entries)
 	}
 
 	// Config pass rates
@@ -121,6 +145,24 @@ func ComputeSummaryStats(s *RunSummary) *SummaryStats {
 	}
 	sort.Slice(stats.ConfigPassRates, func(i, j int) bool {
 		return stats.ConfigPassRates[i].Config < stats.ConfigPassRates[j].Config
+	})
+
+	// Prompt pass rates
+	for pid, pc := range promptCounts {
+		rate := 0.0
+		if pc.total > 0 {
+			rate = float64(pc.passed) / float64(pc.total) * 100
+		}
+		stats.PromptPassRates = append(stats.PromptPassRates, PromptPassRate{
+			Prompt: pid,
+			Total:  pc.total,
+			Passed: pc.passed,
+			Failed: pc.total - pc.passed,
+			Rate:   math.Round(rate*10) / 10,
+		})
+	}
+	sort.Slice(stats.PromptPassRates, func(i, j int) bool {
+		return stats.PromptPassRates[i].Prompt < stats.PromptPassRates[j].Prompt
 	})
 
 	// Prompt deltas: find prompts that pass on one config but fail on another
@@ -192,6 +234,40 @@ func ComputeSummaryStats(s *RunSummary) *SummaryStats {
 	})
 
 	return stats
+}
+
+type durEntry struct {
+	duration float64
+	source   string
+}
+
+func calcDurationStatsWithSource(entries []durEntry) DurationStats {
+	if len(entries) == 0 {
+		return DurationStats{}
+	}
+	mn := entries[0].duration
+	mx := entries[0].duration
+	minSrc := entries[0].source
+	maxSrc := entries[0].source
+	sum := 0.0
+	for _, e := range entries {
+		sum += e.duration
+		if e.duration < mn {
+			mn = e.duration
+			minSrc = e.source
+		}
+		if e.duration > mx {
+			mx = e.duration
+			maxSrc = e.source
+		}
+	}
+	return DurationStats{
+		Min:       math.Round(mn*10) / 10,
+		Avg:       math.Round(sum/float64(len(entries))*10) / 10,
+		Max:       math.Round(mx*10) / 10,
+		MinSource: minSrc,
+		MaxSource: maxSrc,
+	}
 }
 
 func calcDurationStats(durs []float64) DurationStats {

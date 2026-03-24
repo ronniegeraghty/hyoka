@@ -35,6 +35,7 @@ PromptID   string   `json:"prompt_id"`
 Success    bool     `json:"success"`
 Duration   float64  `json:"duration_seconds"`
 Score      int      `json:"score"`
+MaxScore   int      `json:"max_score"`
 HasReview  bool     `json:"has_review"`
 ToolCalls  []string `json:"tool_calls"`
 FileCount  int      `json:"file_count"`
@@ -49,6 +50,7 @@ Success   bool     `json:"success"`
 Duration  float64  `json:"duration_seconds"`
 FileCount int      `json:"file_count"`
 Score     int      `json:"score"`
+MaxScore  int      `json:"max_score"`
 HasReview bool     `json:"has_review"`
 ToolCalls []string `json:"tool_calls,omitempty"`
 Error     string   `json:"error,omitempty"`
@@ -142,6 +144,7 @@ Success:   e.Success,
 Duration:  e.Duration,
 FileCount: e.FileCount,
 Score:     e.Score,
+MaxScore:  e.MaxScore,
 HasReview: e.HasReview,
 ToolCalls: e.ToolCalls,
 Error:     e.Error,
@@ -361,6 +364,7 @@ Error:      r.Error,
 }
 if r.Review != nil {
 entry.Score = r.Review.OverallScore
+entry.MaxScore = r.Review.MaxScore
 entry.HasReview = true
 }
 
@@ -426,7 +430,7 @@ fmt.Fprintf(b, "| Total Evaluations | %d |\n", tr.TotalRuns)
 fmt.Fprintf(b, "| Passed | %d (%.0f%%) |\n", passed, pct(passed, tr.TotalRuns))
 fmt.Fprintf(b, "| Failed | %d |\n", failed)
 if scored > 0 {
-fmt.Fprintf(b, "| Avg Score | %.1f/10 |\n", float64(totalScore)/float64(scored))
+fmt.Fprintf(b, "| Avg Score | %.1f avg |\n", float64(totalScore)/float64(scored))
 }
 fmt.Fprintf(b, "| Unique Prompts | %d |\n", len(tr.PromptTrends))
 fmt.Fprintf(b, "| Configs | %d |\n", len(configCounts))
@@ -525,7 +529,7 @@ cn++
 }
 avgScore := "—"
 if cn > 0 {
-avgScore = fmt.Sprintf("%.1f/10", float64(cs)/float64(cn))
+avgScore = fmt.Sprintf("%.1f avg", float64(cs)/float64(cn))
 }
 fmt.Fprintf(b, "| %s | %d | %.0f%% | %s | %s |\n",
 cfg, count, pct(cp, count), formatDuration(totalDur/float64(count)), avgScore)
@@ -791,7 +795,7 @@ cn++
 }
 avgScore := "—"
 if cn > 0 {
-avgScore = fmt.Sprintf("%.1f/10", float64(cs)/float64(cn))
+avgScore = fmt.Sprintf("%.1f avg", float64(cs)/float64(cn))
 }
 passRate := pct(cp, count)
 barColor := "var(--green)"

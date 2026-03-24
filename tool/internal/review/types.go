@@ -1,14 +1,36 @@
 package review
 
-// ReviewScores holds individual dimension scores from the LLM-as-judge review.
+// CriterionResult holds the pass/fail outcome for a single evaluation criterion.
+type CriterionResult struct {
+	Name   string `json:"name"`
+	Passed bool   `json:"passed"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// ReviewScores holds pass/fail results for each evaluation criterion.
 type ReviewScores struct {
-	Correctness         int `json:"correctness"`
-	Completeness        int `json:"completeness"`
-	BestPractices       int `json:"best_practices"`
-	ErrorHandling       int `json:"error_handling"`
-	PackageUsage        int `json:"package_usage"`
-	CodeQuality         int `json:"code_quality"`
-	ReferenceSimilarity int `json:"reference_similarity,omitempty"`
+	Criteria []CriterionResult `json:"criteria"`
+}
+
+// PassedCount returns the number of criteria that passed.
+func (s ReviewScores) PassedCount() int {
+	n := 0
+	for _, c := range s.Criteria {
+		if c.Passed {
+			n++
+		}
+	}
+	return n
+}
+
+// TotalCount returns the total number of criteria evaluated.
+func (s ReviewScores) TotalCount() int {
+	return len(s.Criteria)
+}
+
+// AllPassed returns true if every criterion passed.
+func (s ReviewScores) AllPassed() bool {
+	return s.PassedCount() == s.TotalCount() && s.TotalCount() > 0
 }
 
 // ReviewEvent captures a single event from the review Copilot session.
@@ -26,7 +48,8 @@ type ReviewEvent struct {
 type ReviewResult struct {
 	Model        string        `json:"model,omitempty"`
 	Scores       ReviewScores  `json:"scores"`
-	OverallScore int           `json:"overall_score"`
+	OverallScore int           `json:"overall_score"` // count of passed criteria
+	MaxScore     int           `json:"max_score"`     // total criteria count
 	Summary      string        `json:"summary"`
 	Issues       []string      `json:"issues"`
 	Strengths    []string      `json:"strengths"`

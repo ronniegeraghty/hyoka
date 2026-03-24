@@ -100,6 +100,7 @@ type MatrixData struct {
 type MatrixCell struct {
 	Success    bool
 	Score      int
+	MaxScore   int
 	BuildPass  bool
 	HasReview  bool
 	Duration   float64
@@ -143,6 +144,7 @@ func buildMatrix(s *RunSummary) *MatrixData {
 		}
 		if r.Review != nil {
 			cell.Score = r.Review.OverallScore
+			cell.MaxScore = r.Review.MaxScore
 			cell.HasReview = true
 		}
 		// Build relative link from summary.html to individual report
@@ -365,17 +367,27 @@ func readFileContents(codeDir string, files []string, starterFiles []string) map
 
 func htmlFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"scoreColor": func(score int) string {
+		"scoreColor": func(passed, total int) string {
+			if total == 0 {
+				return "#6b7280" // gray
+			}
+			rate := float64(passed) / float64(total)
 			switch {
-			case score >= 8:
-				return "#22c55e" // green
-			case score >= 6:
+			case rate >= 1.0:
+				return "#22c55e" // green — all passed
+			case rate >= 0.75:
 				return "#eab308" // yellow
-			case score >= 4:
+			case rate >= 0.5:
 				return "#f97316" // orange
 			default:
 				return "#ef4444" // red
 			}
+		},
+		"criterionIcon": func(passed bool) string {
+			if passed {
+				return "✅"
+			}
+			return "❌"
 		},
 		"statusIcon": func(success bool) string {
 			if success {
@@ -624,7 +636,7 @@ const reportTemplate = `<!DOCTYPE html>
 <!-- Result banner -->
 <div class="result-banner {{if .Success}}pass{{else}}fail{{end}}">
   <span class="verdict">{{if .Success}}✅ PASSED{{else}}❌ FAILED{{end}}</span>
-  {{if .Review}}<span class="meta-item">Score: <strong style="color:{{scoreColor .Review.OverallScore}}">{{.Review.OverallScore}}/10</strong></span>{{end}}
+  {{if .Review}}<span class="meta-item">Score: <strong style="color:{{scoreColor .Review.OverallScore .Review.MaxScore}}">{{.Review.OverallScore}}/{{.Review.MaxScore}}</strong></span>{{end}}
   <span class="meta-item">Duration: <strong>{{fmtDuration .Duration}}</strong></span>
   <span class="meta-item">Files: <strong>{{.FileCount}}</strong></span>
   <span class="meta-item">Tool Calls: <strong>{{len .ToolActions}}</strong></span>
@@ -745,27 +757,32 @@ const reportTemplate = `<!DOCTYPE html>
 </div>
 {{end}}
 
-<!-- ━━ Code Review (Issue 1: show review session events) ━━ -->
+<!-- ━━ Code Review ━━ -->
 {{if .Review}}
 <div class="phase phase-review">
-  <div class="phase-header"><span>📊</span> Code Review <span style="margin-left:auto;font-size:0.85rem">Score: {{.Review.OverallScore}}/10</span></div>
+  <div class="phase-header"><span>📊</span> Code Review <span style="margin-left:auto;font-size:0.85rem">Score: {{.Review.OverallScore}}/{{.Review.MaxScore}} criteria passed</span></div>
   <div class="timeline">
     <div class="tl-step">
       <div class="tl-marker">📊</div>
       <div class="tl-card">
         <div class="overall-score">
-          <div class="value" style="color:{{scoreColor .Review.OverallScore}}">{{.Review.OverallScore}}/10</div>
-          <div class="label">Overall Score</div>
+          <div class="value" style="color:{{scoreColor .Review.OverallScore .Review.MaxScore}}">{{.Review.OverallScore}}/{{.Review.MaxScore}}</div>
+          <div class="label">Criteria Passed</div>
         </div>
-        <div class="scores-grid">
-          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.Correctness}}">{{.Review.Scores.Correctness}}</div><div class="label">Correctness</div></div>
-          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.Completeness}}">{{.Review.Scores.Completeness}}</div><div class="label">Completeness</div></div>
-          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.BestPractices}}">{{.Review.Scores.BestPractices}}</div><div class="label">Best Practices</div></div>
-          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.ErrorHandling}}">{{.Review.Scores.ErrorHandling}}</div><div class="label">Error Handling</div></div>
-          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.PackageUsage}}">{{.Review.Scores.PackageUsage}}</div><div class="label">Package Usage</div></div>
-          <div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.CodeQuality}}">{{.Review.Scores.CodeQuality}}</div><div class="label">Code Quality</div></div>
-          {{if .Review.Scores.ReferenceSimilarity}}<div class="score-card"><div class="value" style="color:{{scoreColor .Review.Scores.ReferenceSimilarity}}">{{.Review.Scores.ReferenceSimilarity}}</div><div class="label">Ref Similarity</div></div>{{end}}
-        </div>
+        {{if .Review.Scores.Criteria}}
+        <table class="meta-table" style="width:100%;margin-top:1rem">
+          <thead><tr><th style="text-align:left">Criterion</th><th style="width:60px;text-align:center">Result</th><th style="text-align:left">Reason</th></tr></thead>
+          <tbody>
+          {{range .Review.Scores.Criteria}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td style="text-align:center">{{criterionIcon .Passed}}</td>
+            <td style="font-size:0.85rem;color:var(--text-muted)">{{.Reason}}</td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table>
+        {{end}}
         {{if .Review.Summary}}<p>{{.Review.Summary}}</p>{{end}}
       </div>
     </div>
@@ -825,31 +842,21 @@ const reportTemplate = `<!DOCTYPE html>
 <div class="section">
   <div class="section-header"><span class="icon">👥</span><h2>Review Panel ({{len .ReviewPanel}} reviewers)</h2></div>
   <div class="section-body">
-    <table class="detail-table">
-      <thead><tr><th>Reviewer</th><th>Score</th><th>Correctness</th><th>Completeness</th><th>Best Practices</th><th>Error Handling</th><th>Package Usage</th><th>Code Quality</th></tr></thead>
+    <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden;table-layout:auto">
+      <thead><tr><th style="background:#f8fafc;padding:0.75rem;text-align:left;font-size:0.85rem;color:var(--text-muted);border-bottom:2px solid var(--border)">Reviewer</th><th style="background:#f8fafc;padding:0.75rem;text-align:center;font-size:0.85rem;color:var(--text-muted);border-bottom:2px solid var(--border)">Score</th><th style="background:#f8fafc;padding:0.75rem;text-align:left;font-size:0.85rem;color:var(--text-muted);border-bottom:2px solid var(--border)">Criteria Results</th></tr></thead>
       <tbody>
         {{range .ReviewPanel}}
         <tr>
-          <td><code>{{.Model}}</code></td>
-          <td><strong style="color:{{scoreColor .OverallScore}}">{{.OverallScore}}/10</strong></td>
-          <td>{{.Scores.Correctness}}</td>
-          <td>{{.Scores.Completeness}}</td>
-          <td>{{.Scores.BestPractices}}</td>
-          <td>{{.Scores.ErrorHandling}}</td>
-          <td>{{.Scores.PackageUsage}}</td>
-          <td>{{.Scores.CodeQuality}}</td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;white-space:nowrap"><code>{{.Model}}</code></td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9;text-align:center"><strong style="color:{{scoreColor .OverallScore .MaxScore}}">{{.OverallScore}}/{{.MaxScore}}</strong></td>
+          <td style="padding:0.75rem;border-bottom:1px solid #f1f5f9">{{range .Scores.Criteria}}<span style="display:inline-block;margin:2px 4px" title="{{.Reason}}">{{criterionIcon .Passed}} {{.Name}}</span> {{end}}</td>
         </tr>
         {{end}}
         {{if .Review}}
         <tr style="font-weight:700;border-top:2px solid var(--border)">
-          <td>🏆 Consensus</td>
-          <td><strong style="color:{{scoreColor .Review.OverallScore}}">{{.Review.OverallScore}}/10</strong></td>
-          <td>{{.Review.Scores.Correctness}}</td>
-          <td>{{.Review.Scores.Completeness}}</td>
-          <td>{{.Review.Scores.BestPractices}}</td>
-          <td>{{.Review.Scores.ErrorHandling}}</td>
-          <td>{{.Review.Scores.PackageUsage}}</td>
-          <td>{{.Review.Scores.CodeQuality}}</td>
+          <td style="padding:0.75rem">🏆 Consensus</td>
+          <td style="padding:0.75rem;text-align:center"><strong style="color:{{scoreColor .Review.OverallScore .Review.MaxScore}}">{{.Review.OverallScore}}/{{.Review.MaxScore}}</strong></td>
+          <td style="padding:0.75rem">{{range .Review.Scores.Criteria}}<span style="display:inline-block;margin:2px 4px" title="{{.Reason}}">{{criterionIcon .Passed}} {{.Name}}</span> {{end}}</td>
         </tr>
         {{end}}
       </tbody>
@@ -859,6 +866,22 @@ const reportTemplate = `<!DOCTYPE html>
       <summary><code>{{.Model}}</code> — {{.Summary}}</summary>
       {{if .Issues}}<p><strong>Issues:</strong></p><ul>{{range .Issues}}<li>{{.}}</li>{{end}}</ul>{{end}}
       {{if .Strengths}}<p><strong>Strengths:</strong></p><ul>{{range .Strengths}}<li>{{.}}</li>{{end}}</ul>{{end}}
+      {{if .Events}}
+      <details style="margin-top:0.5rem">
+        <summary>🔍 Reviewer Action Log ({{len .Events}} events)</summary>
+        <div style="margin-top:0.5rem">
+        {{range .Events}}
+          {{if eq .Type "tool.execution_complete"}}
+          <div style="margin:0.5rem 0;padding:0.5rem;border-left:3px solid var(--purple);background:#faf5ff;border-radius:0 4px 4px 0">
+            <div style="font-weight:600;font-size:0.85rem;font-family:monospace;color:var(--purple)">🔧 {{.ToolName}}{{if gt .Duration 0.0}} <span style="font-weight:400;color:var(--text-muted)">({{printf "%.0fms" .Duration}})</span>{{end}}</div>
+            {{if .Result}}<pre style="font-size:0.78rem;max-height:200px;overflow-y:auto;margin:0.25rem 0 0 0">{{truncate .Result 2000}}</pre>{{end}}
+            {{if .Error}}<div style="color:var(--red);font-size:0.8rem;margin-top:0.25rem">❌ {{.Error}}</div>{{end}}
+          </div>
+          {{end}}
+        {{end}}
+        </div>
+      </details>
+      {{end}}
     </details>
     {{end}}
   </div>
@@ -998,7 +1021,7 @@ const summaryTemplate = `<!DOCTYPE html>
         {{with index (index $.Matrix.Cells $prompt) $config}}
           <div class="cell-icon">{{statusIcon .Success}}</div>
           {{if .Error}}<div class="cell-error" style="font-size:0.7rem">⚠️ Error</div>{{end}}
-          {{if .HasReview}}<div class="cell-score" style="color:{{scoreColor .Score}}">{{.Score}}/10</div>{{end}}
+          {{if .HasReview}}<div class="cell-score" style="color:{{scoreColor .Score .MaxScore}}">{{.Score}}/{{.MaxScore}}</div>{{end}}
           <div class="cell-duration">{{fmtDuration .Duration}}</div>
           <div class="cell-files">{{.FileCount}} files</div>
           {{if .ReportLink}}<div class="cell-link"><a href="{{.ReportLink}}">View Report →</a></div>{{end}}
@@ -1033,7 +1056,7 @@ const summaryTemplate = `<!DOCTYPE html>
       <td><code>{{.PromptID}}</code></td>
       <td>{{.ConfigName}}</td>
       <td>{{if .Error}}⚠️{{else}}{{statusIcon .Success}}{{end}}</td>
-      <td>{{if .Review}}<span style="color:{{scoreColor .Review.OverallScore}};font-weight:700">{{.Review.OverallScore}}/10</span>{{else}}—{{end}}</td>
+      <td>{{if .Review}}<span style="color:{{scoreColor .Review.OverallScore .Review.MaxScore}};font-weight:700">{{.Review.OverallScore}}/{{.Review.MaxScore}}</span>{{else}}—{{end}}</td>
       <td>{{fmtDuration .Duration}}</td>
       <td>{{len .GeneratedFiles}}</td>
       <td>{{range .ToolCalls}}<span class="tool-tag">{{.}}</span>{{end}}</td>
@@ -1044,19 +1067,38 @@ const summaryTemplate = `<!DOCTYPE html>
 </table>
 {{end}}
 
-<!-- ━━ Duration Analysis ━━ -->
+<!-- ━━ Duration Analysis (by Prompt) ━━ -->
 {{if .Stats}}
-{{if .Stats.DurationByConfig}}
-<h2>Duration Analysis</h2>
+{{if .Stats.DurationByPrompt}}
+<h2>Duration Analysis (by Prompt)</h2>
 <table class="detail-table">
-  <thead><tr><th>Config</th><th>Min</th><th>Avg</th><th>Max</th></tr></thead>
+  <thead><tr><th>Prompt</th><th>Min</th><th>Avg</th><th>Max</th></tr></thead>
   <tbody>
-    {{range $cfg, $d := .Stats.DurationByConfig}}
-    <tr><td>{{$cfg}}</td><td>{{fmtDuration $d.Min}}</td><td>{{fmtDuration $d.Avg}}</td><td>{{fmtDuration $d.Max}}</td></tr>
+    {{range $pid, $d := .Stats.DurationByPrompt}}
+    <tr><td><code>{{$pid}}</code></td><td title="Config: {{$d.MinSource}}">{{fmtDuration $d.Min}}</td><td>{{fmtDuration $d.Avg}}</td><td title="Config: {{$d.MaxSource}}">{{fmtDuration $d.Max}}</td></tr>
     {{end}}
   </tbody>
 </table>
 {{if .Stats.SlowestEval}}<p style="color:var(--text-muted);font-size:0.85rem">⏱ Slowest: <strong>{{.Stats.SlowestEval}}</strong> · Fastest: <strong>{{.Stats.FastestEval}}</strong></p>{{end}}
+{{end}}
+
+<!-- ━━ Prompt Comparison ━━ -->
+{{if .Stats.PromptPassRates}}
+<h2>Prompt Comparison</h2>
+<table class="detail-table">
+  <thead><tr><th>Prompt</th><th>Total</th><th>Passed</th><th>Failed</th><th>Pass Rate</th></tr></thead>
+  <tbody>
+    {{range .Stats.PromptPassRates}}
+    <tr>
+      <td><code>{{.Prompt}}</code></td>
+      <td>{{.Total}}</td>
+      <td style="color:var(--green)">{{.Passed}}</td>
+      <td style="color:var(--red)">{{.Failed}}</td>
+      <td><strong>{{printf "%.1f" .Rate}}%</strong></td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
 {{end}}
 
 <!-- ━━ Config Comparison ━━ -->
@@ -1076,17 +1118,23 @@ const summaryTemplate = `<!DOCTYPE html>
     {{end}}
   </tbody>
 </table>
+{{end}}
+
+<!-- ━━ Prompt Deltas ━━ -->
 {{if .Stats.PromptDeltas}}
-<h3>Prompt Deltas (differ between configs)</h3>
-<table class="detail-table">
-  <thead><tr><th>Prompt</th><th>Passes On</th><th>Fails On</th></tr></thead>
+<h2>Prompt Deltas (differ between configs)</h2>
+<table class="detail-table" style="width:100%">
+  <thead><tr><th style="min-width:200px">Prompt</th><th style="min-width:180px">Passes On</th><th style="min-width:180px">Fails On</th></tr></thead>
   <tbody>
     {{range .Stats.PromptDeltas}}
-    <tr><td><code>{{.PromptID}}</code></td><td style="color:var(--green)">{{.PassConfig}}</td><td style="color:var(--red)">{{.FailConfig}}</td></tr>
+    <tr>
+      <td><code>{{.PromptID}}</code></td>
+      <td style="color:var(--green);font-weight:600">{{.PassConfig}}</td>
+      <td style="color:var(--red);font-weight:600">{{.FailConfig}}</td>
+    </tr>
     {{end}}
   </tbody>
 </table>
-{{end}}
 {{end}}
 
 <!-- ━━ Tool Usage ━━ -->

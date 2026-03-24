@@ -63,7 +63,7 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		Model: r.model,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "append",
-			Content: "You are a code review judge evaluating another AI agent's work. The agent was given a prompt and asked to produce code. Score the generated code using the rubric and any prompt-specific evaluation criteria provided. Respond with ONLY valid JSON. No markdown, no explanation.",
+			Content: "You are a code review judge evaluating another AI agent's work. Actively verify the code: attempt to build it, check if SDK packages are the latest versions, and test any claims. Score each criterion as pass/fail per the rubric. Respond with ONLY valid JSON. No markdown, no explanation.",
 		},
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
@@ -155,14 +155,12 @@ type StubReviewer struct{}
 func (s *StubReviewer) Review(_ context.Context, _ string, _ string, _ string, _ string) (*ReviewResult, error) {
 	return &ReviewResult{
 		Scores: ReviewScores{
-			Correctness:   0,
-			Completeness:  0,
-			BestPractices: 0,
-			ErrorHandling: 0,
-			PackageUsage:  0,
-			CodeQuality:   0,
+			Criteria: []CriterionResult{
+				{Name: "stub_criterion", Passed: true, Reason: "stub mode"},
+			},
 		},
-		OverallScore: 0,
+		OverallScore: 1,
+		MaxScore:     1,
 		Summary:      "Review skipped (stub evaluator)",
 		Issues:       []string{},
 		Strengths:    []string{},
@@ -180,6 +178,13 @@ func parseReviewResponse(text string) (*ReviewResult, error) {
 	var result ReviewResult
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
 		return nil, fmt.Errorf("parsing review JSON: %w (response: %.200s)", err, jsonStr)
+	}
+	// Ensure MaxScore and OverallScore are consistent with criteria
+	if result.MaxScore == 0 && len(result.Scores.Criteria) > 0 {
+		result.MaxScore = result.Scores.TotalCount()
+	}
+	if result.OverallScore == 0 && len(result.Scores.Criteria) > 0 {
+		result.OverallScore = result.Scores.PassedCount()
 	}
 	return &result, nil
 }
@@ -285,8 +290,8 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 	// Consolidate: use the first model to synthesize all reviews
 	consolidated, err = p.consolidate(ctx, originalPrompt, generatedFiles, panel)
 	if err != nil {
-		// Fallback: use median scores from panel
-		consolidated = medianReview(panel)
+		// Fallback: use average scores from panel
+		consolidated = averageReview(panel)
 	}
 	consolidated.Model = "consensus"
 
@@ -320,7 +325,7 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 		Model: model,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "append",
-			Content: "You are a code review judge evaluating another AI agent's work. Score the generated code using the rubric and any prompt-specific evaluation criteria provided. Respond with ONLY valid JSON. No markdown, no explanation.",
+			Content: "You are a code review judge evaluating another AI agent's work. Actively verify the code: attempt to build it, check if SDK packages are the latest versions, and test any claims. Score each criterion as pass/fail per the rubric. Respond with ONLY valid JSON. No markdown, no explanation.",
 		},
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
@@ -331,6 +336,7 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	}
 
 	var assistantContent strings.Builder
+	var reviewEvents []ReviewEvent
 	var mu sync.Mutex
 	unsub := session.On(func(event copilot.SessionEvent) {
 		mu.Lock()
@@ -338,6 +344,35 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 		if event.Type == copilot.SessionEventTypeAssistantMessage && event.Data.Content != nil {
 			assistantContent.WriteString(*event.Data.Content)
 		}
+		// Capture all events for the report timeline
+		evt := ReviewEvent{Type: string(event.Type)}
+		if event.Data.ToolName != nil {
+			evt.ToolName = *event.Data.ToolName
+		}
+		if event.Data.Content != nil {
+			evt.Content = *event.Data.Content
+		}
+		if event.Data.Arguments != nil {
+			if argsBytes, err := json.Marshal(event.Data.Arguments); err == nil {
+				evt.ToolArgs = string(argsBytes)
+			}
+		}
+		if event.Data.Result != nil {
+			if event.Data.Result.Content != nil {
+				evt.Result = *event.Data.Result.Content
+			}
+		}
+		if event.Data.Error != nil {
+			if event.Data.Error.ErrorClass != nil {
+				evt.Error = event.Data.Error.ErrorClass.Message
+			} else if event.Data.Error.String != nil {
+				evt.Error = *event.Data.Error.String
+			}
+		}
+		if event.Data.Duration != nil {
+			evt.Duration = *event.Data.Duration
+		}
+		reviewEvents = append(reviewEvents, evt)
 	})
 	defer unsub()
 
@@ -350,9 +385,16 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 
 	mu.Lock()
 	responseText := assistantContent.String()
+	capturedEvents := make([]ReviewEvent, len(reviewEvents))
+	copy(capturedEvents, reviewEvents)
 	mu.Unlock()
 
-	return parseReviewResponse(responseText)
+	result, err := parseReviewResponse(responseText)
+	if err != nil {
+		return nil, err
+	}
+	result.Events = capturedEvents
+	return result, nil
 }
 
 // consolidate uses the first model to synthesize all individual reviews into a consensus.
@@ -372,7 +414,9 @@ func (p *PanelReviewer) consolidate(ctx context.Context, originalPrompt string, 
 	}
 
 	b.WriteString("## Instructions\n\n")
-	b.WriteString("Produce a consensus review. Use the median of individual scores for each dimension. ")
+	b.WriteString("Produce a consensus review using the criteria-based pass/fail system. ")
+	b.WriteString("For each criterion, it PASSES if the majority of reviewers marked it as passed. ")
+	b.WriteString("Use the union of all criteria across reviewers. ")
 	b.WriteString("Combine the best issues and strengths from all reviewers. ")
 	b.WriteString("Write a summary that captures the consensus view.\n\n")
 	b.WriteString("Respond with ONLY a JSON object in the same format as the individual reviews.\n")
@@ -385,47 +429,54 @@ func (p *PanelReviewer) consolidate(ctx context.Context, originalPrompt string, 
 	return result, nil
 }
 
-// medianReview computes median scores across a panel as a fallback.
-func medianReview(panel []ReviewResult) *ReviewResult {
+// averageReview computes average pass rates across a panel as a fallback.
+// For each criterion, it passes if the majority of reviewers marked it passed.
+func averageReview(panel []ReviewResult) *ReviewResult {
 	if len(panel) == 0 {
 		return &ReviewResult{Summary: "No reviews to consolidate"}
 	}
 
-	median := func(extract func(ReviewScores) int) int {
-		vals := make([]int, 0, len(panel))
-		for _, r := range panel {
-			vals = append(vals, extract(r.Scores))
-		}
-		// Simple sort for small N
-		for i := range vals {
-			for j := i + 1; j < len(vals); j++ {
-				if vals[j] < vals[i] {
-					vals[i], vals[j] = vals[j], vals[i]
-				}
-			}
-		}
-		return vals[len(vals)/2]
+	// Collect all criteria by name, track pass counts
+	type criterionAgg struct {
+		passCount int
+		total     int
+		reasons   []string
 	}
+	criteriaMap := make(map[string]*criterionAgg)
+	var criteriaOrder []string
 
-	scores := ReviewScores{
-		Correctness:   median(func(s ReviewScores) int { return s.Correctness }),
-		Completeness:  median(func(s ReviewScores) int { return s.Completeness }),
-		BestPractices: median(func(s ReviewScores) int { return s.BestPractices }),
-		ErrorHandling: median(func(s ReviewScores) int { return s.ErrorHandling }),
-		PackageUsage:  median(func(s ReviewScores) int { return s.PackageUsage }),
-		CodeQuality:   median(func(s ReviewScores) int { return s.CodeQuality }),
-	}
-
-	// Median overall
-	overalls := make([]int, 0, len(panel))
 	for _, r := range panel {
-		overalls = append(overalls, r.OverallScore)
-	}
-	for i := range overalls {
-		for j := i + 1; j < len(overalls); j++ {
-			if overalls[j] < overalls[i] {
-				overalls[i], overalls[j] = overalls[j], overalls[i]
+		for _, c := range r.Scores.Criteria {
+			agg, exists := criteriaMap[c.Name]
+			if !exists {
+				agg = &criterionAgg{}
+				criteriaMap[c.Name] = agg
+				criteriaOrder = append(criteriaOrder, c.Name)
 			}
+			agg.total++
+			if c.Passed {
+				agg.passCount++
+			}
+			if c.Reason != "" {
+				agg.reasons = append(agg.reasons, c.Reason)
+			}
+		}
+	}
+
+	// Build consensus criteria — passed if majority passed
+	var criteria []CriterionResult
+	passedCount := 0
+	for _, name := range criteriaOrder {
+		agg := criteriaMap[name]
+		passed := agg.passCount > agg.total/2 // majority
+		reason := fmt.Sprintf("%d/%d reviewers passed", agg.passCount, agg.total)
+		criteria = append(criteria, CriterionResult{
+			Name:   name,
+			Passed: passed,
+			Reason: reason,
+		})
+		if passed {
+			passedCount++
 		}
 	}
 
@@ -450,10 +501,13 @@ func medianReview(panel []ReviewResult) *ReviewResult {
 	}
 
 	return &ReviewResult{
-		Model:        "consensus (median)",
-		Scores:       scores,
-		OverallScore: overalls[len(overalls)/2],
-		Summary:      fmt.Sprintf("Median consensus from %d reviewers", len(panel)),
+		Model: "consensus (average)",
+		Scores: ReviewScores{
+			Criteria: criteria,
+		},
+		OverallScore: passedCount,
+		MaxScore:     len(criteria),
+		Summary:      fmt.Sprintf("Average consensus from %d reviewers: %d/%d criteria passed", len(panel), passedCount, len(criteria)),
 		Issues:       issues,
 		Strengths:    strengths,
 	}

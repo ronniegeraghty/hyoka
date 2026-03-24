@@ -25,7 +25,8 @@ func BuildReviewPrompt(originalPrompt string, generatedFiles map[string]string, 
 
 	if evaluationCriteria != "" {
 		b.WriteString("## Prompt-Specific Evaluation Criteria\n\n")
-		b.WriteString("The prompt author defined these criteria the generated code should satisfy:\n\n")
+		b.WriteString("The prompt author defined these criteria the generated code should satisfy. ")
+		b.WriteString("Evaluate EACH criterion individually as pass/fail:\n\n")
 		b.WriteString(evaluationCriteria)
 		b.WriteString("\n\n")
 	}
@@ -44,14 +45,6 @@ func BuildReviewPrompt(originalPrompt string, generatedFiles map[string]string, 
 		b.WriteString("## Reference Answer\n\nNo reference answer provided.\n\n")
 	}
 
-	b.WriteString(scoringRubric(len(referenceFiles) > 0))
+	b.WriteString(embeddedRubric)
 	return b.String()
-}
-
-func scoringRubric(hasReference bool) string {
-	refInstruction := "How similar is it to the reference? (1-10)"
-	if !hasReference {
-		refInstruction = "Skip (no reference provided), output 0"
-	}
-	return strings.ReplaceAll(embeddedRubric, "{{REFERENCE_INSTRUCTION}}", refInstruction)
 }
