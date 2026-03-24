@@ -54,15 +54,18 @@ func (s *StubEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cfg *con
 
 // EngineOptions configures the evaluation engine.
 type EngineOptions struct {
-	Workers      int
-	Timeout      time.Duration
-	OutputDir    string
-	SkipTests    bool
-	SkipReview   bool
-	VerifyBuild  bool
-	Debug        bool
-	DryRun       bool
-	ProgressMode string // "auto", "live", "log", "off"
+	Workers         int
+	Timeout         time.Duration // Deprecated: use GenerateTimeout. Kept for backward compat.
+	GenerateTimeout time.Duration // Independent timeout for code generation phase.
+	VerifyTimeout   time.Duration // Independent timeout for verification phase.
+	ReviewTimeout   time.Duration // Independent timeout for review phase.
+	OutputDir       string
+	SkipTests       bool
+	SkipReview      bool
+	VerifyBuild     bool
+	Debug           bool
+	DryRun          bool
+	ProgressMode    string // "auto", "live", "log", "off"
 }
 
 // Verifier evaluates generated code against prompt requirements.
@@ -101,8 +104,18 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, verifier Verifier, review
 	if opts.Workers <= 0 {
 		opts.Workers = 4
 	}
-	if opts.Timeout <= 0 {
-		opts.Timeout = 10 * time.Minute
+	// Backward compat: if only the legacy Timeout is set, use it as GenerateTimeout.
+	if opts.Timeout > 0 && opts.GenerateTimeout <= 0 {
+		opts.GenerateTimeout = opts.Timeout
+	}
+	if opts.GenerateTimeout <= 0 {
+		opts.GenerateTimeout = 10 * time.Minute
+	}
+	if opts.VerifyTimeout <= 0 {
+		opts.VerifyTimeout = 5 * time.Minute
+	}
+	if opts.ReviewTimeout <= 0 {
+		opts.ReviewTimeout = 5 * time.Minute
 	}
 	if opts.OutputDir == "" {
 		opts.OutputDir = "./reports"
@@ -271,8 +284,10 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 }
 
 func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string, sendPhase func(progress.Phase)) *report.EvalReport {
-	evalCtx, cancel := context.WithTimeout(ctx, e.opts.Timeout)
-	defer cancel()
+	// Each phase gets its own independent timeout so a slow generation
+	// doesn't starve verification or review (fixes issue #3).
+	genCtx, genCancel := context.WithTimeout(ctx, e.opts.GenerateTimeout)
+	defer genCancel()
 
 	debugPrefix := task.Prompt.ID + "/" + task.Config.Name
 	start := time.Now()
@@ -332,14 +347,15 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		preEvalCwdFiles = snapshotDir(cwdDir)
 	}
 
-	// Run evaluation
+	// Run evaluation (generation phase — uses its own timeout)
 	sendPhase(progress.PhaseGenerating)
-	result, err := e.evaluator.Evaluate(evalCtx, task.Prompt, &task.Config, ws.Dir)
+	result, err := e.evaluator.Evaluate(genCtx, task.Prompt, &task.Config, ws.Dir)
+	genCancel() // release generation timeout immediately
 	evalFailed := err != nil
 	if evalFailed {
-		if evalCtx.Err() == context.DeadlineExceeded {
-			evalReport.Error = fmt.Sprintf("evaluation timed out after %s", e.opts.Timeout)
-			evalReport.ErrorDetails = fmt.Sprintf("context deadline exceeded — consider increasing --timeout (currently %s)", e.opts.Timeout)
+		if genCtx.Err() == context.DeadlineExceeded {
+			evalReport.Error = fmt.Sprintf("generation timed out after %s", e.opts.GenerateTimeout)
+			evalReport.ErrorDetails = fmt.Sprintf("context deadline exceeded — consider increasing --generate-timeout (currently %s)", e.opts.GenerateTimeout)
 		} else {
 			evalReport.Error = fmt.Sprintf("evaluation failed: %v", err)
 			evalReport.ErrorDetails = err.Error()
@@ -420,12 +436,15 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	evalReport.Duration = time.Since(start).Seconds()
 
 	// Copilot-based verification (skip if eval hard-failed with no files)
+	// Uses its own independent timeout context (fixes issue #3).
 	if e.verifier != nil && len(generatedFiles) > 0 {
 		sendPhase(progress.PhaseVerifying)
 		if e.opts.Debug {
 			log.Printf("[DEBUG] %s: Starting verification session...", debugPrefix)
 		}
-		verifyResult, err := e.verifier.Verify(evalCtx, task.Prompt.PromptText, ws.Dir, task.Prompt.EvaluationCriteria)
+		verifyCtx, verifyCancel := context.WithTimeout(ctx, e.opts.VerifyTimeout)
+		verifyResult, err := e.verifier.Verify(verifyCtx, task.Prompt.PromptText, ws.Dir, task.Prompt.EvaluationCriteria)
+		verifyCancel()
 		if err != nil {
 			log.Printf("%s: verification error: %v", debugPrefix, err)
 			if evalReport.Error == "" {
@@ -450,7 +469,9 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Optional build verification (--verify-build flag)
 	if e.opts.VerifyBuild && len(generatedFiles) > 0 {
-		buildResult, err := build.Verify(evalCtx, task.Prompt.Language, ws.Dir)
+		buildCtx, buildCancel := context.WithTimeout(ctx, e.opts.VerifyTimeout)
+		buildResult, err := build.Verify(buildCtx, task.Prompt.Language, ws.Dir)
+		buildCancel()
 		if err != nil {
 			log.Printf("%s: build verification error: %v", debugPrefix, err)
 			if evalReport.Error == "" {
@@ -467,8 +488,10 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	}
 
 	// Code review — use panel reviewer if available, otherwise single reviewer
+	// Uses its own independent timeout context (fixes issue #3).
 	if !e.opts.SkipReview && len(generatedFiles) > 0 {
 		sendPhase(progress.PhaseReviewing)
+		reviewCtx, reviewCancel := context.WithTimeout(ctx, e.opts.ReviewTimeout)
 		referenceDir := ""
 		if task.Prompt.ReferenceAnswer != "" {
 			referenceDir = task.Prompt.ReferenceAnswer
@@ -478,7 +501,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			if e.opts.Debug {
 				log.Printf("[DEBUG] %s: Starting review panel...", debugPrefix)
 			}
-			panel, consolidated, err := e.panelReviewer.ReviewPanel(evalCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
+			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
 			if err != nil {
 				if e.opts.Debug {
 					log.Printf("[DEBUG] %s: ERROR: review panel failed: %v", debugPrefix, err)
@@ -499,7 +522,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			if e.opts.Debug {
 				log.Printf("[DEBUG] %s: Starting single review session...", debugPrefix)
 			}
-			reviewResult, err := e.reviewer.Review(evalCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
+			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
 			if err != nil {
 				if e.opts.Debug {
 					log.Printf("[DEBUG] %s: ERROR: code review failed: %v", debugPrefix, err)
@@ -524,6 +547,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 				log.Printf("[DEBUG] %s: Captured %d reviewed files with annotations", debugPrefix, len(reviewedFiles))
 			}
 		}
+		reviewCancel()
 	}
 
 	// Tool usage evaluation (compare expected vs actual tools)
