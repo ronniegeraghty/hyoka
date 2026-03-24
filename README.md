@@ -1,6 +1,6 @@
 # azure-sdk-prompts
 
-A curated library of prompts for evaluating how well AI agents generate Azure SDK code, paired with a Go evaluation tool (`azsdk-prompt-eval`) that runs prompts through the Copilot SDK, verifies builds, and produces scored reports.
+A curated library of prompts for evaluating how well AI agents generate Azure SDK code, paired with a Go evaluation tool (`azsdk-prompt-eval`) that runs prompts through the Copilot SDK, reviews code via a multi-model panel, and produces criteria-based pass/fail reports.
 
 ## Quick Start
 
@@ -115,37 +115,38 @@ azsdk-prompt-eval validate
 
 ### Tool Configurations
 
-Evaluations can run prompts against different Copilot configurations (models, MCP servers, skills) defined in the `configs/` directory:
+Each config file defines **one generator model** and a **multi-model review panel**. The `configs/` directory contains 6 configs (3 baseline + 3 azure-mcp), auto-discovered via `LoadDir()`:
 
 ```bash
 # List configs
 azsdk-prompt-eval configs
 
-# Run with baseline only (no MCP, no skills)
-azsdk-prompt-eval run --config-file configs/baseline.yaml --prompt-id storage-dp-dotnet-auth
+# Run with a specific config file
+azsdk-prompt-eval run --config-file configs/baseline-sonnet.yaml --prompt-id storage-dp-dotnet-auth
 
-# Run with azure-mcp only
-azsdk-prompt-eval run --config-file configs/azure-mcp.yaml --prompt-id storage-dp-dotnet-auth
-
-# Run matrix (both configs — default)
+# Run all configs (default — auto-discovers configs/ directory)
 azsdk-prompt-eval run --prompt-id storage-dp-dotnet-auth
 
-# Run with a specific config name from the default config file
-azsdk-prompt-eval run --config baseline
+# Run with a specific config name
+azsdk-prompt-eval run --config baseline/claude-sonnet-4.5
 
 # Run multiple configs (produces comparison data)
-azsdk-prompt-eval run --config baseline,azure-mcp
+azsdk-prompt-eval run --config baseline/claude-sonnet-4.5,azure-mcp/claude-sonnet-4.5
 ```
 
 #### Custom Configs
 
-Create your own config YAML in the `configs/` directory:
+Create your own config YAML in the `configs/` directory. Each file defines one generator model and its review panel:
 
 ```yaml
 configs:
   - name: my-custom-config
     description: "My custom evaluation config"
     model: "claude-sonnet-4.5"
+    reviewer_models:
+      - "claude-opus-4.6"        # first model acts as consolidator
+      - "gemini-3-pro-preview"
+      - "gpt-4.1"
     mcp_servers: {}
     skill_directories: []
     available_tools: []
@@ -179,10 +180,13 @@ git commit -m "prompt: add <service> <plane> <language> <category>"
 azure-sdk-prompts/
 ├── README.md
 ├── go.work                            # Go workspace (run commands from repo root)
-├── configs/                           # Evaluation config matrix
-│   ├── all.yaml                       # Both configs (default for matrix runs)
-│   ├── baseline.yaml                  # No MCP, no skills — raw Copilot
-│   └── azure-mcp.yaml                # Azure MCP server attached
+├── configs/                           # Evaluation configs (one generator per file)
+│   ├── baseline-sonnet.yaml           # Baseline + Claude Sonnet 4.5
+│   ├── baseline-opus.yaml             # Baseline + Claude Opus 4.6
+│   ├── baseline-codex.yaml            # Baseline + GPT Codex
+│   ├── azure-mcp-sonnet.yaml          # Azure MCP + Claude Sonnet 4.5
+│   ├── azure-mcp-opus.yaml            # Azure MCP + Claude Opus 4.6
+│   └── azure-mcp-codex.yaml           # Azure MCP + GPT Codex
 ├── prompts/                           # Prompt library
 │   ├── storage/
 │   │   ├── data-plane/
@@ -213,6 +217,7 @@ azure-sdk-prompts/
 │       ├── trends/
 │       ├── verify/
 │       ├── review/
+│       │   └── rubric.md              # Criteria-based scoring rubric (embedded)
 │       └── validate/
 ├── reports/                           # Evaluation output
 │   └── <run-id>/
@@ -248,7 +253,7 @@ Every prompt uses YAML frontmatter:
 ## Roadmap
 
 - **Phase 1:** ✅ Prompt library, build verification, report generation with stub evaluator
-- **Phase 2:** ✅ Copilot SDK integration — live agent evaluation with code generation and LLM-as-judge scoring
+- **Phase 2:** ✅ Copilot SDK integration — live agent evaluation with code generation and criteria-based review panel
 - **Phase 3:** ✅ Tool matrix, MCP server attachment, skill loading, cross-config comparison
 - **Phase 4:** In progress — Evaluation quality (check-env, expected_tools, reviewer skills)
 - **Phase 5:** Planned — Polish (report re-rendering, embedded CLI, progress bars)

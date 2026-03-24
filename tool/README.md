@@ -1,6 +1,6 @@
 # azsdk-prompt-eval — CLI Reference
 
-The `azsdk-prompt-eval` tool evaluates AI agent code generation quality by running prompts from the `azure-sdk-prompts` library through configurable Copilot sessions, verifying code with Copilot-based verification, scoring code via LLM-as-judge review, and generating JSON, HTML, and Markdown reports.
+The `azsdk-prompt-eval` tool evaluates AI agent code generation quality by running prompts from the `azure-sdk-prompts` library through configurable Copilot sessions, verifying code with Copilot-based verification, reviewing code via a multi-model review panel with criteria-based pass/fail scoring, and generating JSON, HTML, and Markdown reports.
 
 ## Prerequisites
 
@@ -40,10 +40,12 @@ azsdk-prompt-eval <command> [flags]
 
 ### Phase 2 (v0.2.0) ✅
 - **Copilot SDK integration** — Real code generation via `github.com/github/copilot-sdk/go`
-- **LLM-as-judge code review** — Separate Copilot session scores generated code on 7 dimensions
+- **Multi-model review panel** — Multiple reviewer models evaluate code in parallel; first model consolidates with majority-vote consensus
+- **Criteria-based pass/fail scoring** — General criteria (Code Builds, Latest Package Versions, Best Practices, Error Handling, Code Quality) plus prompt-specific criteria from `## Evaluation Criteria` sections
 - **Reference answer comparison** — Optional reference code included in review prompt
-- **HTML reports** — Per-evaluation reports with score visualization and collapsible build output
-- **Summary dashboard** — Cross-config comparison matrix (prompt × config) with scores and build status
+- **HTML reports** — Per-evaluation reports with criteria pass/fail visualization, review panel table with inline ✅/❌ icons and hover tooltips
+- **Summary dashboard** — Cross-config comparison with prompt pass rates, duration analysis by prompt, and prompt comparison section
+- **Reviewer action history** — Full event logs (tool calls, build attempts, version checks) captured per reviewer
 - **Graceful fallback** — Falls back to stub evaluator if Copilot CLI is unavailable
 
 ### Phase 2.1 (v0.3.0) ✅
@@ -53,7 +55,7 @@ azsdk-prompt-eval <command> [flags]
 - **Failure diagnostics** — Failed evals show detailed error info, session events, and stub mode indicator
 - **Debug mode** — `--debug` streams real-time session events to stderr (tool calls, messages, verification/review status)
 - **Flat report structure** — Reports write to `reports/{timestamp}/` instead of `reports/runs/{timestamp}/`
-- **Expected Coverage** — Parser extracts `## Expected Coverage` sections from prompt files for verification
+- **Evaluation Criteria** — Parser extracts `## Evaluation Criteria` sections from prompt files for review
 
 ## Authentication
 
@@ -84,13 +86,13 @@ azsdk-prompt-eval run [flags]
 | `--tags` | | Filter by tags (comma-separated) |
 | `--prompt-id` | | Run a single prompt by ID |
 | `--config` | all | Config name(s) (comma-separated) |
-| `--config-file` | `./configs/all.yaml` (auto-detected) | Path to configuration YAML |
+| `--config-file` | (auto-detected from `configs/` dir) | Path to configuration YAML |
 | `--workers` | `4` | Parallel evaluation workers |
 | `--timeout` | `300` | Per-prompt timeout in seconds |
 | `--model` | | Override model for all configs |
 | `--output` | `./reports` | Report output directory |
 | `--skip-tests` | `false` | Skip test generation |
-| `--skip-review` | `false` | Skip LLM-as-judge code review |
+| `--skip-review` | `false` | Skip multi-model code review panel |
 | `--verify-build` | `false` | Also run build verification (in addition to Copilot verification) |
 | `--stub` | `false` | Force stub evaluator (no Copilot SDK) |
 | `--debug` | `false` | Verbose output |
@@ -170,21 +172,43 @@ azsdk-prompt-eval check-env
 
 Reports availability of Python, .NET, Go, Node.js, Java, Rust, C/C++, Copilot CLI, gh authentication, and npx (for Azure MCP server). Uses ✅/❌ indicators with version strings.
 
-## Code Review (LLM-as-Judge)
+## Code Review (Multi-Model Panel)
 
-After code generation, `azsdk-prompt-eval` creates a **separate** Copilot session to review the generated code. This avoids self-bias — the reviewer didn't generate the code.
+After code generation, `azsdk-prompt-eval` runs a **multi-model review panel** — multiple reviewer models evaluate the generated code in parallel, then the first model consolidates results using majority-vote consensus. This avoids self-bias since the reviewers didn't generate the code.
 
-### Scoring Dimensions (1-10)
+### Evaluation Criteria
 
-| Dimension | What it measures |
+Each evaluation uses two sets of criteria, all scored as **pass/fail**:
+
+**General criteria** (always applied, defined in `tool/internal/review/rubric.md`):
+
+| Criterion | What it measures |
 |-----------|-----------------|
-| Correctness | Does the code correctly implement the prompt? |
-| Completeness | Are all requirements addressed? |
-| Best Practices | Azure SDK patterns (DefaultAzureCredential, disposal, async) |
+| Code Builds | Does the generated code compile/build without errors? Reviewers actively attempt to build it. |
+| Latest Package Versions | Are the Azure SDK packages the latest stable versions? Reviewers verify with available tools. |
+| Best Practices | Azure SDK patterns (DefaultAzureCredential, proper disposal, async patterns) |
 | Error Handling | Proper error handling, retries, timeouts |
-| Package Usage | Correct and up-to-date SDK packages |
 | Code Quality | Clean, readable, well-structured code |
-| Reference Similarity | Match to reference answer (if provided) |
+
+**Prompt-specific criteria** (defined per prompt in the `## Evaluation Criteria` section of each `.prompt.md` file):
+
+Each prompt author lists what the generated code should include. These are evaluated individually as pass/fail alongside the general criteria.
+
+### Scoring
+
+- **Score** = count of passed criteria / total criteria (general + prompt-specific)
+- **Pass** = all criteria met
+- **Fail** = any criterion not met
+
+### Review Panel
+
+Each config file defines a `reviewer_models` list (e.g., `[claude-opus-4.6, gemini-3-pro-preview, gpt-4.1]`). All reviewers run in parallel, then:
+
+1. The **first model** in the list acts as the **consolidator**, synthesizing all reviews into a consensus result
+2. For each criterion, it passes if the **majority** of reviewers marked it passed
+3. If consolidation fails, the tool falls back to a Go-based `averageReview()` with majority-vote per criterion
+
+Reviewers actively verify code: they attempt builds, check SDK package versions, and test claims before scoring.
 
 ### Reference Answers
 
@@ -199,7 +223,7 @@ reports/<timestamp>/
 ├── summary.json          # Aggregate run statistics
 └── results/
     └── <service>/<plane>/<language>/<category>/<config>/
-        └── report.json   # Individual evaluation result (with review scores)
+        └── report.json   # Individual evaluation result (with criteria pass/fail and review panel)
 ```
 
 ### HTML (human-readable)
@@ -209,15 +233,18 @@ reports/<timestamp>/
 ├── summary.html          # Cross-config comparison matrix dashboard
 └── results/
     └── <service>/<plane>/<language>/<category>/<config>/
-        └── report.html   # Individual report with score visualization
+        └── report.html   # Individual report with criteria pass/fail, review panel, and reviewer action history
 ```
 
-The **summary.html** shows a matrix of prompt × config with overall scores and build pass/fail indicators:
+The **summary.html** includes:
+- **Prompt Comparison** — pass rates grouped by prompt across configs
+- **Config Comparison** — matrix of prompt × config with pass/fail status
+- **Duration Analysis** — organized by prompt, with min/max tooltips showing which config produced each result
 
-| Prompt | baseline | azure-mcp | azure-mcp-plus-skills |
-|---|---|---|---|
-| storage-dp-dotnet-auth | 6/10 ✅ | 8/10 ✅ | 9/10 ✅ |
-| storage-dp-python-crud | 5/10 ❌ | 7/10 ✅ | 8/10 ✅ |
+| Prompt | baseline/sonnet | azure-mcp/sonnet |
+|---|---|---|
+| storage-dp-dotnet-auth | 8/8 ✅ | 8/8 ✅ |
+| storage-dp-python-crud | 6/9 ❌ | 9/9 ✅ |
 
 ### Markdown (portable, git-friendly)
 
@@ -229,25 +256,34 @@ reports/<timestamp>/
         └── report.md     # Individual evaluation report (Markdown)
 ```
 
-Markdown reports contain the same information as HTML reports (scores, tool calls, verification, review) in a clean, readable format suitable for viewing in GitHub, VS Code, or any Markdown renderer.
+Markdown reports contain the same information as HTML reports (criteria pass/fail, review panel, tool calls, verification) in a clean, readable format suitable for viewing in GitHub, VS Code, or any Markdown renderer.
 
 ## Configuration Matrix
 
-Configurations live in the `configs/` directory at the repo root:
+Configurations live in the `configs/` directory at the repo root. Each file defines **one generator model** and a shared `reviewer_models` list. All configs are auto-discovered via `LoadDir()`:
 
-| File | Description |
-|------|-------------|
-| `configs/all.yaml` | Both configs — used for matrix runs (default) |
-| `configs/baseline.yaml` | No MCP servers, no skills — raw Copilot |
-| `configs/azure-mcp.yaml` | Azure MCP server attached |
+| File | Generator Model | Description |
+|------|----------------|-------------|
+| `configs/baseline-sonnet.yaml` | Claude Sonnet 4.5 | No MCP — raw Copilot |
+| `configs/baseline-opus.yaml` | Claude Opus 4.6 | No MCP — raw Copilot |
+| `configs/baseline-codex.yaml` | GPT Codex | No MCP — raw Copilot |
+| `configs/azure-mcp-sonnet.yaml` | Claude Sonnet 4.5 | Azure MCP server attached |
+| `configs/azure-mcp-opus.yaml` | Claude Opus 4.6 | Azure MCP server attached |
+| `configs/azure-mcp-codex.yaml` | GPT Codex | Azure MCP server attached |
+
+All configs use the same review panel: `reviewer_models: [claude-opus-4.6, gemini-3-pro-preview, gpt-4.1]` (claude-opus-4.6 is the consolidator).
 
 **Sample config file:**
 
 ```yaml
 configs:
-  - name: baseline
-    description: "No MCP servers, no skills — just base Copilot"
+  - name: baseline/claude-sonnet-4.5
+    description: "Baseline — raw Copilot with Claude Sonnet 4.5"
     model: "claude-sonnet-4.5"
+    reviewer_models:
+      - "claude-opus-4.6"
+      - "gemini-3-pro-preview"
+      - "gpt-4.1"
     mcp_servers: {}
     skill_directories: []
     available_tools: []
@@ -260,7 +296,8 @@ configs:
 |-------|------|-------------|-------------|
 | `name` | string | — | Unique config identifier |
 | `description` | string | — | Human-readable description |
-| `model` | string | `SessionConfig.Model` | AI model to use |
+| `model` | string | `SessionConfig.Model` | Generator AI model |
+| `reviewer_models` | list | — | Review panel models (first is consolidator) |
 | `mcp_servers` | map | `SessionConfig.MCPServers` | MCP server definitions |
 | `skill_directories` | list | `SessionConfig.SkillDirectories` | Paths to skill directories |
 | `available_tools` | list | `SessionConfig.AvailableTools` | Allowed tool names |
@@ -273,7 +310,7 @@ configs:
 | Flag | Candidates checked |
 |------|--------------------|
 | `--prompts` | `./prompts` → `../prompts` |
-| `--config-file` | `./configs/all.yaml` → `../configs/all.yaml` → `./configs.yaml` → `../configs.yaml` |
+| `--config-file` | `./configs/` → `../configs/` (auto-discovered directory) |
 | `--output` (manifest) | `./manifest.yaml` → `../manifest.yaml` (optional snapshot only) |
 
 ## Project Structure
@@ -289,7 +326,8 @@ tool/
 │   ├── eval/                    # Engine, workspace, CopilotSDKEvaluator
 │   ├── build/                   # Build verification per language
 │   ├── report/                  # JSON + HTML report generation
-│   ├── review/                  # LLM-as-judge code review
+│   ├── review/                  # Multi-model review panel + criteria scoring
+│   │   └── rubric.md            # Criteria-based rubric (embedded via go:embed)
 │   ├── verify/                  # Copilot-based code verification
 │   ├── manifest/                # Optional manifest snapshot generation
 │   └── validate/                # Prompt frontmatter validation
@@ -301,7 +339,7 @@ tool/
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 1 | ✅ Done | Prompt library, build verification, JSON reports (stub evaluator) |
-| Phase 2 | ✅ Done | Copilot SDK integration, LLM-as-judge review, HTML reports |
+| Phase 2 | ✅ Done | Copilot SDK integration, multi-model review panel, criteria-based scoring, HTML reports |
 | Phase 2.1 | ✅ Done | Copilot verification, session transcripts, debug mode, failure diagnostics |
 | Phase 3 | ✅ Done | Tool matrix, MCP server attachment, skill loading, cross-config comparison |
 | Phase 4 | In Progress | Evaluation quality — check-env, expected_tools, reviewer skills |
