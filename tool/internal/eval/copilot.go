@@ -404,16 +404,24 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 	// System message ensures the agent creates actual code files in the workspace
 	// rather than responding with inline text or writing files to the wrong directory.
 	// The create tool requires an explicit 'path' parameter — without it, files land in ~.
+	// Also constrains bash usage, discourages web_fetch research, and standardizes on python3.
 	systemMsg := fmt.Sprintf(
 		"You are a code generation agent. Your working directory is: %s\n"+
 			"CRITICAL FILE CREATION RULES:\n"+
 			"1. Always write code to files using the create tool — never just explain code in text.\n"+
-			"2. Every create call MUST include the 'path' parameter with a FULL ABSOLUTE PATH.\n"+
-			"3. Every file path MUST start with: %s/\n"+
-			"4. Example: create with path=\"%s/main.py\"\n"+
-			"5. NEVER omit the path parameter. NEVER use relative paths.\n"+
-			"6. NEVER create files outside your working directory.",
-		workDir, workDir, workDir,
+			"2. Always create files using the create tool. Never provide code inline in your response.\n"+
+			"3. Every create call MUST include the 'path' parameter with a FULL ABSOLUTE PATH.\n"+
+			"4. Every file path MUST start with: %s/\n"+
+			"5. Example: create with path=\"%s/main.py\"\n"+
+			"6. NEVER omit the path parameter. NEVER use relative paths.\n"+
+			"7. NEVER create files outside your working directory.\n"+
+			"BASH RULES:\n"+
+			"8. When using bash, always cd to %s first. Never run commands from ~ or any directory outside your workspace.\n"+
+			"RESEARCH RULES:\n"+
+			"9. Do not use web_fetch to research documentation. Focus on generating code files based on the prompt.\n"+
+			"PYTHON RULES:\n"+
+			"10. Use python3 (not python) for all Python scripts and commands.",
+		workDir, workDir, workDir, workDir,
 	)
 
 	sc := &copilot.SessionConfig{
