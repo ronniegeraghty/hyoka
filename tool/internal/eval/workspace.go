@@ -141,3 +141,70 @@ func copyDir(src, dst string) error {
 		return os.WriteFile(target, data, info.Mode())
 	})
 }
+
+// codeFileExts lists extensions that indicate generated code files.
+var codeFileExts = map[string]bool{
+	".py": true, ".cs": true, ".java": true, ".go": true, ".rs": true,
+	".ts": true, ".js": true, ".cpp": true, ".c": true, ".h": true,
+	".csproj": true, ".sln": true, ".json": true, ".xml": true,
+	".yaml": true, ".yml": true, ".toml": true, ".mod": true,
+	".txt": true, ".md": true, ".gradle": true, ".kt": true,
+	".swift": true, ".rb": true, ".sh": true, ".bat": true,
+	".html": true, ".css": true, ".sum": true, ".lock": true,
+	".cfg": true, ".ini": true, ".env": true, ".dockerfile": true,
+}
+
+// snapshotDir returns a set of non-hidden file names in a directory (non-recursive).
+func snapshotDir(dir string) map[string]bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	files := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			files[e.Name()] = true
+		}
+	}
+	return files
+}
+
+// recoverMisplacedFiles moves files that appeared in dir since the snapshot
+// into destDir. Only moves files with recognized code extensions.
+// Returns the count of recovered files.
+func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir string, debugPrefix string, debug bool) int {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0
+	}
+	recovered := 0
+	for _, e := range entries {
+		if e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if preSnapshot[e.Name()] {
+			continue // existed before eval
+		}
+		ext := strings.ToLower(filepath.Ext(e.Name()))
+		// Also recover extensionless files like "Dockerfile", "Makefile"
+		if !codeFileExts[ext] && ext != "" {
+			continue
+		}
+
+		src := filepath.Join(dir, e.Name())
+		dst := filepath.Join(destDir, e.Name())
+		data, err := os.ReadFile(src)
+		if err != nil {
+			continue
+		}
+		if err := os.WriteFile(dst, data, 0644); err != nil {
+			continue
+		}
+		os.Remove(src) // clean up the misplaced file
+		recovered++
+		if debug {
+			log.Printf("[DEBUG] %s: Recovered misplaced file: %s → %s", debugPrefix, src, dst)
+		}
+	}
+	return recovered
+}

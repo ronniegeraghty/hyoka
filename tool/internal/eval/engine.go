@@ -106,6 +106,12 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, verifier Verifier, review
 	if opts.OutputDir == "" {
 		opts.OutputDir = "./reports"
 	}
+	// Resolve to absolute path so workspace directories passed to the Copilot CLI
+	// are always absolute. Without this, the agent constructs wrong paths like
+	// /home/user/reports/... instead of /home/user/projects/repo/reports/...
+	if abs, err := filepath.Abs(opts.OutputDir); err == nil {
+		opts.OutputDir = abs
+	}
 	return &Engine{
 		evaluator: evaluator,
 		reviewer:  reviewer,
@@ -303,6 +309,13 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		log.Printf("[DEBUG] %s: Workspace: %s", debugPrefix, ws.Dir)
 	}
 
+	// Snapshot home directory before eval so we can recover misplaced files after
+	homeDir, _ := os.UserHomeDir()
+	var preEvalHomeFiles map[string]bool
+	if homeDir != "" {
+		preEvalHomeFiles = snapshotDir(homeDir)
+	}
+
 	// Run evaluation
 	sendPhase(progress.PhaseGenerating)
 	result, err := e.evaluator.Evaluate(evalCtx, task.Prompt, &task.Config, ws.Dir)
@@ -335,8 +348,16 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	}
 
 	// Collect generated files — workspace listing is the primary source since
-	// ForceStop preserves files on disk. Fallback to the evaluator's captured
-	// list only as a safety net (e.g., if the CLI wrote to a different path).
+	// ForceStop preserves files on disk.
+	// First, recover any files the agent wrote to the home directory instead of the workspace.
+	// The Copilot CLI sometimes creates files in ~ when the agent omits the path parameter.
+	if homeDir != "" && preEvalHomeFiles != nil {
+		recovered := recoverMisplacedFiles(homeDir, preEvalHomeFiles, ws.Dir, debugPrefix, e.opts.Debug)
+		if recovered > 0 && e.opts.Debug {
+			log.Printf("[DEBUG] %s: Recovered %d misplaced files from %s to workspace", debugPrefix, recovered, homeDir)
+		}
+	}
+
 	generatedFiles, _ := ws.ListFiles()
 	if len(generatedFiles) == 0 && result != nil && len(result.GeneratedFiles) > 0 {
 		generatedFiles = result.GeneratedFiles

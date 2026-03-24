@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/config"
@@ -82,11 +83,18 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			ErrorDetails: err.Error(),
 		}, fmt.Errorf("starting copilot client: %w", err)
 	}
-	// Use ForceStop to kill the CLI process without sending session.destroy.
-	// client.Stop() calls session.Disconnect() which sends session.destroy —
-	// that causes the CLI to clean up generated files from WorkingDirectory.
-	// ForceStop kills the process immediately, preserving files in the report tree.
-	defer client.ForceStop()
+	// Defer client cleanup. We use client.Stop() which sends session.destroy
+	// for a graceful shutdown. The generated files are in the report tree
+	// (not a temp dir), so session.destroy won't delete them.
+	defer func() {
+		done := make(chan struct{})
+		go func() { client.Stop(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			client.ForceStop()
+		}
+	}()
 
 	// Build session config from tool config
 	sessionCfg := e.buildSessionConfig(cfg, workDir)
@@ -395,14 +403,17 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 
 	// System message ensures the agent creates actual code files in the workspace
 	// rather than responding with inline text or writing files to the wrong directory.
+	// The create tool requires an explicit 'path' parameter — without it, files land in ~.
 	systemMsg := fmt.Sprintf(
 		"You are a code generation agent. Your working directory is: %s\n"+
-			"IMPORTANT: Always create actual code files using the create tool. "+
-			"All file paths MUST be under your working directory (%s). "+
-			"Use absolute paths starting with your working directory. "+
-			"Do NOT explain code in text — write complete, runnable code to files. "+
-			"Do NOT create files outside your working directory.",
-		workDir, workDir,
+			"CRITICAL FILE CREATION RULES:\n"+
+			"1. Always write code to files using the create tool — never just explain code in text.\n"+
+			"2. Every create call MUST include the 'path' parameter with a FULL ABSOLUTE PATH.\n"+
+			"3. Every file path MUST start with: %s/\n"+
+			"4. Example: create with path=\"%s/main.py\"\n"+
+			"5. NEVER omit the path parameter. NEVER use relative paths.\n"+
+			"6. NEVER create files outside your working directory.",
+		workDir, workDir, workDir,
 	)
 
 	sc := &copilot.SessionConfig{
