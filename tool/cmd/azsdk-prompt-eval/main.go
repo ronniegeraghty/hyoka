@@ -528,19 +528,46 @@ func validateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "validate",
-		Short: "Validate prompt frontmatter",
-		Long:  "Validate all prompt files against schema rules and naming conventions.",
+		Short: "Validate prompts and configs",
+		Long:  "Validate all prompt files against schema rules and naming conventions, and validate config files.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			promptsDir = resolvePromptsDir(cmd)
+			allOK := true
 
+			// Validate prompts
 			result, err := validate.Validate(promptsDir)
 			if err != nil {
 				return fmt.Errorf("validation: %w", err)
 			}
-
 			fmt.Print(validate.FormatResult(result))
-
 			if !result.OK() {
+				allOK = false
+			}
+
+			// Validate config files
+			configDir := filepath.Join(filepath.Dir(promptsDir), "configs")
+			if entries, err := os.ReadDir(configDir); err == nil {
+				configCount := 0
+				for _, e := range entries {
+					if e.IsDir() || filepath.Ext(e.Name()) != ".yaml" {
+						continue
+					}
+					cfgPath := filepath.Join(configDir, e.Name())
+					_, cfgErr := config.Load(cfgPath)
+					configCount++
+					if cfgErr != nil {
+						fmt.Printf("✗ Config %s: %v\n", e.Name(), cfgErr)
+						allOK = false
+					} else {
+						fmt.Printf("✓ Config %s: valid\n", e.Name())
+					}
+				}
+				if configCount > 0 {
+					fmt.Printf("Validated %d config file(s)\n", configCount)
+				}
+			}
+
+			if !allOK {
 				os.Exit(1)
 			}
 			return nil
