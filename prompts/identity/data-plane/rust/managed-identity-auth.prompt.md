@@ -7,7 +7,7 @@ category: auth
 difficulty: intermediate
 description: >
   Can a developer use Managed Identity to authenticate Azure SDK clients
-  using the Rust SDK documentation?
+  using the Rust SDK?
 sdk_package: azure_identity
 doc_url: https://docs.rs/azure_identity/latest/azure_identity/
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Rust documentation, show me how to use
+Show me how to use
 Managed Identity to authenticate Azure SDK clients in Rust. Cover:
 1. System-assigned vs user-assigned managed identity
 2. How to create credentials for each type
@@ -34,7 +34,7 @@ Provide Rust examples for both identity types.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - Managed identity credential types in `azure_identity`
 - System-assigned: default construction
 - User-assigned: passing client ID
@@ -46,5 +46,5 @@ The documentation should cover:
 
 Managed Identity is the recommended auth pattern for code running in Azure.
 It eliminates the need for managing secrets entirely. This tests whether the
-Rust docs explain both system-assigned and user-assigned identity clearly,
+generated code demonstrates both system-assigned and user-assigned identity clearly,
 including the critical local development fallback story.

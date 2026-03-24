@@ -7,7 +7,7 @@ category: auth
 difficulty: basic
 description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
-  using the .NET SDK documentation?
+  using the .NET SDK?
 sdk_package: Azure.Identity
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/identity-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, show me how to authenticate
+Show me how to authenticate
 an Azure SDK client using DefaultAzureCredential in C#. Explain:
 1. What NuGet packages are needed
 2. How to create and use a DefaultAzureCredential instance
@@ -35,7 +35,7 @@ DefaultAzureCredential.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `Azure.Identity` NuGet package installation
 - `DefaultAzureCredential` constructor and options
 - Credential chain: Environment → Workload Identity → Managed Identity → Azure CLI → etc.
@@ -46,4 +46,4 @@ The documentation should cover:
 
 DefaultAzureCredential is the recommended starting point for Azure SDK authentication.
 It abstracts away the complexity of credential selection and works across environments.
-This tests whether the .NET docs explain it clearly enough for first-time users.
+This tests whether the generated code demonstrates it clearly enough for first-time users.

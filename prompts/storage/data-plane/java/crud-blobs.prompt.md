@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the Java SDK documentation?
+  using the Java SDK?
 sdk_package: azure-storage-blob
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/storage-blob-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, write a Java application that performs
+Write a Java application that performs
 CRUD operations on Azure Blob Storage:
 1. Create a BlobServiceClient using DefaultAzureCredential
 2. Create a container named "my-container" if it doesn't exist
@@ -46,5 +46,5 @@ Show required Maven dependencies and proper error handling with BlobStorageExcep
 ## Context
 
 Blob Storage is Azure's most widely used data service. Java is a top enterprise
-language. CRUD operations test whether the Java docs provide a complete,
+language. CRUD operations test whether the generated code provides a complete,
 runnable workflow covering the full blob lifecycle.

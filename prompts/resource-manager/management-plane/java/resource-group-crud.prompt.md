@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, list, update, and delete Azure Resource Groups
-  using the Java management SDK documentation?
+  using the Java management SDK?
 sdk_package: azure-resourcemanager-resources
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/resourcemanager-resources-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, write a Java application that manages
+Write a Java application that manages
 Azure Resource Groups using the management plane SDK:
 1. Authenticate using DefaultAzureCredential
 2. Create a new resource group in "eastus" region
@@ -37,7 +37,7 @@ Use the modern azure-resourcemanager SDK.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - Maven dependency for `azure-resourcemanager` and `azure-identity`
 - `AzureResourceManager.authenticate()` with credential and profile
 - `resourceGroups().define().withRegion().create()`
@@ -49,5 +49,5 @@ The documentation should cover:
 ## Context
 
 Resource group management is the foundation of Azure management plane operations.
-This tests whether the Java docs cover the fluent management SDK pattern
+This tests whether the generated code covers the fluent management SDK pattern
 which differs significantly from the data plane client builder pattern.

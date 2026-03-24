@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, list, update, and delete Azure Resource Groups
-  using the Go management SDK documentation?
+  using the Go management SDK?
 sdk_package: github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources
 doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Go documentation, write a Go program that manages
+Write a Go program that manages
 Azure Resource Groups using the management plane SDK:
 1. Authenticate using DefaultAzureCredential from azidentity
 2. Create a ResourceGroupsClient
@@ -38,7 +38,7 @@ Use the armresources package from the azure-sdk-for-go/sdk module.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources` module
 - `azidentity.NewDefaultAzureCredential()` for authentication
 - `armresources.NewResourceGroupsClient()` with subscription ID and credential
@@ -51,5 +51,5 @@ The documentation should cover:
 ## Context
 
 The Go Azure SDK uses a module-per-service pattern with poller-based LROs.
-This tests whether the Go docs cover the armresources module and the
+This tests whether the generated code covers the armresources module and the
 pager/poller patterns that are central to Go management plane operations.

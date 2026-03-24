@@ -50,4 +50,4 @@ and explain the interaction between SDK retries and provisioned throughput.
 
 Cosmos DB's consumption model means 429 errors are expected, not exceptional.
 Developers need to tune retry policies to balance throughput against cost.
-The docs should explain how SDK retries interact with provisioned RU/s.
+The generated code should explain how SDK retries interact with provisioned RU/s.

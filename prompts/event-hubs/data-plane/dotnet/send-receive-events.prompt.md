@@ -7,7 +7,7 @@ category: streaming
 difficulty: intermediate
 description: >
   Can a developer send and receive events using Azure Event Hubs
-  with the .NET SDK documentation?
+  with the .NET SDK?
 sdk_package: Azure.Messaging.EventHubs
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/messaging.eventhubs-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that demonstrates
+Write a C# program that demonstrates
 sending and receiving events with Azure Event Hubs:
 1. Create an EventHubProducerClient using a connection string
 2. Create a batch of events using CreateBatchAsync()
@@ -39,7 +39,7 @@ Azure.Messaging.EventHubs.Processor) and proper disposal patterns.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `Azure.Messaging.EventHubs` and `Azure.Messaging.EventHubs.Processor` NuGet packages
 - `EventHubProducerClient` and `EventHubConsumerClient`
 - `CreateBatchAsync()` and `EventDataBatch.TryAdd()`
@@ -51,5 +51,5 @@ The documentation should cover:
 ## Context
 
 Event Hubs is Azure's high-throughput event streaming service. The producer/consumer
-pattern with checkpointing is the core usage model. This tests whether the .NET docs
-cover both sides of the pipeline with proper checkpoint storage.
+pattern with checkpointing is the core usage model. This tests whether the generated code
+covers both sides of the pipeline with proper checkpoint storage.

@@ -7,7 +7,7 @@ category: pagination
 difficulty: intermediate
 description: >
   Can a developer paginate through a large list of Key Vault secrets
-  using the Python SDK documentation?
+  using the Python SDK?
 sdk_package: azure-keyvault-secrets
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that lists all
+Write a Python script that lists all
 secrets in an Azure Key Vault that contains hundreds of secrets. The script should:
 1. Use SecretClient with DefaultAzureCredential
 2. Iterate through secrets using the ItemPaged pattern

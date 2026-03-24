@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer read and write configuration values and feature flags
-  in Azure App Configuration using the Python SDK documentation?
+  in Azure App Configuration using the Python SDK?
 sdk_package: azure-appconfiguration
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/appconfiguration-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that manages
+Write a Python script that manages
 configuration settings in Azure App Configuration:
 1. Create an AzureAppConfigurationClient using from_connection_string()
 2. Set a configuration setting with key "app:Settings:FontSize" and value "24"
@@ -37,7 +37,7 @@ Show required pip packages and proper error handling with HttpResponseError.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-appconfiguration` pip package
 - `AzureAppConfigurationClient.from_connection_string()`
 - `set_configuration_setting()` with `ConfigurationSetting` objects
@@ -49,5 +49,5 @@ The documentation should cover:
 ## Context
 
 The Python App Configuration SDK uses a factory method pattern for client creation.
-This tests whether the Python docs cover the configuration setting model including
+This tests whether the generated code covers the configuration setting model including
 labels and the FeatureFlagConfigurationSetting class.

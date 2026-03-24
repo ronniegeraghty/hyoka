@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that queries
+Write a Python script that queries
 items in a Cosmos DB container with proper pagination:
 1. Execute a SQL query "SELECT * FROM c WHERE c.status = 'active'" against a container
 2. Process results in pages of 25 items using max_item_count

@@ -7,7 +7,7 @@ category: auth
 difficulty: basic
 description: >
   Can a developer set up DefaultAzureCredential for Azure SDK clients
-  using the Go SDK documentation?
+  using the Go SDK?
 sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
 doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Go documentation, show me how to authenticate
+Show me how to authenticate
 an Azure SDK client using DefaultAzureCredential. Explain:
 1. What Go modules are needed
 2. How to create and use a DefaultAzureCredential instance
@@ -35,7 +35,7 @@ DefaultAzureCredential.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azidentity` module import
 - `azidentity.NewDefaultAzureCredential()` function
 - Credential chain order in Go SDK
@@ -46,4 +46,4 @@ The documentation should cover:
 
 DefaultAzureCredential is the recommended starting point for Azure SDK authentication.
 It abstracts away the complexity of credential selection and works across environments.
-This tests whether the Go docs explain it clearly enough for first-time users.
+This tests whether the generated code demonstrates it clearly enough for first-time users.

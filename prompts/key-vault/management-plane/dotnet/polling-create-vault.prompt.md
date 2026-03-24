@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that creates
+Write a C# program that creates
 an Azure Key Vault using the management plane SDK and handles the long-running
 operation:
 1. Authenticate using DefaultAzureCredential

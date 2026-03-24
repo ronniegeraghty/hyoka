@@ -7,7 +7,7 @@ category: provisioning
 difficulty: intermediate
 description: >
   Can a developer create, configure, and manage Azure Storage Accounts
-  using the Python management SDK documentation?
+  using the Python management SDK?
 sdk_package: azure-mgmt-storage
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/mgmt-storage-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that manages
+Write a Python script that manages
 Azure Storage Accounts using the management plane SDK:
 1. Authenticate using DefaultAzureCredential
 2. Create a new Storage Account with Standard_LRS SKU in "eastus"
@@ -35,7 +35,7 @@ Show required pip packages and include proper error handling.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-mgmt-storage` and `azure-identity` pip packages
 - `StorageManagementClient` creation with credential and subscription_id
 - `storage_accounts.begin_create()` with `StorageAccountCreateParameters`
@@ -48,5 +48,5 @@ The documentation should cover:
 ## Context
 
 Storage Account management is one of the most common management plane tasks.
-This tests whether the Python docs cover the full lifecycle including
+This tests whether the generated code covers the full lifecycle including
 the long-running create operation and model configuration for SKUs and features.

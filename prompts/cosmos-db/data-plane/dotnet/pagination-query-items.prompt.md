@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that queries
+Write a C# program that queries
 items in a Cosmos DB container with proper pagination:
 1. Execute a SQL query "SELECT * FROM c WHERE c.category = 'electronics'" against a container
 2. Process results page-by-page using FeedIterator, limiting each page to 50 items

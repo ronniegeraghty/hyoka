@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the Python SDK based on the documentation alone?
+  using the Python SDK?
 sdk_package: azure-keyvault-secrets
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a script that performs
+Write a script that performs
 all four CRUD operations on Azure Key Vault secrets:
 1. Create a new secret called "my-secret" with value "my-secret-value"
 2. Read the secret back and print its value
@@ -34,7 +34,7 @@ and show required pip packages.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - Installing `azure-keyvault-secrets` and `azure-identity` packages
 - Creating a `SecretClient` with vault URL and credential
 - `set_secret()`, `get_secret()`, `begin_delete_secret()`, `purge_deleted_secret()`
@@ -44,5 +44,5 @@ The documentation should cover:
 ## Context
 
 CRUD operations on secrets are the most fundamental Key Vault use case.
-This tests whether the Python docs provide a complete, runnable flow
+This tests whether the generated code provides a complete, runnable flow
 covering the full lifecycle including soft-delete behavior.

@@ -7,7 +7,7 @@ category: provisioning
 difficulty: intermediate
 description: >
   Can a developer create, configure, and manage Azure Storage Accounts
-  using the .NET management SDK documentation?
+  using the .NET management SDK?
 sdk_package: Azure.ResourceManager.Storage
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager.storage-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that manages
+Write a C# program that manages
 Azure Storage Accounts using the management plane SDK:
 1. Authenticate using DefaultAzureCredential
 2. Create a new Storage Account with Standard_LRS SKU in "eastus"
@@ -36,7 +36,7 @@ Use the Azure.ResourceManager.Storage SDK.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `Azure.ResourceManager.Storage` NuGet package
 - `ArmClient` and subscription/resource group navigation
 - `StorageAccountCollection.CreateOrUpdate()` with `StorageAccountCreateOrUpdateContent`
@@ -48,5 +48,5 @@ The documentation should cover:
 ## Context
 
 Storage Account management is one of the most common management plane tasks.
-This tests whether the .NET docs cover the full lifecycle of a Storage Account
+This tests whether the generated code covers the full lifecycle of a Storage Account
 including the more complex configuration options like SKU, kind, and feature toggles.

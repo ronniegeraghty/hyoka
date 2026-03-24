@@ -7,7 +7,7 @@ category: crud
 difficulty: intermediate
 description: >
   Can a developer send and receive messages using Azure Service Bus
-  queues and topics with the Python SDK documentation?
+  queues and topics with the Python SDK?
 sdk_package: azure-servicebus
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/servicebus-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that
+Write a Python script that
 demonstrates messaging with Azure Service Bus:
 1. Create a ServiceBusClient using from_connection_string()
 2. Get a sender for a queue and send a single ServiceBusMessage
@@ -37,7 +37,7 @@ Show required pip packages and proper context manager patterns (with statements)
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-servicebus` pip package
 - `ServiceBusClient.from_connection_string()`
 - `ServiceBusSender` via `get_queue_sender()` or `get_topic_sender()`
@@ -50,5 +50,5 @@ The documentation should cover:
 ## Context
 
 The Python Service Bus SDK supports both sync and async patterns with context managers.
-This tests whether the Python docs cover both patterns and the queue vs.
+This tests whether the generated code covers both patterns and the queue vs.
 topic/subscription distinction.

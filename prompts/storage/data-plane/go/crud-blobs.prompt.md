@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the Go SDK documentation?
+  using the Go SDK?
 sdk_package: azblob
 doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/storage/azblob
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Go documentation, write a Go program that performs
+Write a Go program that performs
 CRUD operations on Azure Blob Storage:
 1. Create a service client using DefaultAzureCredential from azidentity
 2. Create a container named "my-container"
@@ -48,4 +48,4 @@ Show required Go modules and proper error handling using ResponseError.
 
 Go is increasingly popular for cloud-native Azure applications. The Go SDK
 uses a different pattern (pagers, streaming) than other languages, making it
-important to test whether the docs clearly explain Go-idiomatic blob operations.
+important to test whether the generated code clearly demonstrates Go-idiomatic blob operations.

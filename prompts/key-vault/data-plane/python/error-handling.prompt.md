@@ -6,7 +6,7 @@ language: python
 category: error-handling
 difficulty: intermediate
 description: >
-  Can the docs help a developer handle Key Vault errors including
+  Can a developer handle Key Vault errors including
   access denied (403), secret not found (404), and throttling (429) in Python?
 sdk_package: azure-keyvault-secrets
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme

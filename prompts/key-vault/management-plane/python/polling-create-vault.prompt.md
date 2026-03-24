@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Python documentation, write a Python script that creates
+Write a Python script that creates
 an Azure Key Vault using the management plane SDK and handles the long-running
 operation:
 1. Authenticate using DefaultAzureCredential

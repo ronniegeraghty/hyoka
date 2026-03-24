@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the C++ SDK based on the documentation alone?
+  using the C++ SDK?
 sdk_package: azure-storage-blobs-cpp
 doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/storage/azure-storage-blobs
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for C++ documentation, write a C++ program that performs
+Write a C++ program that performs
 the following blob storage operations:
 1. Create a blob container called "my-container" if it does not already exist
 2. Upload a local file "example.txt" as a block blob named "uploads/example.txt"
@@ -37,7 +37,7 @@ or blob not found.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - vcpkg/CMake setup for `azure-storage-blobs-cpp` and `azure-identity-cpp`
 - Creating a `BlobServiceClient` with the storage account URL and credential
 - `BlobContainerClient::CreateIfNotExists()` for container creation
@@ -51,5 +51,5 @@ The documentation should cover:
 
 Blob storage is the most common Azure Storage service. The C++ SDK requires
 CMake and vcpkg setup that differs significantly from other language SDKs.
-Testing CRUD coverage validates that the docs explain both the build system
+Testing CRUD coverage validates that the generated code covers both the build system
 integration and the full lifecycle of blob operations for C++ developers.

@@ -7,7 +7,7 @@ category: auth
 difficulty: intermediate
 description: >
   Can a developer authenticate with a Service Principal (client secret)
-  using the .NET SDK documentation?
+  using the .NET SDK?
 sdk_package: Azure.Identity
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/identity-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, show me how to authenticate
+Show me how to authenticate
 to Azure using a Service Principal with client secret in C#. I need:
 1. Required NuGet packages
 2. How to create a ClientSecretCredential with tenant ID, client ID, and client secret
@@ -34,7 +34,7 @@ Provide a complete example with proper error handling.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `Azure.Identity` package with `ClientSecretCredential` class
 - Constructor parameters: tenantId, clientId, clientSecret
 - Passing credential to Azure SDK clients
@@ -44,5 +44,5 @@ The documentation should cover:
 ## Context
 
 Service Principal authentication with client secrets is the most common pattern
-for application-to-application auth in Azure. This tests whether the .NET docs
-cover the full setup including credential creation, usage, and secret management best practices.
+for application-to-application auth in Azure. This tests whether the generated code
+covers the full setup including credential creation, usage, and secret management best practices.

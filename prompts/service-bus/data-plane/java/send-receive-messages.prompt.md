@@ -7,7 +7,7 @@ category: crud
 difficulty: intermediate
 description: >
   Can a developer send and receive messages using Azure Service Bus
-  queues and topics with the Java SDK documentation?
+  queues and topics with the Java SDK?
 sdk_package: azure-messaging-servicebus
 doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-servicebus-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Java documentation, write a Java program that demonstrates
+Write a Java program that demonstrates
 messaging with Azure Service Bus:
 1. Create a ServiceBusSenderClient using ServiceBusClientBuilder for a queue
 2. Send a single message with ServiceBusMessage
@@ -38,7 +38,7 @@ proper resource cleanup with close().
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `azure-messaging-servicebus` Maven dependency
 - `ServiceBusClientBuilder` with connection string
 - `ServiceBusSenderClient` and `ServiceBusMessage`
@@ -50,5 +50,5 @@ The documentation should cover:
 ## Context
 
 The Java Service Bus SDK uses the Azure SDK builder pattern with separate clients
-for sending and receiving. This tests whether the Java docs cover the full
+for sending and receiving. This tests whether the generated code covers the full
 message lifecycle including the processor client for continuous processing.

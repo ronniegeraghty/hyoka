@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, list, update, and delete Azure Resource Groups
-  using the .NET management SDK documentation?
+  using the .NET management SDK?
 sdk_package: Azure.ResourceManager
 doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager-readme
 tags:
@@ -23,7 +23,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for .NET documentation, write a C# program that manages
+Write a C# program that manages
 Azure Resource Groups using the management plane SDK:
 1. Authenticate using DefaultAzureCredential
 2. Create a new resource group in "eastus" region
@@ -37,7 +37,7 @@ Use the Azure.ResourceManager SDK (not the older Microsoft.Azure.Management pack
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `Azure.ResourceManager` NuGet package
 - `ArmClient` creation with `DefaultAzureCredential`
 - `GetDefaultSubscription()` and `GetResourceGroups()` collection
@@ -48,5 +48,5 @@ The documentation should cover:
 ## Context
 
 Resource group management is the foundation of Azure management plane operations.
-This tests whether the .NET docs cover the modern Azure.ResourceManager SDK
+This tests whether the generated code covers the modern Azure.ResourceManager SDK
 (track 2) rather than the older Microsoft.Azure.Management packages.

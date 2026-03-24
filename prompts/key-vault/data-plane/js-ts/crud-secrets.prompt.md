@@ -7,7 +7,7 @@ category: crud
 difficulty: basic
 description: >
   Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the JavaScript/TypeScript SDK based on the documentation alone?
+  using the JavaScript/TypeScript SDK?
 sdk_package: "@azure/keyvault-secrets"
 doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/keyvault-secrets-readme
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for JavaScript/TypeScript documentation, write a Node.js script
+Write a Node.js script
 (TypeScript preferred) that performs all four CRUD operations on Azure Key Vault secrets:
 1. Create a new secret called "my-secret" with value "my-secret-value"
 2. Read the secret back and print its value
@@ -34,7 +34,7 @@ and include proper error handling with try/catch.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - Installing `@azure/keyvault-secrets` and `@azure/identity` npm packages
 - Creating a `SecretClient` with vault URL and credential
 - `setSecret()`, `getSecret()`, `beginDeleteSecret()`, `purgeDeletedSecret()`
@@ -44,5 +44,5 @@ The documentation should cover:
 ## Context
 
 CRUD operations on secrets are the most fundamental Key Vault use case.
-This tests whether the JavaScript/TypeScript docs provide a complete, runnable flow
+This tests whether the generated code provides a complete, runnable flow
 covering the full lifecycle including the async poller pattern for soft-delete.

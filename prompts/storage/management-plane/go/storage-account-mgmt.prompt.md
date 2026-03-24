@@ -7,7 +7,7 @@ category: provisioning
 difficulty: intermediate
 description: >
   Can a developer create, configure, and manage Azure Storage Accounts
-  using the Go management SDK documentation?
+  using the Go management SDK?
 sdk_package: github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
 doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
 tags:
@@ -22,7 +22,7 @@ author: ronniegeraghty
 
 ## Prompt
 
-Using only the Azure SDK for Go documentation, write a Go program that manages
+Write a Go program that manages
 Azure Storage Accounts using the management plane SDK:
 1. Authenticate using DefaultAzureCredential from azidentity
 2. Create an AccountsClient from the armstorage package
@@ -37,7 +37,7 @@ Show required Go module imports and proper error handling with poller patterns.
 
 ## Evaluation Criteria
 
-The documentation should cover:
+The generated code should include:
 - `github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage` module
 - `azidentity.NewDefaultAzureCredential()` for authentication
 - `armstorage.NewAccountsClient()` with subscription ID and credential
@@ -51,5 +51,5 @@ The documentation should cover:
 ## Context
 
 The Go storage management SDK uses the standard LRO poller pattern and pager
-iteration. This tests whether the Go docs cover the armstorage module and the
+iteration. This tests whether the generated code covers the armstorage module and the
 creation parameters that require SKU and Kind configuration.

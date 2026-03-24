@@ -6,7 +6,7 @@ language: python
 category: error-handling
 difficulty: intermediate
 description: >
-  Can the docs help a developer handle Cosmos DB errors including
+  Can a developer handle Cosmos DB errors including
   throttling (429), conflicts (409), and not-found (404) in Python?
 sdk_package: azure-cosmos
 doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
@@ -44,6 +44,6 @@ Use the azure-cosmos Python SDK.
 ## Context
 
 Python Cosmos DB developers frequently encounter rate limiting under load.
-The docs need to clearly explain the exception model and how to implement
+The generated code needs to clearly demonstrate the exception model and how to implement
 proper retry logic, especially the distinction between transient 429s
 and permanent 404/403 errors.
