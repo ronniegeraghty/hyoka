@@ -539,7 +539,7 @@ func validateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("validation: %w", err)
 			}
-			fmt.Print(validate.FormatResult(result))
+			fmt.Println(validate.FormatResult(result))
 			if !result.OK() {
 				allOK = false
 			}
@@ -548,6 +548,7 @@ func validateCmd() *cobra.Command {
 			configDir := filepath.Join(filepath.Dir(promptsDir), "configs")
 			if entries, err := os.ReadDir(configDir); err == nil {
 				configCount := 0
+				configErrors := 0
 				for _, e := range entries {
 					if e.IsDir() || filepath.Ext(e.Name()) != ".yaml" {
 						continue
@@ -557,13 +558,16 @@ func validateCmd() *cobra.Command {
 					configCount++
 					if cfgErr != nil {
 						fmt.Printf("✗ Config %s: %v\n", e.Name(), cfgErr)
+						configErrors++
 						allOK = false
-					} else {
-						fmt.Printf("✓ Config %s: valid\n", e.Name())
 					}
 				}
 				if configCount > 0 {
-					fmt.Printf("Validated %d config file(s)\n", configCount)
+					if configErrors == 0 {
+						fmt.Printf("✓ All %d config(s) are valid\n", configCount)
+					} else {
+						fmt.Printf("✗ %d of %d config(s) have errors\n", configErrors, configCount)
+					}
 				}
 			}
 
