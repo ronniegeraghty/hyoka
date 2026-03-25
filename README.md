@@ -159,14 +159,24 @@ Then run with: `azsdk-prompt-eval run --config-file configs/my-custom-config.yam
 
 Skills give agents domain-specific knowledge (SDK patterns, API examples, acceptance criteria) that improve code generation and review quality. Skills are local directories containing a `SKILL.md` file and optional `references/` folder.
 
+**Install skills with `npx skills add`** instead of manually vendoring files. This pulls the latest version from a skills repository and lets you select which skills to install:
+
+```bash
+# Install a generator skill into skills/generator/
+npx skills add microsoft/skills --directory skills/generator
+
+# Example: install the Java Key Vault Secrets skill
+# Run the command, then select "keyvault-secrets-java" from the wizard
+npx skills add microsoft/skills --directory skills/generator
+```
+
+> **Tip:** The [microsoft/skills](https://github.com/microsoft/skills) repo contains 132+ skills across Azure SDK scenarios. Browse the repo or run `npx skills add microsoft/skills` to see what's available.
+
 The repo organizes skills by role:
 
 ```
 skills/
-├── generator/                 # Skills for the code generation agent
-│   └── keyvault-secrets-java/ # Example: Java Key Vault Secrets skill
-│       ├── SKILL.md
-│       └── references/
+├── generator/                 # Skills for the code generation agent (install via npx skills add)
 └── reviewer/                  # Skills for the review panel agents
     ├── code-review-comments/
     ├── reviewer-build/
@@ -245,10 +255,7 @@ azure-sdk-prompts/
 │   └── key-vault/
 │       └── ...
 ├── skills/                            # Copilot skills for eval sessions
-│   ├── generator/                     # Skills loaded only for the generator agent
-│   │   └── keyvault-secrets-java/     # Java Key Vault Secrets SDK skill
-│   │       ├── SKILL.md
-│   │       └── references/
+│   ├── generator/                     # Skills loaded only for the generator agent (install via npx skills add)
 │   └── reviewer/                      # Skills loaded only for the review agent
 │       ├── code-review-comments/
 │       ├── reviewer-build/

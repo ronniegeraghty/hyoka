@@ -315,6 +315,8 @@ The tool resolves skill directories per role:
 
 This allows configs to load different skills for generation vs. review. For example, the generator might get SDK-specific coding skills while reviewers get build-verification and version-checking skills.
 
+**Adding skills:** Use `npx skills add microsoft/skills --directory skills/generator` to install skills from the [microsoft/skills](https://github.com/microsoft/skills) registry. See the main [README.md](../README.md#adding-skills-to-configs) for details.
+
 **Example — separate skills per role:**
 
 ```yaml
