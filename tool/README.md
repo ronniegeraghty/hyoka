@@ -300,11 +300,26 @@ configs:
 | `model` | string | `SessionConfig.Model` | Generator AI model |
 | `reviewer_models` | list | — | Review panel models (first is consolidator) |
 | `mcp_servers` | map | `SessionConfig.MCPServers` | MCP server definitions |
+| `remote_skills` | list | `SessionConfig.SkillDirectories` | Remote skills auto-fetched at eval time (see below) |
 | `generator_skill_directories` | list | `SessionConfig.SkillDirectories` | Skill directories for the generator agent (takes priority over `skill_directories`) |
 | `reviewer_skill_directories` | list | `SessionConfig.SkillDirectories` | Skill directories for the review panel agents |
 | `skill_directories` | list | `SessionConfig.SkillDirectories` | Shared fallback skill directories (used when role-specific fields are not set) |
 | `available_tools` | list | `SessionConfig.AvailableTools` | Allowed tool names |
 | `excluded_tools` | list | `SessionConfig.ExcludedTools` | Blocked tool names |
+
+#### Remote Skills
+
+The `remote_skills` field declares skills to be fetched automatically from a registry before the eval runs. Each entry specifies a repo and a list of skill names:
+
+```yaml
+remote_skills:
+  - repo: microsoft/skills
+    skills:
+      - keyvault-secrets-java
+      - storage-blob-python
+```
+
+At eval time, the tool runs `npx skills add <repo>/<skill> --directory <tempdir>` for each declared skill. The temp directory is appended to `generator_skill_directories` and cleaned up after the run completes.
 
 #### Skill Directory Resolution
 
@@ -315,7 +330,7 @@ The tool resolves skill directories per role:
 
 This allows configs to load different skills for generation vs. review. For example, the generator might get SDK-specific coding skills while reviewers get build-verification and version-checking skills.
 
-**Adding skills:** Use `npx skills add microsoft/skills --directory skills/generator` to install skills from the [microsoft/skills](https://github.com/microsoft/skills) registry. See the main [README.md](../README.md#adding-skills-to-configs) for details.
+**Adding skills:** Use `remote_skills` in your config YAML for automatic fetching (recommended), or manually install with `npx skills add microsoft/skills --directory skills/generator`. See the main [README.md](../README.md#adding-skills-to-configs) for details.
 
 **Example — separate skills per role:**
 

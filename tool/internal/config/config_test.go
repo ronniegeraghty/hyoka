@@ -328,3 +328,41 @@ if err := InstallSkillsAndPlugins(configs); err != nil {
 t.Fatalf("expected no error for empty skills/plugins, got: %v", err)
 }
 }
+
+func TestParseRemoteSkills(t *testing.T) {
+data := []byte(`
+configs:
+  - name: remote-test
+    model: "gpt-4"
+    remote_skills:
+      - repo: microsoft/skills
+        skills:
+          - keyvault-secrets-java
+          - storage-blob-python
+      - repo: myorg/custom-skills
+        skills:
+          - my-skill
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+if len(c.RemoteSkills) != 2 {
+t.Fatalf("expected 2 remote_skills entries, got %d", len(c.RemoteSkills))
+}
+rs := c.RemoteSkills[0]
+if rs.Repo != "microsoft/skills" {
+t.Errorf("expected repo %q, got %q", "microsoft/skills", rs.Repo)
+}
+if len(rs.Skills) != 2 {
+t.Errorf("expected 2 skills, got %d", len(rs.Skills))
+}
+if rs.Skills[0] != "keyvault-secrets-java" {
+t.Errorf("expected first skill %q, got %q", "keyvault-secrets-java", rs.Skills[0])
+}
+rs2 := c.RemoteSkills[1]
+if rs2.Repo != "myorg/custom-skills" {
+t.Errorf("expected repo %q, got %q", "myorg/custom-skills", rs2.Repo)
+}
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/prompt"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/report"
 	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/review"
+	"github.com/ronniegeraghty/azure-sdk-prompts/tool/internal/skills"
 )
 
 // EvalResult holds the raw output from a Copilot evaluation.
@@ -148,6 +149,32 @@ type EvalTask struct {
 
 // Run executes evaluations for the given prompts crossed with configs.
 func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []config.ToolConfig) (*report.RunSummary, error) {
+	// Fetch remote skills declared in configs. Each config with remote_skills
+	// gets a temp directory containing the fetched skill files, which is
+	// appended to its generator_skill_directories.
+	var skillCleanups []string
+	for i := range configs {
+		if len(configs[i].RemoteSkills) > 0 {
+			dir, err := skills.Fetch(configs[i].RemoteSkills)
+			if err != nil {
+				// Clean up any dirs already created
+				for _, d := range skillCleanups {
+					skills.Cleanup(d)
+				}
+				return nil, fmt.Errorf("fetching remote skills for config %q: %w", configs[i].Name, err)
+			}
+			if dir != "" {
+				configs[i].GeneratorSkillDirectories = append(configs[i].GeneratorSkillDirectories, dir)
+				skillCleanups = append(skillCleanups, dir)
+			}
+		}
+	}
+	defer func() {
+		for _, dir := range skillCleanups {
+			skills.Cleanup(dir)
+		}
+	}()
+
 	// Build task list (cross product: prompts × configs)
 	var tasks []EvalTask
 	for _, p := range prompts {

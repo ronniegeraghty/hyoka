@@ -18,6 +18,12 @@ Args    []string `yaml:"args" json:"args"`
 Tools   []string `yaml:"tools" json:"tools"`
 }
 
+// RemoteSkill declares a skill to be fetched from a remote registry at runtime.
+type RemoteSkill struct {
+Repo   string   `yaml:"repo" json:"repo"`     // e.g. "microsoft/skills"
+Skills []string `yaml:"skills" json:"skills"` // e.g. ["keyvault-secrets-java"]
+}
+
 // ToolConfig represents a single evaluation configuration.
 // Each config defines a tooling environment (MCP servers, skills) and
 // a single generator model. Create separate config files for different models.
@@ -33,6 +39,7 @@ GeneratorSkillDirectories  []string              `yaml:"generator_skill_director
 ReviewerSkillDirectories   []string              `yaml:"reviewer_skill_directories" json:"reviewer_skill_directories"`
 AvailableTools             []string              `yaml:"available_tools" json:"available_tools"`
 ExcludedTools              []string              `yaml:"excluded_tools" json:"excluded_tools"`
+RemoteSkills               []RemoteSkill         `yaml:"remote_skills" json:"remote_skills"`
 Skills                     []string              `yaml:"skills" json:"skills"`
 Plugins                    []string              `yaml:"plugins" json:"plugins"`
 }

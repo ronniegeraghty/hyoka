@@ -159,24 +159,35 @@ Then run with: `azsdk-prompt-eval run --config-file configs/my-custom-config.yam
 
 Skills give agents domain-specific knowledge (SDK patterns, API examples, acceptance criteria) that improve code generation and review quality. Skills are local directories containing a `SKILL.md` file and optional `references/` folder.
 
-**Install skills with `npx skills add`** instead of manually vendoring files. This pulls the latest version from a skills repository and lets you select which skills to install:
+**Config-driven remote skills (recommended):** Declare skills in your config YAML with `remote_skills`. The eval tool automatically fetches them via `npx skills add` into a temp directory before each run — no manual install step:
 
-```bash
-# Install a generator skill into skills/generator/
-npx skills add microsoft/skills --directory skills/generator
-
-# Example: install the Java Key Vault Secrets skill
-# Run the command, then select "keyvault-secrets-java" from the wizard
-npx skills add microsoft/skills --directory skills/generator
+```yaml
+configs:
+  - name: baseline-skills/claude-opus-4.6
+    model: "claude-opus-4.6"
+    reviewer_models:
+      - "claude-opus-4.6"
+      - "gemini-3-pro-preview"
+      - "gpt-4.1"
+    remote_skills:
+      - repo: microsoft/skills
+        skills:
+          - keyvault-secrets-java
 ```
 
-> **Tip:** The [microsoft/skills](https://github.com/microsoft/skills) repo contains 132+ skills across Azure SDK scenarios. Browse the repo or run `npx skills add microsoft/skills` to see what's available.
+> **Tip:** The [microsoft/skills](https://github.com/microsoft/skills) repo contains 132+ skills across Azure SDK scenarios. Browse the repo to see what's available.
+
+**Manual local skills:** You can also install skills locally and reference them with `generator_skill_directories`:
+
+```bash
+npx skills add microsoft/skills --directory skills/generator
+```
 
 The repo organizes skills by role:
 
 ```
 skills/
-├── generator/                 # Skills for the code generation agent (install via npx skills add)
+├── generator/                 # Skills for the code generation agent
 └── reviewer/                  # Skills for the review panel agents
     ├── code-review-comments/
     ├── reviewer-build/
@@ -187,25 +198,28 @@ Use these config fields to load skills:
 
 | Field | Applies to | Description |
 |-------|-----------|-------------|
-| `generator_skill_directories` | Generator only | Paths to skill directories for the code generation agent |
+| `remote_skills` | Generator only | Auto-fetched from a registry at eval time (recommended) |
+| `generator_skill_directories` | Generator only | Paths to local skill directories for the code generation agent |
 | `reviewer_skill_directories` | Reviewers only | Paths to skill directories for the review panel |
 | `skill_directories` | Both (fallback) | Shared fallback — used by the generator if `generator_skill_directories` is not set |
 
-**Priority:** `generator_skill_directories` takes priority over `skill_directories` for the generator session. If `generator_skill_directories` is set, `skill_directories` is ignored for generation (but still applies to reviewers if `reviewer_skill_directories` is not set).
+**Priority:** `remote_skills` directories are appended to `generator_skill_directories`. If `generator_skill_directories` is set, `skill_directories` is ignored for generation (but still applies to reviewers if `reviewer_skill_directories` is not set).
 
-**Example — config with generator skills:**
+**Example — config with remote skills:**
 
 ```yaml
 configs:
   - name: baseline-skills/claude-opus-4.6
-    description: "Baseline + Skills — Claude Opus 4.6 with generator skills"
+    description: "Baseline + Skills — Claude Opus 4.6 with remote skills"
     model: "claude-opus-4.6"
     reviewer_models:
       - "claude-opus-4.6"
       - "gemini-3-pro-preview"
       - "gpt-4.1"
-    generator_skill_directories:
-      - "./skills/generator"
+    remote_skills:
+      - repo: microsoft/skills
+        skills:
+          - keyvault-secrets-java
 ```
 
 See `configs/baseline-opus-skills.yaml` for a working example.
