@@ -571,6 +571,9 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		}
 	}
 
+	// Build re-run command so users can reproduce this evaluation
+	evalReport.RerunCommand = buildRerunCommand(task.Prompt.ID, task.Config.Name, e.opts)
+
 	// Write JSON report
 	reportPath, err := report.WriteReport(evalReport, e.opts.OutputDir, runID, task.Prompt)
 	if err != nil {
@@ -598,6 +601,37 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	}
 
 	return evalReport
+}
+
+// buildRerunCommand constructs the CLI command to reproduce a single evaluation.
+func buildRerunCommand(promptID, configName string, opts EngineOptions) string {
+	parts := []string{"hyoka run"}
+	parts = append(parts, "--prompt-id", promptID)
+	parts = append(parts, "--config", configName)
+
+	if opts.SkipTests {
+		parts = append(parts, "--skip-tests")
+	}
+	if opts.SkipReview {
+		parts = append(parts, "--skip-review")
+	}
+	if opts.VerifyBuild {
+		parts = append(parts, "--verify-build")
+	}
+
+	// Include non-default timeouts.
+	// Default generate timeout is 10m (600s), verify and review are 5m (300s).
+	if opts.GenerateTimeout != 10*time.Minute {
+		parts = append(parts, fmt.Sprintf("--generate-timeout=%d", int(opts.GenerateTimeout.Seconds())))
+	}
+	if opts.VerifyTimeout != 5*time.Minute {
+		parts = append(parts, fmt.Sprintf("--verify-timeout=%d", int(opts.VerifyTimeout.Seconds())))
+	}
+	if opts.ReviewTimeout != 5*time.Minute {
+		parts = append(parts, fmt.Sprintf("--review-timeout=%d", int(opts.ReviewTimeout.Seconds())))
+	}
+
+	return strings.Join(parts, " ")
 }
 
 func (e *Engine) dryRun(tasks []EvalTask) (*report.RunSummary, error) {

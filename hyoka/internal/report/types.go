@@ -67,6 +67,7 @@ type EvalReport struct {
 	Error          string               `json:"error,omitempty"`
 	ErrorDetails   string               `json:"error_details,omitempty"`
 	IsStub         bool                 `json:"is_stub,omitempty"`
+	RerunCommand   string               `json:"rerunCommand,omitempty"`
 }
 
 // RunSummary contains aggregate statistics for an evaluation run.

@@ -254,6 +254,12 @@ func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service,
 		}
 	}
 
+	// Re-run command
+	if r.RerunCommand != "" {
+		b.WriteString("## Re-run Command\n\n")
+		fmt.Fprintf(&b, "```bash\n%s\n```\n\n", r.RerunCommand)
+	}
+
 	// Footer
 	b.WriteString("---\n\n")
 	b.WriteString("[← Back to Summary](../../../../../../summary.md)\n")

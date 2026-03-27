@@ -939,6 +939,17 @@ const reportTemplate = `<!DOCTYPE html>
 </div>
 {{end}}
 
+<!-- ━━ Re-run Command ━━ -->
+{{if .RerunCommand}}
+<div class="section">
+  <div class="section-header"><span class="icon">🔄</span><h2>Re-run Command</h2></div>
+  <div class="section-body">
+    <p style="font-size:0.85rem;color:var(--text-muted)">Copy and paste this command to reproduce this evaluation:</p>
+    <pre>{{.RerunCommand}}</pre>
+  </div>
+</div>
+{{end}}
+
 </body>
 </html>`
 
