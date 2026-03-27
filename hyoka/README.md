@@ -57,6 +57,45 @@ hyoka <command> [flags]
 - **Flat report structure** — Reports write to `reports/{timestamp}/` instead of `reports/runs/{timestamp}/`
 - **Evaluation Criteria** — Parser extracts `## Evaluation Criteria` sections from prompt files for review
 
+## Safety & Guardrails
+
+hyoka enforces safe defaults so evaluation runs are bounded and predictable without extra configuration.
+
+### Generator Guardrails
+
+Every code-generation session is automatically aborted if it exceeds:
+
+| Limit | Default | Flag | Description |
+|-------|---------|------|-------------|
+| Turn count | 25 | `--max-turns` | Maximum assistant conversation turns |
+| File count | 50 | `--max-files` | Maximum generated files |
+| Output size | 1 MB | `--max-output-size` | Maximum total output (supports KB, MB suffixes) |
+
+When a guardrail triggers, the evaluation is marked as failed with a descriptive reason (e.g., `guardrail: turn count 26 exceeded limit of 25`). Reports show these reasons instead of blank scores.
+
+### Safety Boundaries
+
+By default, generators receive a system instruction preventing real Azure resource provisioning. The agent will use mock data, local emulators (Azurite, CosmosDB emulator), environment variable placeholders, and IaC templates instead of live `az` CLI commands. Use `--allow-cloud` to opt out.
+
+### Fan-Out Confirmation
+
+Runs with more than 10 evaluations trigger a confirmation prompt. Use `-y` / `--yes` to skip. When multiple configs exist and no `--config` filter is specified, `--all-configs` is required.
+
+### Process Lifecycle
+
+All spawned Copilot processes are tracked via a `ProcessTracker`. On run completion or interrupt (SIGINT/SIGTERM), hyoka sends SIGTERM to all tracked processes, waits up to 5 seconds, then sends SIGKILL to any remaining. This prevents orphaned Copilot processes.
+
+### Smart Concurrency
+
+Workers default to the number of CPU cores (capped at 8). `--max-sessions` limits total concurrent Copilot instances to `workers × 3` by default.
+
+### Prompt Discovery
+
+`validate` and `run` fail with a clear error when zero prompts match. Near-miss detection scans for common naming mistakes and suggests corrections:
+- `auth-prompt.md` → `auth.prompt.md` (hyphen vs. dot separator)
+- `crud.prompt.txt` → `crud.prompt.md` (wrong extension)
+- `*.md` files with YAML frontmatter that aren't named `*.prompt.md`
+
 ## Authentication
 
 The Copilot SDK evaluator requires a running Copilot CLI with valid authentication. The SDK will:
@@ -87,7 +126,8 @@ hyoka run [flags]
 | `--prompt-id` | | Run a single prompt by ID |
 | `--config` | all | Config name(s) (comma-separated) |
 | `--config-file` | (auto-detected from `configs/` dir) | Path to configuration YAML |
-| `--workers` | `4` | Parallel evaluation workers |
+| `--workers` | CPU cores (max 8) | Parallel evaluation workers |
+| `--max-sessions` | workers × 3 | Maximum concurrent Copilot sessions |
 | `--timeout` | `300` | Per-prompt timeout in seconds |
 | `--model` | | Override model for all configs |
 | `--output` | `./reports` | Report output directory |
@@ -97,12 +137,19 @@ hyoka run [flags]
 | `--stub` | `false` | Force stub evaluator (no Copilot SDK) |
 | `--debug` | `false` | Verbose output |
 | `--dry-run` | `false` | List matches without executing |
+| `-y` / `--yes` | `false` | Skip confirmation prompt for large runs (>10 evaluations) |
+| `--all-configs` | `false` | Required when running all configs without a `--config` filter |
+| `--max-turns` | `25` | Maximum conversation turns per generation before aborting |
+| `--max-files` | `50` | Maximum generated files per evaluation before aborting |
+| `--max-output-size` | `1MB` | Maximum total output size per evaluation (supports KB, MB suffixes) |
+| `--allow-cloud` | `false` | Allow generated code to provision real Azure resources |
+| `--sandbox` | `true` | Alias confirming safe/local-only mode (default behavior) |
 
 **Examples:**
 
 ```bash
 # Run all prompts with all configs (real Copilot SDK)
-hyoka run
+hyoka run --all-configs
 
 # Run with stub evaluator (no SDK needed)
 hyoka run --stub
@@ -115,6 +162,21 @@ hyoka run --prompt-id storage-dp-dotnet-auth
 
 # Compare configs
 hyoka run --service storage --config baseline,azure-mcp
+
+# Skip confirmation for CI/automation
+hyoka run --prompt-id my-prompt --config baseline -y
+
+# Run everything non-interactively
+hyoka run --all-configs -y
+
+# Tighter guardrails for faster iteration
+hyoka run --max-turns 10 --max-files 20 --max-output-size 512KB
+
+# Allow real Azure resource provisioning
+hyoka run --allow-cloud
+
+# Limit concurrent sessions on shared machines
+hyoka run --max-sessions 4 --workers 2
 ```
 
 ### `hyoka list`
@@ -258,6 +320,11 @@ reports/<timestamp>/
 
 Markdown reports contain the same information as HTML reports (criteria pass/fail, review panel, tool calls, verification) in a clean, readable format suitable for viewing in GitHub, VS Code, or any Markdown renderer.
 
+### Report Enhancements
+
+- **Failure reasons:** Reports now show explicit failure reasons (guardrail violations, timeouts, missing files) instead of blank "-" scores. In HTML summaries, truncated reasons appear in the score column with full text in a tooltip.
+- **Collapsible file lists:** When an evaluation generates more than 20 files, the file list is collapsed by default with a "Show all N files" toggle. Each file also has a collapsible content preview.
+
 ## Configuration Matrix
 
 Configurations live in the `configs/` directory at the repo root. Each file defines **one generator model** and a shared `reviewer_models` list. All configs are auto-discovered via `LoadDir()`:
@@ -373,5 +440,6 @@ hyoka/
 | Phase 2 | ✅ Done | Copilot SDK integration, multi-model review panel, criteria-based scoring, HTML reports |
 | Phase 2.1 | ✅ Done | Copilot verification, session transcripts, debug mode, failure diagnostics |
 | Phase 3 | ✅ Done | Tool matrix, MCP server attachment, skill loading, cross-config comparison |
-| Phase 4 | In Progress | Evaluation quality — check-env, expected_tools, reviewer skills |
-| Phase 5 | Planned | Polish — report re-rendering, embedded CLI, progress bars |
+| Phase 4 | ✅ Done | Guardrails, safety boundaries, smart concurrency, process lifecycle, prompt discovery |
+| Phase 5 | In Progress | Evaluation quality — check-env, expected_tools, reviewer skills |
+| Phase 6 | Planned | Polish — report re-rendering, embedded CLI, progress bars |

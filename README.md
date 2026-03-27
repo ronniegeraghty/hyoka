@@ -26,7 +26,8 @@ cd hyoka
 go run ./hyoka list
 
 # Run all evaluations (auto-generates trend analysis after)
-go run ./hyoka run
+# Note: requires --all-configs if multiple configs exist
+go run ./hyoka run --all-configs
 
 # Filter by service and language
 go run ./hyoka run --service storage --language dotnet
@@ -46,6 +47,55 @@ hyoka run --prompts ~/projects/hyoka/prompts
 ```
 
 > **Smart path detection:** `hyoka` checks `./prompts` then `../prompts` automatically. Running from the repo root or the `hyoka/` directory both work without extra flags.
+
+## Safety & Guardrails
+
+hyoka includes built-in protections that keep evaluation runs safe, bounded, and predictable by default. No extra flags are needed — everything below is on unless you opt out.
+
+### Generator Guardrails
+
+Every code-generation session is automatically aborted if it exceeds any of these limits:
+
+| Limit | Default | Flag | Purpose |
+|-------|---------|------|---------|
+| Turn count | 25 | `--max-turns` | Prevents runaway conversations |
+| File count | 50 | `--max-files` | Prevents excessive file creation |
+| Output size | 1 MB | `--max-output-size` | Prevents oversized outputs (supports KB, MB suffixes) |
+
+When a guardrail trips, the evaluation is marked as failed with a clear reason (e.g., `guardrail: turn count 26 exceeded limit of 25`).
+
+### Safety Boundaries (No Real Azure Resources)
+
+By default, generators receive a system instruction that **prevents real Azure resource provisioning**. The agent will:
+- Use mock data, environment variables, and local emulators (Azurite, CosmosDB emulator)
+- Generate Bicep/ARM/Terraform templates instead of running live `az` CLI commands
+- Use placeholder values like `os.Getenv("AZURE_STORAGE_CONNECTION_STRING")`
+
+Use `--allow-cloud` to opt out and permit real resource provisioning.
+
+### Fan-Out Confirmation
+
+When a run would execute **more than 10 evaluations**, hyoka shows a summary and asks for confirmation before proceeding. Use `-y` / `--yes` to skip the prompt (useful in CI). If multiple configs exist and no `--config` filter is specified, `--all-configs` is required to prevent accidental full-matrix runs.
+
+### Process Lifecycle
+
+hyoka tracks all spawned Copilot processes and terminates them on completion or interrupt (Ctrl+C). The cleanup sequence sends SIGTERM, waits up to 5 seconds, then SIGKILL — no more orphaned processes consuming resources after a run.
+
+### Smart Concurrency
+
+Workers default to **CPU core count** (capped at 8) instead of a hardcoded 4. The `--max-sessions` flag limits total concurrent Copilot instances (default: workers × 3) to prevent resource exhaustion on shared machines.
+
+### Prompt Discovery
+
+`validate` and `run` now fail with a clear error when zero prompts are found. Near-miss detection suggests corrections for misnamed files:
+
+```
+no prompts found in ./prompts
+
+Did you mean one of these?
+  prompts/storage/data-plane/dotnet/auth-prompt.md → auth.prompt.md
+  prompts/key-vault/crud.prompt.txt → crud.prompt.md
+```
 
 ## Commands
 
@@ -103,8 +153,35 @@ hyoka list --json
 | `--verify-build` | `false` | Run build verification (in addition to Copilot verification) |
 | `--stub` | `false` | Use stub evaluator (no Copilot SDK) |
 | `--dry-run` | `false` | List matching prompts without running |
-| `--workers` | `4` | Parallel evaluation workers |
+| `--workers` | CPU cores (max 8) | Parallel evaluation workers |
+| `--max-sessions` | workers × 3 | Maximum concurrent Copilot sessions |
 | `--timeout` | `300` | Per-prompt timeout in seconds |
+| `-y` / `--yes` | `false` | Skip confirmation prompt for large runs (>10 evaluations) |
+| `--all-configs` | `false` | Required when running all configs without a `--config` filter |
+| `--max-turns` | `25` | Maximum conversation turns per generation before aborting |
+| `--max-files` | `50` | Maximum generated files per evaluation before aborting |
+| `--max-output-size` | `1MB` | Maximum total output size per evaluation (supports KB, MB suffixes) |
+| `--allow-cloud` | `false` | Allow generated code to provision real Azure resources |
+| `--sandbox` | `true` | Alias confirming safe/local-only mode (default behavior) |
+
+### Run Command Examples
+
+```bash
+# Skip confirmation for large runs (CI-friendly)
+go run ./hyoka run --prompt-id my-prompt --config baseline -y
+
+# Run all prompts × all configs (requires --all-configs + -y for non-interactive)
+go run ./hyoka run --all-configs -y
+
+# Tighten guardrails for faster iteration
+go run ./hyoka run --max-turns 10 --max-files 20
+
+# Allow real Azure resource provisioning (use with caution)
+go run ./hyoka run --allow-cloud
+
+# Limit concurrent Copilot sessions on a shared machine
+go run ./hyoka run --max-sessions 4 --workers 2
+```
 
 ### Validating Prompts
 
@@ -311,8 +388,9 @@ Every prompt uses YAML frontmatter:
 - **Phase 1:** ✅ Prompt library, build verification, report generation with stub evaluator
 - **Phase 2:** ✅ Copilot SDK integration — live agent evaluation with code generation and criteria-based review panel
 - **Phase 3:** ✅ Tool matrix, MCP server attachment, skill loading, cross-config comparison
-- **Phase 4:** In progress — Evaluation quality (check-env, expected_tools, reviewer skills)
-- **Phase 5:** Planned — Polish (report re-rendering, embedded CLI, progress bars)
+- **Phase 4:** ✅ Guardrails, safety boundaries, smart concurrency, process lifecycle, prompt discovery
+- **Phase 5:** In progress — Evaluation quality (check-env, expected_tools, reviewer skills)
+- **Phase 6:** Planned — Polish (report re-rendering, embedded CLI, progress bars)
 
 See [`hyoka/README.md`](hyoka/README.md) for full CLI reference and configuration docs.
 
