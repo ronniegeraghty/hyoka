@@ -37,6 +37,8 @@ type CopilotEvalOptions struct {
 	CLIPath string
 	// Debug enables verbose logging.
 	Debug bool
+	// AllowCloud permits generated code to provision real cloud resources (#36).
+	AllowCloud bool
 }
 
 // NewCopilotSDKEvaluator creates a new evaluator backed by the Copilot SDK.

@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/ronniegeraghty/hyoka/internal/build"
@@ -55,6 +58,7 @@ func (s *StubEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cfg *con
 // EngineOptions configures the evaluation engine.
 type EngineOptions struct {
 	Workers         int
+	MaxSessions     int           // Maximum concurrent Copilot sessions (0 = workers × 3).
 	Timeout         time.Duration // Deprecated: use GenerateTimeout. Kept for backward compat.
 	GenerateTimeout time.Duration // Independent timeout for code generation phase.
 	VerifyTimeout   time.Duration // Independent timeout for verification phase.
@@ -66,6 +70,14 @@ type EngineOptions struct {
 	Debug           bool
 	DryRun          bool
 	ProgressMode    string // "auto", "live", "log", "off"
+
+	// Fan-out visibility (#34)
+	ConfirmLargeRuns bool
+	AutoConfirm      bool
+	// Generator guardrails (#35)
+	MaxTurns      int
+	MaxFiles      int
+	MaxOutputSize int64
 }
 
 // Verifier evaluates generated code against prompt requirements.
@@ -102,7 +114,14 @@ func NewEngine(evaluator CopilotEvaluator, opts EngineOptions) *Engine {
 // NewEngineWithReviewer creates a new Engine with an evaluator, verifier, and reviewer.
 func NewEngineWithReviewer(evaluator CopilotEvaluator, verifier Verifier, reviewer review.Reviewer, opts EngineOptions) *Engine {
 	if opts.Workers <= 0 {
-		opts.Workers = 4
+		w := runtime.NumCPU()
+		if w > 8 {
+			w = 8
+		}
+		opts.Workers = w
+	}
+	if opts.MaxSessions <= 0 {
+		opts.MaxSessions = opts.Workers * 3
 	}
 	// Backward compat: if only the legacy Timeout is set, use it as GenerateTimeout.
 	if opts.Timeout > 0 && opts.GenerateTimeout <= 0 {
@@ -119,6 +138,16 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, verifier Verifier, review
 	}
 	if opts.OutputDir == "" {
 		opts.OutputDir = "./reports"
+	}
+	// Generator guardrail defaults (#35)
+	if opts.MaxTurns <= 0 {
+		opts.MaxTurns = 25
+	}
+	if opts.MaxFiles <= 0 {
+		opts.MaxFiles = 50
+	}
+	if opts.MaxOutputSize <= 0 {
+		opts.MaxOutputSize = 1048576 // 1MB
 	}
 	// Resolve to absolute path so workspace directories passed to the Copilot CLI
 	// are always absolute. Without this, the agent constructs wrong paths like
@@ -160,6 +189,33 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		return e.dryRun(tasks)
 	}
 
+	// Ensure all tracked Copilot processes are cleaned up when Run exits.
+	defer func() {
+		if errs := DefaultTracker.TerminateAll(5 * time.Second); len(errs) > 0 {
+			for _, err := range errs {
+				log.Printf("[WARN] process cleanup error: %v", err)
+			}
+		}
+	}()
+
+	// Set up signal handler so SIGINT/SIGTERM terminates spawned processes.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig, ok := <-sigCh
+		if !ok {
+			return
+		}
+		log.Printf("[WARN] Received %v — terminating tracked Copilot processes...", sig)
+		if errs := DefaultTracker.TerminateAll(5 * time.Second); len(errs) > 0 {
+			for _, err := range errs {
+				log.Printf("[WARN] process cleanup error: %v", err)
+			}
+		}
+	}()
+	defer signal.Stop(sigCh)
+	defer close(sigCh)
+
 	runID := time.Now().Format("20060102-150405")
 	summary := &report.RunSummary{
 		RunID:        runID,
@@ -168,6 +224,8 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		TotalConfigs: len(configs),
 		TotalEvals:   len(tasks),
 	}
+
+	log.Printf("Starting run: %d workers, %d max sessions", e.opts.Workers, e.opts.MaxSessions)
 
 	start := time.Now()
 
@@ -188,6 +246,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	}
 
 	sem := make(chan struct{}, e.opts.Workers)
+	sessionSem := make(chan struct{}, e.opts.MaxSessions) // limits total concurrent Copilot sessions
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -195,6 +254,10 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		wg.Add(1)
 		go func(t EvalTask) {
 			defer wg.Done()
+
+			// Acquire session semaphore first to limit total Copilot sessions.
+			sessionSem <- struct{}{}
+			defer func() { <-sessionSem }()
 
 			sem <- struct{}{}
 			defer func() { <-sem }()

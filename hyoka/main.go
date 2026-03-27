@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -106,6 +107,7 @@ type runFlags struct {
 	configFile   string
 	configDir    string
 	workers         int
+	maxSessions     int
 	timeout         int
 	generateTimeout int
 	verifyTimeout   int
@@ -120,6 +122,15 @@ type runFlags struct {
 	debug        bool
 	dryRun       bool
 	useStub      bool
+	// Fan-out visibility (#34)
+	autoConfirm bool
+	allConfigs  bool
+	// Generator guardrails (#35)
+	maxTurns      int
+	maxFiles      int
+	maxOutputSize string
+	// Generator safety (#36)
+	allowCloud bool
 }
 
 func addFilterFlags(cmd *cobra.Command, f *runFlags) {
@@ -133,7 +144,8 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.configName, "config", "", "Config name(s) from config file (comma-separated)")
 	cmd.Flags().StringVar(&f.configFile, "config-file", "", "Path to a specific configuration YAML file (default: load all from configs/)")
 	cmd.Flags().StringVar(&f.configDir, "config-dir", "./configs", "Directory containing configuration YAML files")
-	cmd.Flags().IntVar(&f.workers, "workers", 4, "Parallel evaluation workers")
+	cmd.Flags().IntVar(&f.workers, "workers", 0, "Parallel evaluation workers (default: number of CPUs, max 8)")
+	cmd.Flags().IntVar(&f.maxSessions, "max-sessions", 0, "Maximum concurrent Copilot sessions (default: workers × 3)")
 	cmd.Flags().IntVar(&f.timeout, "timeout", 600, "Per-prompt generation timeout in seconds (deprecated: use --generate-timeout)")
 	cmd.Flags().IntVar(&f.generateTimeout, "generate-timeout", 0, "Generation phase timeout in seconds (default: --timeout value or 600)")
 	cmd.Flags().IntVar(&f.verifyTimeout, "verify-timeout", 300, "Verification phase timeout in seconds")
@@ -148,6 +160,17 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "List matching prompts without running")
 	cmd.Flags().BoolVar(&f.useStub, "stub", false, "Use stub evaluator (no Copilot SDK)")
 	cmd.Flags().BoolVar(&f.skipTrends, "skip-trends", false, "Skip automatic trend analysis after run")
+	// Fan-out visibility (#34)
+	cmd.Flags().BoolVarP(&f.autoConfirm, "yes", "y", false, "Skip confirmation prompt for large runs (>10 evaluations)")
+	cmd.Flags().BoolVar(&f.allConfigs, "all-configs", false, "Run all configs when no --config filter is specified (required for multi-config runs)")
+	// Generator guardrails (#35)
+	cmd.Flags().IntVar(&f.maxTurns, "max-turns", 25, "Maximum assistant turns per generation before aborting")
+	cmd.Flags().IntVar(&f.maxFiles, "max-files", 50, "Maximum generated files per evaluation before aborting")
+	cmd.Flags().StringVar(&f.maxOutputSize, "max-output-size", "1MB", "Maximum total output size per evaluation (e.g., 1MB, 512KB)")
+	// Generator safety (#36)
+	cmd.Flags().BoolVar(&f.allowCloud, "allow-cloud", false, "Allow generated code to provision real Azure resources (disables safety boundaries)")
+	cmd.Flags().Bool("sandbox", true, "Enforce safety boundaries preventing real Azure resource provisioning (default, opposite of --allow-cloud)")
+	cmd.Flags().MarkHidden("sandbox") // sandbox is the default; --allow-cloud is the opt-out
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
@@ -314,6 +337,13 @@ func runCmd() *cobra.Command {
 				return err
 			}
 
+			// Require --all-configs when multiple configs exist and no --config filter is specified (#34)
+			if f.configName == "" && len(configs) > 1 && !f.allConfigs {
+				fmt.Printf("⚠️  Found %d configs but no --config filter specified.\n", len(configs))
+				fmt.Println("   Use --all-configs to run all configs, or --config <name> to select specific ones.")
+				return fmt.Errorf("multiple configs found without --config or --all-configs flag")
+			}
+
 			// Override model if specified via CLI flag
 			if f.model != "" {
 				for i := range configs {
@@ -363,7 +393,8 @@ func runCmd() *cobra.Command {
 			} else {
 				// Try to create a real Copilot SDK evaluator
 				sdkEval := eval.NewCopilotSDKEvaluator(eval.CopilotEvalOptions{
-					Debug: f.debug,
+					Debug:      f.debug,
+					AllowCloud: f.allowCloud,
 				})
 				evaluator = sdkEval
 
@@ -436,20 +467,32 @@ func runCmd() *cobra.Command {
 				reviewer = nil
 			}
 
+			// Parse max-output-size flag (#35)
+			maxOutputSize, err := parseByteSize(f.maxOutputSize)
+			if err != nil {
+				return fmt.Errorf("invalid --max-output-size %q: %w", f.maxOutputSize, err)
+			}
+
 			// Create and run engine
 			engine := eval.NewEngineWithReviewer(evaluator, verifier, reviewer, eval.EngineOptions{
-				Workers:         f.workers,
-				Timeout:         time.Duration(f.timeout) * time.Second,
-				GenerateTimeout: time.Duration(f.generateTimeout) * time.Second,
-				VerifyTimeout:   time.Duration(f.verifyTimeout) * time.Second,
-				ReviewTimeout:   time.Duration(f.reviewTimeout) * time.Second,
-				OutputDir:       f.output,
-				SkipTests:       f.skipTests,
-				SkipReview:      f.skipReview,
-				VerifyBuild:     f.verifyBuild,
-				Debug:           f.debug,
-				DryRun:          f.dryRun,
-				ProgressMode:    f.progressMode,
+				Workers:          f.workers,
+				MaxSessions:      f.maxSessions,
+				Timeout:          time.Duration(f.timeout) * time.Second,
+				GenerateTimeout:  time.Duration(f.generateTimeout) * time.Second,
+				VerifyTimeout:    time.Duration(f.verifyTimeout) * time.Second,
+				ReviewTimeout:    time.Duration(f.reviewTimeout) * time.Second,
+				OutputDir:        f.output,
+				SkipTests:        f.skipTests,
+				SkipReview:       f.skipReview,
+				VerifyBuild:      f.verifyBuild,
+				Debug:            f.debug,
+				DryRun:           f.dryRun,
+				ProgressMode:     f.progressMode,
+				ConfirmLargeRuns: true,
+				AutoConfirm:      f.autoConfirm,
+				MaxTurns:         f.maxTurns,
+				MaxFiles:         f.maxFiles,
+				MaxOutputSize:    maxOutputSize,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)
@@ -935,6 +978,32 @@ TODO: Why this prompt matters.
 			return nil
 		},
 	}
+}
+
+// parseByteSize parses a human-readable byte size string (e.g., "1MB", "512KB", "1048576").
+func parseByteSize(s string) (int64, error) {
+	s = strings.TrimSpace(strings.ToUpper(s))
+	multipliers := map[string]int64{
+		"KB": 1024,
+		"MB": 1024 * 1024,
+		"GB": 1024 * 1024 * 1024,
+	}
+	for suffix, mult := range multipliers {
+		if strings.HasSuffix(s, suffix) {
+			numStr := strings.TrimSuffix(s, suffix)
+			num, err := strconv.ParseFloat(strings.TrimSpace(numStr), 64)
+			if err != nil {
+				return 0, fmt.Errorf("invalid number %q", numStr)
+			}
+			return int64(num * float64(mult)), nil
+		}
+	}
+	// Plain number (bytes)
+	num, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q — use a number with optional KB/MB/GB suffix", s)
+	}
+	return num, nil
 }
 
 func askChoice(label string, options []string) string {
