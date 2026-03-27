@@ -1,0 +1,4 @@
+configs:
+  - name: test-only
+    description: "Minimal test configuration"
+    model: "gpt-4"

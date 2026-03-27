@@ -5,7 +5,7 @@
 **Requested by:** Ronnie Geraghty
 
 > **⚠️ UPDATE 2026-07-28:** Implementation complete. Python scripts removed. The Go
-> `hyoka` tool is the sole evaluation approach. Tool lives in `tool/` subdirectory
+> `hyoka` tool is the sole evaluation approach. Tool lives in `hyoka/` subdirectory
 > with configs at `configs/` (repo root) and reports at `reports/` (repo root). The
 > standalone `hyoka-tool` repo has been deleted. Sections referencing Python scripts,
 > `doc-agent evaluate`, `scripts/`, or the separate repo are historical context only.
@@ -688,7 +688,7 @@ azure-sdk-prompts/                     # ronniegeraghty/azure-sdk-prompts
 │       └── data-plane/
 │           └── dotnet/
 │               └── authentication.prompt.md
-├── tool/                              # Go eval tool (hyoka)
+├── hyoka/                              # Go eval tool (hyoka)
 │   ├── README.md                      # CLI reference
 │   ├── cmd/hyoka/main.go           # CLI entry point (cobra)
 │   ├── go.mod / go.sum
@@ -712,7 +712,7 @@ azure-sdk-prompts/                     # ronniegeraghty/azure-sdk-prompts
 ### 10.2 Dependencies
 
 ```
-tool/go.mod:
+hyoka/go.mod:
   module github.com/ronniegeraghty/azure-sdk-prompts/tool
 
   go 1.26.1
@@ -733,7 +733,7 @@ Python scripts (`run-evals.py`, `generate-manifest.py`, `validate-prompts.py`) h
 | `scripts/generate-manifest.py` | `hyoka manifest` |
 | `scripts/validate-prompts.py` | `hyoka validate` |
 
-The tool uses smart path detection — running from the repo root or the `tool/` directory both work without extra flags.
+The tool uses smart path detection — running from the repo root or the `hyoka/` directory both work without extra flags.
 
 ---
 
@@ -880,7 +880,7 @@ All work happens in the `ronniegeraghty/azure-sdk-prompts` repo.
 
 5. **Cost management:** Each eval consumes premium requests. With 57 prompts × 3 configs × (generation + review) = ~342 API calls per full run. Add `--budget N` flag to cap total evaluations?
 
-6. ~~**Go module vs. existing repo tooling:**~~ Resolved — Python scripts removed. The repo is Go (`tool/`) + prompt files + configs. No polyglot complexity.
+6. ~~**Go module vs. existing repo tooling:**~~ Resolved — Python scripts removed. The repo is Go (`hyoka/`) + prompt files + configs. No polyglot complexity.
 
 ---
 

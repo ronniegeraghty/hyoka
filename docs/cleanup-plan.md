@@ -9,16 +9,16 @@
 
 ## Item 1: Make Tool Callable from Repo Root
 
-**Current state:** The tool already has smart path resolution (`main.go:52-81`) that tries `./prompts` → `../prompts`, `./configs/all.yaml` → `../configs/all.yaml`, etc. Running `go run ./tool/cmd/hyoka` from repo root works today. A pre-built binary exists at `tool/hyoka`.
+**Current state:** The tool already has smart path resolution (`main.go:52-81`) that tries `./prompts` → `../prompts`, `./configs/all.yaml` → `../configs/all.yaml`, etc. Running `go run ./hyoka` from repo root works today. A pre-built binary exists at `hyoka/azsdk-prompt-eval`.
 
 **What needs to change:**
 - Add a `Makefile` at repo root with targets: `build`, `install`, `test`, `lint`, `run`
-- Add a `go.work` file at repo root so `go run ./tool/cmd/hyoka` works without `cd tool/`
+- Add a `go.work` file at repo root so `go run ./hyoka` works without `cd hyoka/`
 - Optionally add a thin wrapper script (`./eval` or `./run-eval.sh`) for quick invocation
 - Update README to recommend repo-root invocation as the primary method
 
 **Decisions for Ronnie:**
-- Preferred invocation style: `make run ARGS="--service storage"` vs `./eval run --service storage` vs `go run ./tool/cmd/...`?
+- Preferred invocation style: `make run ARGS="--service storage"` vs `./eval run --service storage` vs `go run ./hyoka ...`?
 - Should the pre-built binary stay committed to the repo, or build on demand?
 
 **Complexity:** S (Small) — path resolution already works; just need convenience wrappers
@@ -256,7 +256,7 @@
 
 **Current state:**
 - `README.md` (root): Quick start, commands table (6 of 8 commands), filtering examples, config docs, adding prompts workflow, repo structure, tagging, roadmap
-- `tool/README.md`: More detailed version with full flag tables, smart path detection, code review section
+- `hyoka/README.md`: More detailed version with full flag tables, smart path detection, code review section
 - `docs/eval-tool-plan.md`: Architecture/implementation plan (983 lines)
 - **No other docs files**
 
@@ -278,11 +278,11 @@
 2. **Remove stale `manifest` reference** or clarify if it was renamed
 3. **Create `docs/getting-started.md`** — walkthrough from clone to first eval run
 4. **Create `docs/architecture.md`** — package structure, data flow, extension points
-5. **Sync root README and tool README** — they have diverged; consider having root point to tool/README for details
+5. **Sync root README and hyoka README** — they have diverged; consider having root point to hyoka/README for details
 6. **Document scoring dimensions** in root README or link to tool README section
 
 **Decisions for Ronnie:**
-- Should root README be a thin pointer to tool/README, or a standalone doc?
+- Should root README be a thin pointer to hyoka/README, or a standalone doc?
 - Is a getting-started guide worth the maintenance burden, or is the current inline quick start sufficient?
 - Should docs/ contain rendered examples of reports?
 
@@ -334,7 +334,7 @@ Deferred / As-Needed
 | 7 | Resume/rerun priority | `--continue`/`--rerun-failed` now or later? | Item 5 |
 | 8 | Results co-location | History command vs hybrid vs full move | Item 6 |
 | 9 | Summary chart style | Static HTML tables vs interactive JS charts | Item 7 |
-| 10 | README structure | Thin root + detailed tool/ vs standalone root | Item 8 |
+| 10 | README structure | Thin root + detailed hyoka/ vs standalone root | Item 8 |
 
 ---
 

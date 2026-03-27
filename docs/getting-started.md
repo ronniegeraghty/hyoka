@@ -32,12 +32,12 @@ git clone https://github.com/ronniegeraghty/azure-sdk-prompts.git
 cd azure-sdk-prompts
 ```
 
-The repo uses a `go.work` file, so all commands run from the repo root — no need to `cd tool/`.
+The repo uses a `go.work` file, so all commands run from the repo root — no need to `cd hyoka/`.
 
 Verify the setup:
 
 ```bash
-go run ./tool/cmd/hyoka version
+go run ./hyoka version
 ```
 
 Expected output:
@@ -48,7 +48,7 @@ hyoka version 0.6.0
 Check your environment:
 
 ```bash
-go run ./tool/cmd/hyoka check-env
+go run ./hyoka check-env
 ```
 
 This reports which language toolchains and tools are available.
@@ -57,13 +57,13 @@ This reports which language toolchains and tools are available.
 
 ```bash
 # List all prompts
-go run ./tool/cmd/hyoka list
+go run ./hyoka list
 
 # Filter by service
-go run ./tool/cmd/hyoka list --service storage
+go run ./hyoka list --service storage
 
 # JSON output (for scripting)
-go run ./tool/cmd/hyoka list --json
+go run ./hyoka list --json
 ```
 
 Expected output:
@@ -80,7 +80,7 @@ Found 79 prompt(s):
 Start with a single prompt to keep it quick:
 
 ```bash
-go run ./tool/cmd/hyoka run \
+go run ./hyoka run \
   --prompt-id storage-dp-dotnet-auth \
   --config baseline
 ```
@@ -88,7 +88,7 @@ go run ./tool/cmd/hyoka run \
 Or use **stub mode** to test the pipeline without Copilot:
 
 ```bash
-go run ./tool/cmd/hyoka run \
+go run ./hyoka run \
   --prompt-id storage-dp-dotnet-auth \
   --stub
 ```
@@ -135,7 +135,7 @@ Individual reports at `reports/<run-id>/results/.../report.html` show the full a
 After multiple runs, generate trend reports:
 
 ```bash
-go run ./tool/cmd/hyoka trends
+go run ./hyoka trends
 ```
 
 This scans all past runs and produces:
@@ -147,7 +147,7 @@ This scans all past runs and produces:
 Open the trend report:
 
 ```bash
-go run ./tool/cmd/hyoka trends --open
+go run ./hyoka trends --open
 ```
 
 ## 6. Create a New Prompt
@@ -155,7 +155,7 @@ go run ./tool/cmd/hyoka trends --open
 Use the interactive scaffolder:
 
 ```bash
-go run ./tool/cmd/hyoka new-prompt
+go run ./hyoka new-prompt
 ```
 
 Or copy the template manually:
@@ -168,7 +168,7 @@ cp templates/prompt-template.prompt.md \
 Validate after editing:
 
 ```bash
-go run ./tool/cmd/hyoka validate
+go run ./hyoka validate
 ```
 
 ## Common Workflows
@@ -177,30 +177,30 @@ go run ./tool/cmd/hyoka validate
 
 ```bash
 # All prompts × all configs (baseline + azure-mcp)
-go run ./tool/cmd/hyoka run
+go run ./hyoka run
 ```
 
 ### Run with specific configs
 
 ```bash
 # Just baseline
-go run ./tool/cmd/hyoka run --config baseline
+go run ./hyoka run --config baseline
 
 # Both configs for one service
-go run ./tool/cmd/hyoka run --service storage
+go run ./hyoka run --service storage
 ```
 
 ### Re-render reports after template changes
 
 ```bash
-go run ./tool/cmd/hyoka report --all
+go run ./hyoka report --all
 ```
 
 ### Skip AI analysis for faster iteration
 
 ```bash
-go run ./tool/cmd/hyoka run --skip-trends
-go run ./tool/cmd/hyoka trends --no-analyze
+go run ./hyoka run --skip-trends
+go run ./hyoka trends --no-analyze
 ```
 
 ## Next Steps

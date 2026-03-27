@@ -1,0 +1,574 @@
+package config
+
+import (
+"os"
+"path/filepath"
+"testing"
+)
+
+func TestParseValidConfig(t *testing.T) {
+data := []byte(`
+configs:
+  - name: test-config
+    description: "Test configuration"
+    model: "gpt-4"
+    mcp_servers: {}
+    skill_directories: []
+    available_tools: []
+    excluded_tools: []
+  - name: test-config-2
+    description: "Second test"
+    model: "claude-sonnet-4.5"
+    mcp_servers:
+      azure:
+        type: local
+        command: npx
+        args: ["-y", "@azure/mcp@latest"]
+        tools: ["*"]
+    skill_directories: []
+    available_tools: []
+    excluded_tools: []
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if len(cfg.Configs) != 2 {
+t.Fatalf("expected 2 configs, got %d", len(cfg.Configs))
+}
+if cfg.Configs[0].Name != "test-config" {
+t.Errorf("expected name 'test-config', got %q", cfg.Configs[0].Name)
+}
+if cfg.Configs[0].Model != "gpt-4" {
+t.Errorf("expected model 'gpt-4', got %q", cfg.Configs[0].Model)
+}
+// Check MCP server on second config
+if cfg.Configs[1].MCPServers == nil {
+t.Fatal("expected MCP servers on second config")
+}
+azure, ok := cfg.Configs[1].MCPServers["azure"]
+if !ok {
+t.Fatal("expected 'azure' MCP server")
+}
+if azure.Command != "npx" {
+t.Errorf("expected command 'npx', got %q", azure.Command)
+}
+}
+
+func TestParseEmptyConfig(t *testing.T) {
+data := []byte(`configs: []`)
+_, err := Parse(data)
+if err == nil {
+t.Fatal("expected error for empty configs")
+}
+}
+
+func TestParseConfigMissingName(t *testing.T) {
+data := []byte(`
+configs:
+  - description: "No name"
+    model: "gpt-4"
+`)
+_, err := Parse(data)
+if err == nil {
+t.Fatal("expected error for config missing name")
+}
+}
+
+func TestParseInvalidYAML(t *testing.T) {
+data := []byte(`not: valid: yaml: [`)
+_, err := Parse(data)
+if err == nil {
+t.Fatal("expected error for invalid YAML")
+}
+}
+
+func TestValidateSameModelAccepted(t *testing.T) {
+data := []byte(`
+configs:
+  - name: same-model-ok
+    description: "Same model for generator and reviewer is allowed"
+    model: "claude-opus-4.6"
+    reviewer_models:
+      - "claude-opus-4.6"
+      - "gpt-4.1"
+`)
+_, err := Parse(data)
+if err != nil {
+t.Fatalf("expected no error when reviewer model matches generator, got: %v", err)
+}
+}
+
+func TestValidateDifferentModelsAccepted(t *testing.T) {
+data := []byte(`
+configs:
+  - name: good-config
+    description: "Different models"
+    model: "claude-sonnet-4.5"
+    reviewer_models:
+      - "gpt-4.1"
+      - "gemini-3-pro-preview"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+models := cfg.Configs[0].EffectiveReviewerModels()
+if len(models) != 2 {
+t.Errorf("expected 2 reviewer models, got %d", len(models))
+}
+}
+
+func TestValidateNoReviewerModelAccepted(t *testing.T) {
+data := []byte(`
+configs:
+  - name: no-reviewer
+    description: "No reviewer model specified"
+    model: "claude-sonnet-4.5"
+`)
+_, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+}
+
+func TestValidateDuplicateReviewerModelsRejected(t *testing.T) {
+data := []byte(`
+configs:
+  - name: dupes
+    description: "Duplicate reviewer models"
+    model: "claude-sonnet-4.5"
+    reviewer_models:
+      - "gpt-4.1"
+      - "gpt-4.1"
+`)
+_, err := Parse(data)
+if err == nil {
+t.Fatal("expected error for duplicate reviewer models")
+}
+}
+
+func TestBackwardCompatSingularReviewerModel(t *testing.T) {
+data := []byte(`
+configs:
+  - name: compat
+    description: "Old-style singular reviewer_model"
+    model: "claude-sonnet-4.5"
+    reviewer_model: "gpt-4.1"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+models := cfg.Configs[0].EffectiveReviewerModels()
+if len(models) != 1 || models[0] != "gpt-4.1" {
+t.Errorf("expected [gpt-4.1] from backward compat, got %v", models)
+}
+}
+
+func TestGetConfig(t *testing.T) {
+data := []byte(`
+configs:
+  - name: alpha
+    description: "Alpha"
+    model: "gpt-4"
+  - name: beta
+    description: "Beta"
+    model: "claude-sonnet-4.5"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+
+tc, err := cfg.GetConfig("beta")
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if tc.Name != "beta" {
+t.Errorf("expected 'beta', got %q", tc.Name)
+}
+
+_, err = cfg.GetConfig("nonexistent")
+if err == nil {
+t.Fatal("expected error for nonexistent config")
+}
+}
+
+func TestGetConfigs(t *testing.T) {
+data := []byte(`
+configs:
+  - name: alpha
+    description: "Alpha"
+    model: "gpt-4"
+  - name: beta
+    description: "Beta"
+    model: "claude-sonnet-4.5"
+  - name: gamma
+    description: "Gamma"
+    model: "gpt-4"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+
+// Empty names returns all
+all, err := cfg.GetConfigs(nil)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if len(all) != 3 {
+t.Errorf("expected 3 configs, got %d", len(all))
+}
+
+// Specific names
+subset, err := cfg.GetConfigs([]string{"alpha", "gamma"})
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if len(subset) != 2 {
+t.Errorf("expected 2 configs, got %d", len(subset))
+}
+
+// Missing name
+_, err = cfg.GetConfigs([]string{"alpha", "missing"})
+if err == nil {
+t.Fatal("expected error for missing config name")
+}
+}
+
+func TestLoadFromFile(t *testing.T) {
+dir := t.TempDir()
+path := filepath.Join(dir, "config.yaml")
+content := []byte(`
+configs:
+  - name: file-test
+    description: "From file"
+    model: "gpt-4"
+`)
+if err := os.WriteFile(path, content, 0644); err != nil {
+t.Fatalf("failed to write test file: %v", err)
+}
+
+cfg, err := Load(path)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if cfg.Configs[0].Name != "file-test" {
+t.Errorf("expected 'file-test', got %q", cfg.Configs[0].Name)
+}
+
+// Non-existent file
+_, err = Load(filepath.Join(dir, "nonexistent.yaml"))
+if err == nil {
+t.Fatal("expected error for nonexistent file")
+}
+}
+
+func TestParseSkillsAndPlugins(t *testing.T) {
+data := []byte(`
+configs:
+  - name: with-skills
+    description: "Config with skills and plugins"
+    model: "gpt-4"
+    skills:
+      - "@anthropic/tool-use"
+      - "github:org/repo"
+    plugins:
+      - "@azure/functions"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+if len(c.Skills) != 2 {
+t.Errorf("expected 2 skills, got %d", len(c.Skills))
+}
+if c.Skills[0] != "@anthropic/tool-use" {
+t.Errorf("expected skill '@anthropic/tool-use', got %q", c.Skills[0])
+}
+if c.Skills[1] != "github:org/repo" {
+t.Errorf("expected skill 'github:org/repo', got %q", c.Skills[1])
+}
+if len(c.Plugins) != 1 {
+t.Errorf("expected 1 plugin, got %d", len(c.Plugins))
+}
+if c.Plugins[0] != "@azure/functions" {
+t.Errorf("expected plugin '@azure/functions', got %q", c.Plugins[0])
+}
+}
+
+func TestParseNoSkillsOrPlugins(t *testing.T) {
+data := []byte(`
+configs:
+  - name: no-extras
+    description: "Config without skills or plugins"
+    model: "gpt-4"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+if len(c.Skills) != 0 {
+t.Errorf("expected 0 skills, got %d", len(c.Skills))
+}
+if len(c.Plugins) != 0 {
+t.Errorf("expected 0 plugins, got %d", len(c.Plugins))
+}
+}
+
+func TestInstallSkillsAndPluginsEmpty(t *testing.T) {
+configs := []ToolConfig{
+{Name: "empty", Description: "No skills", Model: "gpt-4"},
+}
+if err := InstallSkillsAndPlugins(configs); err != nil {
+t.Fatalf("expected no error for empty skills/plugins, got: %v", err)
+}
+}
+
+func TestParseNewFormatGeneratorReviewer(t *testing.T) {
+data := []byte(`
+configs:
+  - name: new-format
+    description: "New format with generator/reviewer"
+    generator:
+      model: "claude-sonnet-4.5"
+      skills:
+        - type: local
+          path: "./skills/generator"
+      mcp_servers:
+        azure:
+          type: local
+          command: npx
+          args: ["-y", "@azure/mcp@latest"]
+          tools: ["*"]
+      available_tools: ["create", "edit"]
+      excluded_tools: ["web_fetch"]
+    reviewer:
+      models:
+        - "claude-opus-4.6"
+        - "gemini-3-pro-preview"
+      skills:
+        - type: local
+          path: "./skills/reviewer"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+
+if c.EffectiveModel() != "claude-sonnet-4.5" {
+t.Errorf("expected model 'claude-sonnet-4.5', got %q", c.EffectiveModel())
+}
+models := c.EffectiveReviewerModels()
+if len(models) != 2 || models[0] != "claude-opus-4.6" {
+t.Errorf("expected reviewer models [claude-opus-4.6 gemini-3-pro-preview], got %v", models)
+}
+genSkills := c.EffectiveGeneratorSkills()
+if len(genSkills) != 1 || genSkills[0].Type != "local" {
+t.Errorf("expected 1 generator skill (local), got %v", genSkills)
+}
+revSkills := c.EffectiveReviewerSkills()
+if len(revSkills) != 1 || revSkills[0].Path != "./skills/reviewer" {
+t.Errorf("expected 1 reviewer skill, got %v", revSkills)
+}
+mcpServers := c.EffectiveMCPServers()
+if len(mcpServers) != 1 {
+t.Errorf("expected 1 MCP server, got %d", len(mcpServers))
+}
+if len(c.EffectiveAvailableTools()) != 2 {
+t.Errorf("expected 2 available tools, got %d", len(c.EffectiveAvailableTools()))
+}
+if len(c.EffectiveExcludedTools()) != 1 {
+t.Errorf("expected 1 excluded tool, got %d", len(c.EffectiveExcludedTools()))
+}
+}
+
+func TestBackwardCompatLegacyFieldsMigratedToSubStructs(t *testing.T) {
+data := []byte(`
+configs:
+  - name: legacy
+    description: "Legacy format"
+    model: "claude-opus-4.6"
+    reviewer_models:
+      - "gpt-4.1"
+    mcp_servers:
+      azure:
+        type: local
+        command: npx
+        args: ["-y", "@azure/mcp@latest"]
+    generator_skill_directories:
+      - "./skills/generator"
+    reviewer_skill_directories:
+      - "./skills/reviewer"
+    available_tools: ["create"]
+    excluded_tools: ["bash"]
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+
+// After Normalize, Generator and Reviewer should be populated
+if c.Generator == nil {
+t.Fatal("Generator should not be nil after Normalize")
+}
+if c.Reviewer == nil {
+t.Fatal("Reviewer should not be nil after Normalize")
+}
+if c.Generator.Model != "claude-opus-4.6" {
+t.Errorf("expected Generator.Model 'claude-opus-4.6', got %q", c.Generator.Model)
+}
+if len(c.Reviewer.Models) != 1 || c.Reviewer.Models[0] != "gpt-4.1" {
+t.Errorf("expected Reviewer.Models [gpt-4.1], got %v", c.Reviewer.Models)
+}
+if len(c.Generator.Skills) != 1 || c.Generator.Skills[0].Path != "./skills/generator" {
+t.Errorf("expected 1 generator skill from legacy dir, got %v", c.Generator.Skills)
+}
+if len(c.Reviewer.Skills) != 1 || c.Reviewer.Skills[0].Path != "./skills/reviewer" {
+t.Errorf("expected 1 reviewer skill from legacy dir, got %v", c.Reviewer.Skills)
+}
+if len(c.Generator.MCPServers) != 1 {
+t.Errorf("expected 1 MCP server migrated to Generator, got %d", len(c.Generator.MCPServers))
+}
+if len(c.Generator.AvailableTools) != 1 {
+t.Errorf("expected 1 available tool, got %d", len(c.Generator.AvailableTools))
+}
+}
+
+func TestNormalizeFallbackSkillDirectories(t *testing.T) {
+data := []byte(`
+configs:
+  - name: fallback
+    description: "Uses skill_directories (shared fallback)"
+    model: "gpt-4"
+    skill_directories:
+      - "./skills/shared"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+
+genSkills := c.EffectiveGeneratorSkills()
+if len(genSkills) != 1 || genSkills[0].Path != "./skills/shared" {
+t.Errorf("expected shared skill_directories mapped to generator, got %v", genSkills)
+}
+}
+
+func TestParseRemoteSkill(t *testing.T) {
+data := []byte(`
+configs:
+  - name: with-remote
+    description: "Config with remote skill"
+    generator:
+      model: "gpt-4"
+      skills:
+        - type: remote
+          name: azure-keyvault-py
+          repo: microsoft/skills
+        - type: local
+          path: "./skills/local"
+`)
+cfg, err := Parse(data)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+c := cfg.Configs[0]
+skills := c.EffectiveGeneratorSkills()
+if len(skills) != 2 {
+t.Fatalf("expected 2 skills, got %d", len(skills))
+}
+if skills[0].Type != "remote" || skills[0].Name != "azure-keyvault-py" || skills[0].Repo != "microsoft/skills" {
+t.Errorf("unexpected remote skill: %+v", skills[0])
+}
+if skills[1].Type != "local" || skills[1].Path != "./skills/local" {
+t.Errorf("unexpected local skill: %+v", skills[1])
+}
+}
+
+func TestValidateRejectsInvalidSkillType(t *testing.T) {
+data := []byte(`
+configs:
+  - name: bad-skill
+    description: "Bad skill type"
+    generator:
+      model: "gpt-4"
+      skills:
+        - type: invalid
+          path: "./foo"
+`)
+_, err := Parse(data)
+if err == nil {
+t.Fatal("expected error for invalid skill type")
+}
+}
+
+func TestValidateRejectsLocalSkillMissingPath(t *testing.T) {
+data := []byte(`
+configs:
+  - name: no-path
+    description: "Local skill missing path"
+    generator:
+      model: "gpt-4"
+      skills:
+        - type: local
+`)
+_, err := Parse(data)
+if err == nil {
+t.Fatal("expected error for local skill without path")
+}
+}
+
+func TestValidateRejectsRemoteSkillMissingRepo(t *testing.T) {
+data := []byte(`
+configs:
+  - name: no-repo
+    description: "Remote skill missing repo"
+    generator:
+      model: "gpt-4"
+      skills:
+        - type: remote
+          name: some-skill
+`)
+_, err := Parse(data)
+if err == nil {
+t.Fatal("expected error for remote skill without repo")
+}
+}
+
+func TestEffectiveModelPrefersGenerator(t *testing.T) {
+c := ToolConfig{
+Name:  "test",
+Model: "legacy-model",
+Generator: &GeneratorConfig{
+Model: "new-model",
+},
+}
+c.Normalize()
+if c.EffectiveModel() != "new-model" {
+t.Errorf("expected 'new-model', got %q", c.EffectiveModel())
+}
+}
+
+func TestNormalizeIdempotent(t *testing.T) {
+c := ToolConfig{
+Name:  "test",
+Model: "gpt-4",
+ReviewerModels: []string{"opus"},
+GeneratorSkillDirectories: []string{"./gen"},
+}
+c.Normalize()
+model1 := c.Generator.Model
+c.Normalize()
+model2 := c.Generator.Model
+if model1 != model2 {
+t.Errorf("Normalize not idempotent: %q vs %q", model1, model2)
+}
+}

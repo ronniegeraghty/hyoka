@@ -23,19 +23,19 @@ git clone https://github.com/ronniegeraghty/azure-sdk-prompts.git
 cd azure-sdk-prompts
 
 # List prompts
-go run ./tool/cmd/hyoka list
+go run ./hyoka list
 
 # Run all evaluations (auto-generates trend analysis after)
-go run ./tool/cmd/hyoka run
+go run ./hyoka run
 
 # Filter by service and language
-go run ./tool/cmd/hyoka run --service storage --language dotnet
+go run ./hyoka run --service storage --language dotnet
 ```
 
 ### Install as a CLI
 
 ```bash
-go install github.com/ronniegeraghty/azure-sdk-prompts/tool/cmd/hyoka@latest
+go install github.com/ronniegeraghty/azure-sdk-prompts/hyoka@latest
 
 # When run from the repo root, prompts are auto-detected
 cd azure-sdk-prompts
@@ -45,7 +45,7 @@ hyoka run --service storage
 hyoka run --prompts ~/projects/azure-sdk-prompts/prompts
 ```
 
-> **Smart path detection:** `hyoka` checks `./prompts` then `../prompts` automatically. Running from the repo root or the `tool/` directory both work without extra flags.
+> **Smart path detection:** `hyoka` checks `./prompts` then `../prompts` automatically. Running from the repo root or the `hyoka/` directory both work without extra flags.
 
 ## Commands
 
@@ -222,7 +222,7 @@ cp templates/prompt-template.prompt.md \
 # 2. Edit the file — fill in frontmatter and write your prompt
 
 # 3. Validate
-go run ./tool/cmd/hyoka validate
+go run ./hyoka validate
 
 # 4. Commit
 git add prompts/
@@ -260,7 +260,7 @@ azure-sdk-prompts/
 │       ├── code-review-comments/
 │       ├── reviewer-build/
 │       └── sdk-version-check/
-├── tool/                              # Go eval tool (hyoka)
+├── hyoka/                              # Go eval tool (hyoka)
 │   ├── cmd/hyoka/main.go
 │   ├── go.mod / go.sum
 │   └── internal/                      # config, prompt, eval, build, report,
@@ -314,7 +314,7 @@ Every prompt uses YAML frontmatter:
 - **Phase 4:** In progress — Evaluation quality (check-env, expected_tools, reviewer skills)
 - **Phase 5:** Planned — Polish (report re-rendering, embedded CLI, progress bars)
 
-See [`tool/README.md`](tool/README.md) for full CLI reference and configuration docs.
+See [`hyoka/README.md`](hyoka/README.md) for full CLI reference and configuration docs.
 
 ## License
 
