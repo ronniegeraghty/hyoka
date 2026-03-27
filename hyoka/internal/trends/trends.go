@@ -12,7 +12,7 @@ import (
 "strings"
 "time"
 
-"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/report"
+"github.com/ronniegeraghty/hyoka/internal/report"
 )
 
 // TrendClassification indicates the overall trend direction.

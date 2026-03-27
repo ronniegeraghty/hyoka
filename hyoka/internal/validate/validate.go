@@ -6,7 +6,7 @@ import (
 "sort"
 "strings"
 
-"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/prompt"
+"github.com/ronniegeraghty/hyoka/internal/prompt"
 )
 
 // ValidServices is the canonical list of valid service values.

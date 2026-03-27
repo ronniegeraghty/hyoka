@@ -10,8 +10,8 @@ import (
 	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/report"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/utils"
+	"github.com/ronniegeraghty/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/utils"
 )
 
 // CopilotVerifier uses a separate Copilot session to verify generated code against requirements.

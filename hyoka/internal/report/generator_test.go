@@ -6,8 +6,8 @@ import (
 "path/filepath"
 "testing"
 
-"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/build"
-"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/prompt"
+"github.com/ronniegeraghty/hyoka/internal/build"
+"github.com/ronniegeraghty/hyoka/internal/prompt"
 )
 
 func TestWriteReport(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/report"
 )
 
 // HistoryEntry holds data from one evaluation of a prompt under a specific config.

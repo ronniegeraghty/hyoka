@@ -7,7 +7,7 @@ import (
 "sort"
 "time"
 
-"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/prompt"
+"github.com/ronniegeraghty/hyoka/internal/prompt"
 "gopkg.in/yaml.v3"
 )
 

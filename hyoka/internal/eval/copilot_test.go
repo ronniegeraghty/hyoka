@@ -3,7 +3,7 @@ package eval
 import (
 	"testing"
 
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/config"
+	"github.com/ronniegeraghty/hyoka/internal/config"
 )
 
 func TestBuildSessionConfig_EmptyAvailableToolsIsNil(t *testing.T) {

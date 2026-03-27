@@ -7,7 +7,7 @@ import (
 "os"
 "path/filepath"
 
-"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/prompt"
+"github.com/ronniegeraghty/hyoka/internal/prompt"
 )
 
 // ReportDir returns the directory path for a specific evaluation report.

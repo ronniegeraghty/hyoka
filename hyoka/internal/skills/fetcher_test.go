@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/config"
+	"github.com/ronniegeraghty/hyoka/internal/config"
 )
 
 func TestResolveLocal_DirectPath(t *testing.T) {

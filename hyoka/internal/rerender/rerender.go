@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/report"
 )
 
 // Options configures report re-rendering.

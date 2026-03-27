@@ -11,10 +11,10 @@ import (
 	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/config"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/progress"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/prompt"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/config"
+	"github.com/ronniegeraghty/hyoka/internal/progress"
+	"github.com/ronniegeraghty/hyoka/internal/prompt"
+	"github.com/ronniegeraghty/hyoka/internal/report"
 )
 
 // CopilotSDKEvaluator uses the Copilot SDK to run real evaluations.

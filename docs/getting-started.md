@@ -1,4 +1,4 @@
-# Getting Started with azure-sdk-prompts
+# Getting Started with hyoka
 
 This guide walks you through cloning the repo, running your first evaluation, and viewing results.
 
@@ -28,8 +28,8 @@ Without Copilot auth, the tool falls back to **stub mode** (no real agent evalua
 ## 1. Clone and Verify
 
 ```bash
-git clone https://github.com/ronniegeraghty/azure-sdk-prompts.git
-cd azure-sdk-prompts
+git clone https://github.com/ronniegeraghty/hyoka.git
+cd hyoka
 ```
 
 The repo uses a `go.work` file, so all commands run from the repo root — no need to `cd hyoka/`.

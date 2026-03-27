@@ -2,8 +2,8 @@
 package report
 
 import (
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/build"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/review"
+	"github.com/ronniegeraghty/hyoka/internal/build"
+	"github.com/ronniegeraghty/hyoka/internal/review"
 )
 
 // SessionEventRecord is a serializable representation of a Copilot session event.

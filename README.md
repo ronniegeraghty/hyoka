@@ -1,4 +1,4 @@
-# azure-sdk-prompts
+# hyoka
 
 A curated library of prompts for evaluating how well AI agents generate Azure SDK code, paired with a Go evaluation tool (`hyoka`) that runs prompts through the Copilot SDK, reviews code via a multi-model panel, and produces criteria-based pass/fail reports.
 
@@ -19,8 +19,8 @@ A curated library of prompts for evaluating how well AI agents generate Azure SD
 The repo root has a `go.work` file, so all commands run from the repo root:
 
 ```bash
-git clone https://github.com/ronniegeraghty/azure-sdk-prompts.git
-cd azure-sdk-prompts
+git clone https://github.com/ronniegeraghty/hyoka.git
+cd hyoka
 
 # List prompts
 go run ./hyoka list
@@ -35,14 +35,14 @@ go run ./hyoka run --service storage --language dotnet
 ### Install as a CLI
 
 ```bash
-go install github.com/ronniegeraghty/azure-sdk-prompts/hyoka@latest
+go install github.com/ronniegeraghty/hyoka@latest
 
 # When run from the repo root, prompts are auto-detected
-cd azure-sdk-prompts
+cd hyoka
 hyoka run --service storage
 
 # Or specify the prompts path explicitly
-hyoka run --prompts ~/projects/azure-sdk-prompts/prompts
+hyoka run --prompts ~/projects/hyoka/prompts
 ```
 
 > **Smart path detection:** `hyoka` checks `./prompts` then `../prompts` automatically. Running from the repo root or the `hyoka/` directory both work without extra flags.
@@ -232,7 +232,7 @@ git commit -m "prompt: add <service> <plane> <language> <category>"
 ## Repo Structure
 
 ```
-azure-sdk-prompts/
+hyoka/
 ├── README.md
 ├── go.work                            # Go workspace (run commands from repo root)
 ├── configs/                           # Evaluation configs (one generator per file)

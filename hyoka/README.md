@@ -1,6 +1,6 @@
 # hyoka — CLI Reference
 
-The `hyoka` tool evaluates AI agent code generation quality by running prompts from the `azure-sdk-prompts` library through configurable Copilot sessions, verifying code with Copilot-based verification, reviewing code via a multi-model review panel with criteria-based pass/fail scoring, and generating JSON, HTML, and Markdown reports.
+The `hyoka` tool evaluates AI agent code generation quality by running prompts from the `hyoka` prompt library through configurable Copilot sessions, verifying code with Copilot-based verification, reviewing code via a multi-model review panel with criteria-based pass/fail scoring, and generating JSON, HTML, and Markdown reports.
 
 ## Prerequisites
 
@@ -17,18 +17,18 @@ The `hyoka` tool evaluates AI agent code generation quality by running prompts f
 ### Run from source (recommended for development)
 
 ```bash
-cd azure-sdk-prompts
+cd hyoka
 go run ./hyoka <command> [flags]
 ```
 
 ### Install globally
 
 ```bash
-go install github.com/ronniegeraghty/azure-sdk-prompts/hyoka/cmd/hyoka@latest
+go install github.com/ronniegeraghty/hyoka/cmd/hyoka@latest
 hyoka <command> [flags]
 ```
 
-> **Pinned version:** `go install github.com/ronniegeraghty/azure-sdk-prompts/hyoka/cmd/hyoka@hyoka/v0.3.0`
+> **Pinned version:** `go install github.com/ronniegeraghty/hyoka/cmd/hyoka@hyoka/v0.3.0`
 
 ## Features
 

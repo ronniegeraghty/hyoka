@@ -14,7 +14,7 @@
 
 ## Executive Summary
 
-This plan describes the Go-based evaluation tool for testing how well AI agents write and update Azure SDK code. The tool lives in the `ronniegeraghty/azure-sdk-prompts` monorepo alongside the prompt library. Python scripts and the `doc-agent evaluate` workflow have been removed — `hyoka` is the sole evaluation approach.
+This plan describes the Go-based evaluation tool for testing how well AI agents write and update Azure SDK code. The tool lives in the `ronniegeraghty/hyoka` monorepo alongside the prompt library. Python scripts and the `doc-agent evaluate` workflow have been removed — `hyoka` is the sole evaluation approach.
 
 The new tool uses the **GitHub Copilot SDK for Go** (`github.com/github/copilot-sdk/go`) to programmatically create Copilot sessions, send prompts, capture generated code, verify builds, optionally generate and run tests, and score results via LLM-as-judge review. A key differentiator is the **tool configuration matrix**: each prompt can be tested against multiple configurations (different MCP servers, skills, tool sets) to measure how tooling affects code quality.
 
@@ -41,7 +41,7 @@ The new tool uses the **GitHub Copilot SDK for Go** (`github.com/github/copilot-
 
 ### 1.1 Prompt Library (Same Repo)
 
-This repo (`ronniegeraghty/azure-sdk-prompts`) already has 57+ prompts organized by service/language/plane/category with YAML frontmatter. The Go eval tool lives in the same repo and reads prompts directly from the `prompts/` directory — no separate clone or config path required.
+This repo (`ronniegeraghty/hyoka`) already has 57+ prompts organized by service/language/plane/category with YAML frontmatter. The Go eval tool lives in the same repo and reads prompts directly from the `prompts/` directory — no separate clone or config path required.
 
 By default the tool looks for `./prompts` relative to the repo root. An override flag (`--prompts`) is available for pointing at alternative prompt directories during development.
 
@@ -672,10 +672,10 @@ The doc-review-agent uses `gh auth login` credentials (via the `GH_TOKEN` env va
 
 ### 10.1 Monorepo Layout
 
-The Go eval tool lives in `ronniegeraghty/azure-sdk-prompts` alongside the prompt library and reports. Everything ships from one repo. Python scripts have been removed — `hyoka` is the sole evaluation tool.
+The Go eval tool lives in `ronniegeraghty/hyoka` alongside the prompt library and reports. Everything ships from one repo. Python scripts have been removed — `hyoka` is the sole evaluation tool.
 
 ```
-azure-sdk-prompts/                     # ronniegeraghty/azure-sdk-prompts
+hyoka/                     # ronniegeraghty/hyoka
 ├── README.md
 ├── LICENSE
 ├── manifest.yaml                      # Auto-generated prompt index
@@ -713,7 +713,7 @@ azure-sdk-prompts/                     # ronniegeraghty/azure-sdk-prompts
 
 ```
 hyoka/go.mod:
-  module github.com/ronniegeraghty/azure-sdk-prompts/tool
+  module github.com/ronniegeraghty/hyoka
 
   go 1.26.1
 
@@ -823,7 +823,7 @@ func (p *WorkerPool) RunEval(ctx context.Context, task EvalTask) EvalResult {
 
 ## 13. Implementation Phases
 
-All work happens in the `ronniegeraghty/azure-sdk-prompts` repo.
+All work happens in the `ronniegeraghty/hyoka` repo.
 
 ### Phase 1: Foundation (MVP) ✅
 - [x] Project scaffolding (`go.mod`, `cmd/hyoka/`, `internal/` packages, CLI framework)

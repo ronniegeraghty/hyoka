@@ -1,4 +1,4 @@
-module github.com/ronniegeraghty/azure-sdk-prompts/hyoka
+module github.com/ronniegeraghty/hyoka
 
 go 1.26.1
 

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	copilot "github.com/github/copilot-sdk/go"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/utils"
+	"github.com/ronniegeraghty/hyoka/internal/utils"
 )
 
 // Reviewer runs LLM-as-judge code reviews via a separate Copilot session.

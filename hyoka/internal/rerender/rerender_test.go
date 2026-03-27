@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/report"
 )
 
 func TestRerenderRun(t *testing.T) {

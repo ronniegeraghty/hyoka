@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/config"
+	"github.com/ronniegeraghty/hyoka/internal/config"
 )
 
 // ResolveSkillDirs takes a list of Skill entries and resolves them to

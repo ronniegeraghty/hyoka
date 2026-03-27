@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/build"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/config"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/progress"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/prompt"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/report"
-	"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/review"
+	"github.com/ronniegeraghty/hyoka/internal/build"
+	"github.com/ronniegeraghty/hyoka/internal/config"
+	"github.com/ronniegeraghty/hyoka/internal/progress"
+	"github.com/ronniegeraghty/hyoka/internal/prompt"
+	"github.com/ronniegeraghty/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/review"
 )
 
 // EvalResult holds the raw output from a Copilot evaluation.

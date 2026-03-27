@@ -54,7 +54,7 @@ func historyCmd() *cobra.Command {
 }
 ```
 
-Import: `"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/history"`
+Import: `"github.com/ronniegeraghty/hyoka/internal/history"`
 
 ## Flags
 

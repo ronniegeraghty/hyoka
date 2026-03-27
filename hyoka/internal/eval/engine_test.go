@@ -9,8 +9,8 @@ import (
 "testing"
 "time"
 
-"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/config"
-"github.com/ronniegeraghty/azure-sdk-prompts/hyoka/internal/prompt"
+"github.com/ronniegeraghty/hyoka/internal/config"
+"github.com/ronniegeraghty/hyoka/internal/prompt"
 )
 
 // slowEvaluator blocks until context cancellation, simulating a timeout.
