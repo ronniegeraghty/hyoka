@@ -99,7 +99,7 @@ Why this prompt matters and what quality aspect it evaluates.
 
 **How sections flow through the eval tool:**
 - **Generator agent** receives ONLY the `## Prompt` text — no frontmatter, no evaluation criteria
-- **Review agent** receives the prompt text, generated code, the general rubric (`tool/internal/review/rubric.md`), AND the `## Evaluation Criteria` section
+- **Review agent** receives the prompt text, generated code, the general rubric (`hyoka/internal/review/rubric.md`), AND the `## Evaluation Criteria` section
 - **`## Context`** is for human readers only — the eval tool ignores it entirely
 
 ## Writing Good Prompts
@@ -219,7 +219,7 @@ Write Azure storage code in C#.
 You can also use the CLI to scaffold a new prompt interactively:
 
 ```bash
-go run ./tool/cmd/hyoka new-prompt
+go run ./hyoka new-prompt
 ```
 
 This asks for service, language, plane, category, and difficulty, then generates the file with populated frontmatter at the correct path.
@@ -229,7 +229,7 @@ This asks for service, language, plane, category, and difficulty, then generates
 After creating a prompt, always validate:
 
 ```bash
-go run ./tool/cmd/hyoka validate
+go run ./hyoka validate
 ```
 
 This checks frontmatter schema compliance, required fields, and naming conventions.

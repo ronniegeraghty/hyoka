@@ -864,7 +864,7 @@ All work happens in the `ronniegeraghty/azure-sdk-prompts` repo.
 - [x] Starter project support — `project_context: existing` + `starter_project:` in prompt frontmatter. Already implemented in evaluator; documented in prompt template.
 - [ ] Embedded CLI binary with `auth login`/`auth status` commands — deferred. Use SDK bundler to embed Copilot CLI inside Go binary so users never need to install the Copilot CLI separately.
 
-> **Status:** Complete (v0.6.0). Embedded CLI binary deferred to future work.
+> **Status:** Complete (v0.2.0). Embedded CLI binary deferred to future work.
 
 ---
 

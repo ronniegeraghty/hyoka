@@ -42,7 +42,7 @@ go run ./hyoka version
 
 Expected output:
 ```
-hyoka version 0.6.0
+hyoka version 0.2.0
 ```
 
 Check your environment:

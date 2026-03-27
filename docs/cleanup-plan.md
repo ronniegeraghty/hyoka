@@ -9,7 +9,7 @@
 
 ## Item 1: Make Tool Callable from Repo Root
 
-**Current state:** The tool already has smart path resolution (`main.go:52-81`) that tries `./prompts` → `../prompts`, `./configs/all.yaml` → `../configs/all.yaml`, etc. Running `go run ./hyoka` from repo root works today. A pre-built binary exists at `hyoka/azsdk-prompt-eval`.
+**Current state:** The tool already has smart path resolution (`main.go:52-81`) that tries `./prompts` → `../prompts`, `./configs/all.yaml` → `../configs/all.yaml`, etc. Running `go run ./hyoka` from repo root works today.
 
 **What needs to change:**
 - Add a `Makefile` at repo root with targets: `build`, `install`, `test`, `lint`, `run`
