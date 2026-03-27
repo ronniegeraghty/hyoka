@@ -43,43 +43,14 @@ Include a complete `pom.xml` with the necessary Azure SDK dependencies.
 
 ## Evaluation Criteria
 
-### Dependencies (pom.xml)
-- Uses `com.azure:azure-storage-blob` (not `com.microsoft.azure:azure-storage`)
-- Uses `com.azure:azure-identity`
-- No `com.microsoft.azure` groupId anywhere
-- Specifies Java 17
-
-### Authentication
-- Uses `DefaultAzureCredential` or another `com.azure.identity` credential — not connection strings
-- No hardcoded account keys, connection strings, or SAS tokens
-- Reads storage endpoint from environment variable
-
-### Client Construction
-- Uses `BlobServiceClientBuilder` with `.endpoint()` and `.credential()`
-- Async uses `BlobServiceAsyncClient` (not sync wrapped in a thread pool)
-
-### SDK Patterns
+### Scenario-Specific Patterns
 - Configures custom retry policy (exponential backoff, max retries, delay)
 - Sets per-request or per-operation timeout
 - Enables HTTP logging (`HttpLogOptions`)
 - Implements blob lease acquisition before overwrite (lease-specific API)
 - Implements parallel/block upload for large files (`ParallelTransferOptions`, not manual chunking)
 - Sets blob index tags on upload (not just metadata) — `Map<String, String>` via upload options
-
-### Error Handling
-- Catches `BlobStorageException` (not just `Exception` or `RuntimeException`)
-- Handles or logs HTTP status code from storage errors
-
-### Async Quality
-- Uses Project Reactor types (`Mono`, `Flux`) — the Azure SDK async surface is Reactor-based
-- Does not call `.block()` inside the async service implementation
 - Properly composes reactive chains in the demo
-
-### Anti-Patterns (should NOT appear)
-- `CloudStorageAccount`, `CloudBlobClient`, `CloudBlobContainer` (deprecated v8 API)
-- `StorageCredentialsAccountAndKey`
-- `com.microsoft.azure.*` imports
-- `CompletableFuture` for async (wrong for Azure SDK Java — should use Reactor)
 
 ## Context
 
