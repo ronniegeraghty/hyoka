@@ -122,8 +122,20 @@ func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service,
 	// Generated files
 	if len(r.GeneratedFiles) > 0 {
 		b.WriteString("## Generated Files\n\n")
-		for _, f := range r.GeneratedFiles {
-			fmt.Fprintf(&b, "- `%s`\n", f)
+		if len(r.GeneratedFiles) > 20 {
+			summary := fileTypeSummary(r.GeneratedFiles)
+			fmt.Fprintf(&b, "Generated %d files (%s)\n\n", len(r.GeneratedFiles), summary)
+			for i, f := range r.GeneratedFiles {
+				if i >= 20 {
+					fmt.Fprintf(&b, "- ... and %d more\n", len(r.GeneratedFiles)-20)
+					break
+				}
+				fmt.Fprintf(&b, "- `%s`\n", f)
+			}
+		} else {
+			for _, f := range r.GeneratedFiles {
+				fmt.Fprintf(&b, "- `%s`\n", f)
+			}
 		}
 		b.WriteString("\n")
 	}
@@ -367,6 +379,8 @@ func WriteSummaryMarkdown(s *RunSummary, outputDir string) (string, error) {
 		score := "—"
 		if r.Review != nil {
 			score = fmt.Sprintf("%d/%d", r.Review.OverallScore, r.Review.MaxScore)
+		} else if r.FailureReason != "" {
+			score = r.FailureReason
 		}
 		// Build relative link to individual report
 		service, _ := r.PromptMeta["service"].(string)
@@ -489,4 +503,44 @@ func langFromPath(path string) string {
 	default:
 		return ""
 	}
+}
+
+// fileTypeSummary returns a summary like "45 .go, 30 .ts, 75 other".
+func fileTypeSummary(files []string) string {
+	counts := make(map[string]int)
+	for _, f := range files {
+		ext := filepath.Ext(f)
+		if ext == "" {
+			ext = "(no ext)"
+		}
+		counts[ext]++
+	}
+
+	type extCount struct {
+		ext   string
+		count int
+	}
+	var sorted []extCount
+	for ext, count := range counts {
+		sorted = append(sorted, extCount{ext, count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].count > sorted[j].count
+	})
+
+	var parts []string
+	shown := 0
+	other := 0
+	for _, ec := range sorted {
+		if shown < 3 {
+			parts = append(parts, fmt.Sprintf("%d %s", ec.count, ec.ext))
+			shown++
+		} else {
+			other += ec.count
+		}
+	}
+	if other > 0 {
+		parts = append(parts, fmt.Sprintf("%d other", other))
+	}
+	return strings.Join(parts, ", ")
 }

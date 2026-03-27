@@ -372,8 +372,11 @@ func runCmd() *cobra.Command {
 			filtered := prompt.FilterPrompts(prompts, filter)
 
 			if len(filtered) == 0 {
-				fmt.Println("No prompts matched the given filters.")
-				return nil
+				fmt.Println("✗ No prompts matched the given filters.")
+				if len(prompts) > 0 {
+					fmt.Printf("  (%d prompt(s) were loaded but none matched the specified filters)\n", len(prompts))
+				}
+				return fmt.Errorf("no prompts matched the given filters")
 			}
 
 			fmt.Printf("Found %d prompt(s), %d config(s) → %d evaluation(s)\n",
@@ -674,7 +677,27 @@ func validateCmd() *cobra.Command {
 			// Validate prompts
 			result, err := validate.Validate(promptsDir)
 			if err != nil {
-				return fmt.Errorf("validation: %w", err)
+				// Zero prompts found — show near-miss suggestions
+				nearMisses := prompt.ScanNearMisses(promptsDir)
+				fmt.Printf("✗ No prompts found in %s\n", promptsDir)
+				if len(nearMisses) > 0 {
+					fmt.Println("\nDid you mean one of these?")
+					for _, nm := range nearMisses {
+						fmt.Printf("  %s\n", nm)
+					}
+				}
+				os.Exit(1)
+			}
+			if result.TotalFiles == 0 {
+				nearMisses := prompt.ScanNearMisses(promptsDir)
+				fmt.Printf("✗ No prompts found in %s\n", promptsDir)
+				if len(nearMisses) > 0 {
+					fmt.Println("\nDid you mean one of these?")
+					for _, nm := range nearMisses {
+						fmt.Printf("  %s\n", nm)
+					}
+				}
+				os.Exit(1)
 			}
 			fmt.Println(validate.FormatResult(result))
 			if !result.OK() {

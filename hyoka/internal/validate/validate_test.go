@@ -232,17 +232,14 @@ t.Fatal("expected validation errors from bad file")
 }
 
 func TestValidateEmptyDir(t *testing.T) {
-dir := t.TempDir()
-result, err := Validate(dir)
-if err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if !result.OK() {
-t.Errorf("expected no errors for empty dir, got: %v", result.Errors)
-}
-if result.TotalFiles != 0 {
-t.Errorf("expected 0 files, got %d", result.TotalFiles)
-}
+	dir := t.TempDir()
+	_, err := Validate(dir)
+	if err == nil {
+		t.Fatal("expected error for empty directory (no prompts found)")
+	}
+	if !strings.Contains(err.Error(), "no prompts found") {
+		t.Errorf("expected 'no prompts found' error, got: %v", err)
+	}
 }
 
 func TestFormatResultSuccess(t *testing.T) {

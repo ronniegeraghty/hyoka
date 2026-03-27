@@ -412,6 +412,8 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	if err != nil {
 		evalReport.Error = fmt.Sprintf("workspace setup failed: %v", err)
 		evalReport.ErrorDetails = err.Error()
+		evalReport.ErrorCategory = "generation_failure"
+		evalReport.FailureReason = fmt.Sprintf("Could not create workspace directory: %v", err)
 		evalReport.Duration = time.Since(start).Seconds()
 		return evalReport
 	}
@@ -442,9 +444,13 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		if genCtx.Err() == context.DeadlineExceeded {
 			evalReport.Error = fmt.Sprintf("generation timed out after %s", e.opts.GenerateTimeout)
 			evalReport.ErrorDetails = fmt.Sprintf("context deadline exceeded — consider increasing --generate-timeout (currently %s)", e.opts.GenerateTimeout)
+			evalReport.ErrorCategory = "timeout"
+			evalReport.FailureReason = fmt.Sprintf("Generation phase timed out after %s", e.opts.GenerateTimeout)
 		} else {
 			evalReport.Error = fmt.Sprintf("evaluation failed: %v", err)
 			evalReport.ErrorDetails = err.Error()
+			evalReport.ErrorCategory = "sdk_error"
+			evalReport.FailureReason = fmt.Sprintf("SDK evaluation error: %v", err)
 		}
 		// Capture whatever session events were collected before failure
 		if result != nil {
@@ -501,12 +507,16 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			log.Printf("WARNING %s: 0 files generated despite %d file-write tool attempts — files may have been written to wrong location", debugPrefix, fileToolAttempts)
 			if evalReport.Error == "" {
 				evalReport.Error = fmt.Sprintf("0 files generated despite %d file-write tool attempts", fileToolAttempts)
+				evalReport.ErrorCategory = "no_files"
+				evalReport.FailureReason = fmt.Sprintf("Generator made %d file-write attempts but no files appeared in the workspace — files may have been written to the wrong location", fileToolAttempts)
 				evalReport.Success = false
 			}
 		} else {
 			log.Printf("WARNING %s: 0 files generated — agent did not use any file-write tools", debugPrefix)
 			if evalReport.Error == "" {
 				evalReport.Error = "0 files generated — agent did not create any files"
+				evalReport.ErrorCategory = "no_files"
+				evalReport.FailureReason = "Generator produced no files — the agent did not invoke any file-write tools"
 				evalReport.Success = false
 			}
 		}
@@ -582,6 +592,8 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			if evalReport.Error == "" {
 				evalReport.Error = fmt.Sprintf("verification error: %v", err)
 				evalReport.ErrorDetails = err.Error()
+				evalReport.ErrorCategory = "review_failure"
+				evalReport.FailureReason = fmt.Sprintf("Verification phase failed: %v", err)
 			}
 			evalReport.Success = false
 		} else {
@@ -609,6 +621,8 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			if evalReport.Error == "" {
 				evalReport.Error = fmt.Sprintf("build verification error: %v", err)
 				evalReport.ErrorDetails = err.Error()
+				evalReport.ErrorCategory = "review_failure"
+				evalReport.FailureReason = fmt.Sprintf("Build verification failed: %v", err)
 			}
 			evalReport.Success = false
 		} else {

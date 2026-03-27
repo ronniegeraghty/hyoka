@@ -1,11 +1,12 @@
 package manifest
 
 import (
-"os"
-"path/filepath"
-"testing"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
 
-"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 const testPrompt1 = `---
@@ -167,14 +168,14 @@ t.Errorf("expected 2 prompts after round-trip, got %d", parsed.PromptCount)
 }
 
 func TestGenerateEmptyDir(t *testing.T) {
-dir := t.TempDir()
-m, err := Generate(dir)
-if err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if m.PromptCount != 0 {
-t.Errorf("expected 0 prompts, got %d", m.PromptCount)
-}
+	dir := t.TempDir()
+	_, err := Generate(dir)
+	if err == nil {
+		t.Fatal("expected error for empty directory (no prompts found)")
+	}
+	if !strings.Contains(err.Error(), "no prompts found") {
+		t.Errorf("expected 'no prompts found' error, got: %v", err)
+	}
 }
 
 func TestGenerateNonexistentDir(t *testing.T) {

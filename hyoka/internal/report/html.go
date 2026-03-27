@@ -460,6 +460,42 @@ func htmlFuncMap() template.FuncMap {
 		},
 		"hasPrefix": strings.HasPrefix,
 		"contains":  strings.Contains,
+		"fileTypeSummary": func(files []string) string {
+			counts := make(map[string]int)
+			for _, f := range files {
+				ext := filepath.Ext(f)
+				if ext == "" {
+					ext = "(no ext)"
+				}
+				counts[ext]++
+			}
+			type extCount struct {
+				ext   string
+				count int
+			}
+			var sorted []extCount
+			for ext, count := range counts {
+				sorted = append(sorted, extCount{ext, count})
+			}
+			sort.Slice(sorted, func(i, j int) bool {
+				return sorted[i].count > sorted[j].count
+			})
+			var parts []string
+			shown := 0
+			other := 0
+			for _, ec := range sorted {
+				if shown < 3 {
+					parts = append(parts, fmt.Sprintf("%d %s", ec.count, ec.ext))
+					shown++
+				} else {
+					other += ec.count
+				}
+			}
+			if other > 0 {
+				parts = append(parts, fmt.Sprintf("%d other", other))
+			}
+			return strings.Join(parts, ", ")
+		},
 		"boolStr": func(b *bool) string {
 			if b == nil {
 				return ""
@@ -636,7 +672,7 @@ const reportTemplate = `<!DOCTYPE html>
 <!-- Result banner -->
 <div class="result-banner {{if .Success}}pass{{else}}fail{{end}}">
   <span class="verdict">{{if .Success}}✅ PASSED{{else}}❌ FAILED{{end}}</span>
-  {{if .Review}}<span class="meta-item">Score: <strong style="color:{{scoreColor .Review.OverallScore .Review.MaxScore}}">{{.Review.OverallScore}}/{{.Review.MaxScore}}</strong></span>{{end}}
+  {{if .Review}}<span class="meta-item">Score: <strong style="color:{{scoreColor .Review.OverallScore .Review.MaxScore}}">{{.Review.OverallScore}}/{{.Review.MaxScore}}</strong></span>{{else}}{{if .FailureReason}}<span class="meta-item" style="color:#6b7280">{{.FailureReason}}</span>{{end}}{{end}}
   <span class="meta-item">Duration: <strong>{{fmtDuration .Duration}}</strong></span>
   <span class="meta-item">Files: <strong>{{.FileCount}}</strong></span>
   <span class="meta-item">Tool Calls: <strong>{{len .ToolActions}}</strong></span>
@@ -889,9 +925,25 @@ const reportTemplate = `<!DOCTYPE html>
 {{end}}
 {{if .GeneratedFiles}}
 <div class="section">
-  <div class="section-header"><span class="icon">📁</span><h2>Generated Files ({{.FileCount}})</h2></div>
+  <div class="section-header"><span class="icon">📁</span><h2>Generated Files ({{.FileCount}})</h2>{{if gt .FileCount 0}}<span style="margin-left:auto;font-size:0.85rem;color:var(--text-muted)">{{fileTypeSummary .GeneratedFiles}}</span>{{end}}</div>
   <div class="section-body">
     <p style="font-size:0.85rem;color:var(--text-muted)">Files are saved in the <code>generated-code/</code> subdirectory alongside this report.</p>
+    {{if gt .FileCount 20}}
+    <details>
+      <summary style="cursor:pointer;font-weight:600;margin-bottom:0.75rem">Show all {{.FileCount}} files</summary>
+      {{range .GeneratedFiles}}
+      <div class="file-card">
+        <div class="file-card-header"><span class="file-icon">📄</span> {{.}}</div>
+        {{with index $.FileContents .}}
+        <details>
+          <summary>Show contents</summary>
+          <pre>{{.}}</pre>
+        </details>
+        {{end}}
+      </div>
+      {{end}}
+    </details>
+    {{else}}
     {{range .GeneratedFiles}}
     <div class="file-card">
       <div class="file-card-header"><span class="file-icon">📄</span> {{.}}</div>
@@ -902,6 +954,7 @@ const reportTemplate = `<!DOCTYPE html>
       </details>
       {{end}}
     </div>
+    {{end}}
     {{end}}
   </div>
 </div>
@@ -1067,7 +1120,7 @@ const summaryTemplate = `<!DOCTYPE html>
       <td><code>{{.PromptID}}</code></td>
       <td>{{.ConfigName}}</td>
       <td>{{if .Error}}⚠️{{else}}{{statusIcon .Success}}{{end}}</td>
-      <td>{{if .Review}}<span style="color:{{scoreColor .Review.OverallScore .Review.MaxScore}};font-weight:700">{{.Review.OverallScore}}/{{.Review.MaxScore}}</span>{{else}}—{{end}}</td>
+      <td>{{if .Review}}<span style="color:{{scoreColor .Review.OverallScore .Review.MaxScore}};font-weight:700">{{.Review.OverallScore}}/{{.Review.MaxScore}}</span>{{else}}{{if .FailureReason}}<span style="color:#6b7280;font-size:0.85rem" title="{{.FailureReason}}">{{truncate .FailureReason 40}}</span>{{else}}—{{end}}{{end}}</td>
       <td>{{fmtDuration .Duration}}</td>
       <td>{{len .GeneratedFiles}}</td>
       <td>{{range .ToolCalls}}<span class="tool-tag">{{.}}</span>{{end}}</td>

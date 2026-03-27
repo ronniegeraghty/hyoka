@@ -66,6 +66,8 @@ type EvalReport struct {
 	Success        bool                 `json:"success"`
 	Error          string               `json:"error,omitempty"`
 	ErrorDetails   string               `json:"error_details,omitempty"`
+	ErrorCategory  string               `json:"error_category,omitempty"`  // timeout, sdk_error, generation_failure, review_failure, no_files
+	FailureReason  string               `json:"failure_reason,omitempty"` // human-readable explanation of failure
 	IsStub         bool                 `json:"is_stub,omitempty"`
 	RerunCommand   string               `json:"rerunCommand,omitempty"`
 	// Generator guardrails (#35)
