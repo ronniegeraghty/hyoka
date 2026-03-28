@@ -294,7 +294,7 @@ func (d *Display) HandleEvent(evt ProgressEvent) {
 				default:
 					prefix = "    ⏳"
 				}
-				fmt.Fprintf(d.w, "%s %s\n", prefix, evt.Message)
+				fmt.Fprintf(d.w, "%s [%s] %s\n", prefix, d.lines[idx].name, evt.Message)
 			}
 		}
 

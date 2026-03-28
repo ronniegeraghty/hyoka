@@ -283,14 +283,20 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 				Message:    "Waiting for session...",
 			})
 
-			// Progress callback for phase transitions within runSingleEval
+			// Progress callbacks for runSingleEval
 			sendPhase := func(phase progress.Phase) {
 				display.HandleEvent(progress.ProgressEvent{
 					EvalID: taskName, Type: progress.EventPhaseChange, Phase: phase,
 				})
 			}
+			sendEvent := func(evtType progress.EventType, msg string) {
+				display.HandleEvent(progress.ProgressEvent{
+					EvalID: taskName, PromptID: t.Prompt.ID, ConfigName: t.Config.Name,
+					Type: evtType, Message: msg,
+				})
+			}
 
-			evalReport := e.runSingleEval(ctx, t, runID, sendPhase)
+			evalReport := e.runSingleEval(ctx, t, runID, sendPhase, sendEvent)
 
 			evtType := progress.EventPassed
 			msg := ""
@@ -358,7 +364,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	return summary, nil
 }
 
-func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string, sendPhase func(progress.Phase)) *report.EvalReport {
+func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string, sendPhase func(progress.Phase), sendEvent func(progress.EventType, string)) *report.EvalReport {
 	// Each phase gets its own independent timeout so a slow generation
 	// doesn't starve verification or review (fixes issue #3).
 	genCtx, genCancel := context.WithTimeout(ctx, e.opts.GenerateTimeout)
@@ -676,10 +682,13 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		}
 
 		if e.panelReviewer != nil {
+			models := e.panelReviewer.Models()
 			rlg.Debug("Starting review panel")
+			sendEvent(progress.EventToolStart, fmt.Sprintf("Review panel: %v", models))
 			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria)
 			if err != nil {
 				rlg.Error("Review panel failed", "error", err)
+				sendEvent(progress.EventReasoning, fmt.Sprintf("Review panel failed: %v", err))
 			} else {
 				evalReport.ReviewPanel = panel
 				evalReport.Review = consolidated
@@ -687,6 +696,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 				if !evalFailed {
 					evalReport.Success = consolidated.Scores.AllPassed()
 				}
+				sendEvent(progress.EventToolComplete, fmt.Sprintf("Review complete: %d/%d criteria passed", consolidated.OverallScore, consolidated.MaxScore))
 				rlg.Debug("Review panel complete",
 					"reviewers", len(panel),
 					"score", consolidated.OverallScore,
@@ -694,15 +704,18 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			}
 		} else if e.reviewer != nil {
 			rlg.Debug("Starting single review session")
+			sendEvent(progress.EventToolStart, "Single model review")
 			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria)
 			if err != nil {
 				rlg.Error("Code review failed", "error", err)
+				sendEvent(progress.EventReasoning, fmt.Sprintf("Review failed: %v", err))
 			} else {
 				evalReport.Review = reviewResult
 				// With criteria-based scoring, success = all criteria passed
 				if !evalFailed {
 					evalReport.Success = reviewResult.Scores.AllPassed()
 				}
+				sendEvent(progress.EventToolComplete, fmt.Sprintf("Review complete: %d/%d criteria passed", reviewResult.OverallScore, reviewResult.MaxScore))
 				rlg.Debug("Review complete",
 					"score", reviewResult.OverallScore,
 					"max_score", reviewResult.MaxScore)

@@ -231,6 +231,11 @@ func (p *PanelReviewer) SetSkillDirectories(dirs []string) {
 	p.skillDirectories = dirs
 }
 
+// Models returns the list of reviewer models.
+func (p *PanelReviewer) Models() []string {
+	return p.models
+}
+
 // ReviewPanel runs all reviewer models in parallel and returns individual results
 // plus a consolidated result. The consolidated result is produced by the first model
 // in the list, which receives all other reviewers' outputs.
