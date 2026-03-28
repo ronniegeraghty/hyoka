@@ -60,6 +60,60 @@ func TestBuildReviewPromptWithEvaluationCriteria(t *testing.T) {
 	}
 }
 
+func TestBuildReviewPromptTiered(t *testing.T) {
+	prompt := "Write Azure Key Vault code"
+	generated := map[string]string{"Main.java": "import com.azure.security.keyvault.secrets.*;"}
+	attrCriteria := "1. **Maven Deps** — Correct Maven dependencies.\n2. **Try-With-Resources** — AutoCloseable clients.\n"
+	promptCriteria := "- Must use DefaultAzureCredential"
+
+	result := BuildReviewPromptTiered(prompt, generated, nil, attrCriteria, promptCriteria)
+
+	checks := []string{
+		"Attribute-Matched Evaluation Criteria",
+		"Maven Deps",
+		"Try-With-Resources",
+		"Prompt-Specific Evaluation Criteria",
+		"DefaultAzureCredential",
+		"Scoring Rubric",
+	}
+	for _, check := range checks {
+		if !contains(result, check) {
+			t.Errorf("tiered review prompt missing %q", check)
+		}
+	}
+}
+
+func TestBuildReviewPromptTieredNoAttrCriteria(t *testing.T) {
+	prompt := "Write code"
+	generated := map[string]string{"main.go": "package main"}
+	promptCriteria := "- Must handle errors"
+
+	result := BuildReviewPromptTiered(prompt, generated, nil, "", promptCriteria)
+
+	if contains(result, "Attribute-Matched") {
+		t.Error("should not contain attribute-matched section when empty")
+	}
+	if !contains(result, "Prompt-Specific Evaluation Criteria") {
+		t.Error("should contain prompt-specific criteria")
+	}
+}
+
+func TestBuildReviewPromptTieredBackwardCompat(t *testing.T) {
+	// BuildReviewPrompt (legacy) should still work, delegating to BuildReviewPromptTiered
+	prompt := "Write code"
+	generated := map[string]string{"main.go": "package main"}
+	criteria := "- Must use DefaultAzureCredential"
+
+	result := BuildReviewPrompt(prompt, generated, nil, criteria)
+
+	if !contains(result, "Prompt-Specific Evaluation Criteria") {
+		t.Error("legacy BuildReviewPrompt should include prompt-specific criteria")
+	}
+	if contains(result, "Attribute-Matched") {
+		t.Error("legacy BuildReviewPrompt should not include attribute-matched section")
+	}
+}
+
 func TestParseReviewResponse(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -110,7 +164,7 @@ func TestParseReviewResponse(t *testing.T) {
 
 func TestStubReviewer(t *testing.T) {
 	s := &StubReviewer{}
-	result, err := s.Review(nil, "test prompt", "/tmp/test", "", "")
+	result, err := s.Review(nil, "test prompt", "/tmp/test", "", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

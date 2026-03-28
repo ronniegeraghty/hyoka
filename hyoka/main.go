@@ -16,6 +16,7 @@ import (
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/hyoka/internal/checkenv"
 	"github.com/ronniegeraghty/hyoka/internal/config"
+	"github.com/ronniegeraghty/hyoka/internal/criteria"
 	"github.com/ronniegeraghty/hyoka/internal/eval"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
@@ -521,6 +522,20 @@ func runCmd() *cobra.Command {
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)
+			}
+
+			// Load attribute-matched criteria (Tier 2) from criteria/ directory
+			criteriaDir := filepath.Join(filepath.Dir(f.prompts), "criteria")
+			criteriaSets, criteriaErr := criteria.LoadCriteriaSets(criteriaDir)
+			if criteriaErr != nil {
+				slog.Warn("Failed to load criteria sets", "dir", criteriaDir, "error", criteriaErr)
+			} else if len(criteriaSets) > 0 {
+				engine.SetCriteriaSets(criteriaSets)
+				totalCriteria := 0
+				for _, s := range criteriaSets {
+					totalCriteria += len(s.Criteria)
+				}
+				fmt.Printf("Loaded %d criteria set(s) with %d total criteria from %s\n", len(criteriaSets), totalCriteria, criteriaDir)
 			}
 
 			summary, err := engine.Run(context.Background(), filtered, configs)

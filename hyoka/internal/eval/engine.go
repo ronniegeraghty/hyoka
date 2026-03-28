@@ -15,6 +15,7 @@ import (
 
 	"github.com/ronniegeraghty/hyoka/internal/build"
 	"github.com/ronniegeraghty/hyoka/internal/config"
+	"github.com/ronniegeraghty/hyoka/internal/criteria"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
 	"github.com/ronniegeraghty/hyoka/internal/progress"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
@@ -85,6 +86,7 @@ type Engine struct {
 	evaluator      CopilotEvaluator
 	reviewer       review.Reviewer
 	panelReviewer  *review.PanelReviewer
+	criteriaSets   []criteria.CriteriaSet
 	opts           EngineOptions
 }
 
@@ -148,6 +150,22 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 // When set, the engine uses the panel instead of the single reviewer.
 func (e *Engine) SetPanelReviewer(pr *review.PanelReviewer) {
 	e.panelReviewer = pr
+}
+
+// SetCriteriaSets configures attribute-matched criteria sets (Tier 2).
+// When set, matching criteria are injected into the review prompt based on prompt metadata.
+func (e *Engine) SetCriteriaSets(sets []criteria.CriteriaSet) {
+	e.criteriaSets = sets
+}
+
+// promptAttributes extracts criteria-matching attributes from a prompt.
+func promptAttributes(p *prompt.Prompt) criteria.PromptAttributes {
+	return criteria.PromptAttributes{
+		Language: p.Language,
+		Service:  p.Service,
+		Plane:    p.Plane,
+		Category: p.Category,
+	}
 }
 
 // EvalTask represents a single prompt+config evaluation to run.
@@ -678,11 +696,22 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			referenceDir = task.Prompt.ReferenceAnswer
 		}
 
+		// Build attribute-matched criteria (Tier 2) for this prompt
+		attrs := promptAttributes(task.Prompt)
+		matchedCriteria := criteria.MatchCriteria(e.criteriaSets, attrs)
+		attrCriteriaText := criteria.FormatCriteria(matchedCriteria)
+		if len(matchedCriteria) > 0 {
+			rlg.Info("Attribute-matched criteria applied",
+				"count", len(matchedCriteria),
+				"language", attrs.Language,
+				"service", attrs.Service)
+		}
+
 		if e.panelReviewer != nil {
 			models := e.panelReviewer.Models()
 			rlg.Debug("Starting review panel")
 			sendEvent(progress.EventToolStart, fmt.Sprintf("Review panel: %v", models))
-			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria)
+			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria, attrCriteriaText)
 			if err != nil {
 				rlg.Error("Review panel failed", "error", err)
 				sendEvent(progress.EventReasoning, fmt.Sprintf("Review panel failed: %v", err))
@@ -702,7 +731,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		} else if e.reviewer != nil {
 			rlg.Debug("Starting single review session")
 			sendEvent(progress.EventToolStart, "Single model review")
-			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria)
+			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria, attrCriteriaText)
 			if err != nil {
 				rlg.Error("Code review failed", "error", err)
 				sendEvent(progress.EventReasoning, fmt.Sprintf("Review failed: %v", err))

@@ -1,0 +1,24 @@
+match:
+  language: python
+criteria:
+  - name: Context Manager Usage
+    description: >
+      SDK clients that support context managers are used with
+      'with' statements to ensure proper resource cleanup.
+  - name: azure-identity Authentication
+    description: >
+      Authentication uses DefaultAzureCredential from the
+      azure-identity package, not connection strings or hardcoded keys.
+  - name: Correct Package Imports
+    description: >
+      Imports use the latest azure-* package names, not the
+      deprecated azure-mgmt-* or msrestazure packages where
+      data-plane equivalents exist.
+  - name: Async Pattern Usage
+    description: >
+      If async operations are requested, code uses the async client
+      variant with proper async/await patterns.
+  - name: Pagination Handling
+    description: >
+      List operations use the SDK's built-in pagination (iterating
+      the paged response), not manual next_link handling.

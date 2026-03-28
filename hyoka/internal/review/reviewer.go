@@ -17,7 +17,7 @@ import (
 
 // Reviewer runs LLM-as-judge code reviews via a separate Copilot session.
 type Reviewer interface {
-	Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (*ReviewResult, error)
+	Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string, attributeMatchedCriteria string) (*ReviewResult, error)
 }
 
 // CopilotReviewer uses a Copilot session to perform code reviews.
@@ -41,7 +41,7 @@ func (r *CopilotReviewer) SetSkillDirectories(dirs []string) {
 }
 
 // Review creates a separate Copilot session, sends the review prompt, and parses results.
-func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (*ReviewResult, error) {
+func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string, attributeMatchedCriteria string) (*ReviewResult, error) {
 	slog.Debug("Reading generated files for review", "workDir", workDir)
 	generatedFiles, err := utils.ReadDirFiles(workDir)
 	if err != nil {
@@ -62,7 +62,7 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		}
 	}
 
-	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles, evaluationCriteria)
+	reviewPrompt := BuildReviewPromptTiered(originalPrompt, generatedFiles, referenceFiles, attributeMatchedCriteria, evaluationCriteria)
 
 	// Create isolated config directory to prevent user-level skills from
 	// leaking into the review session (#21).
@@ -173,7 +173,7 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 type StubReviewer struct{}
 
 // Review returns a stub review result.
-func (s *StubReviewer) Review(_ context.Context, _ string, _ string, _ string, _ string) (*ReviewResult, error) {
+func (s *StubReviewer) Review(_ context.Context, _ string, _ string, _ string, _ string, _ string) (*ReviewResult, error) {
 	return &ReviewResult{
 		Scores: ReviewScores{
 			Criteria: []CriterionResult{
@@ -239,7 +239,7 @@ func (p *PanelReviewer) Models() []string {
 // ReviewPanel runs all reviewer models in parallel and returns individual results
 // plus a consolidated result. The consolidated result is produced by the first model
 // in the list, which receives all other reviewers' outputs.
-func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (panel []ReviewResult, consolidated *ReviewResult, err error) {
+func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string, attributeMatchedCriteria string) (panel []ReviewResult, consolidated *ReviewResult, err error) {
 	slog.Info("Starting panel review", "model_count", len(p.models), "models", p.models)
 	if len(p.models) == 0 {
 		return nil, nil, fmt.Errorf("no reviewer models configured")
@@ -255,7 +255,7 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 		referenceFiles, _ = utils.ReadDirFiles(referenceDir)
 	}
 
-	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles, evaluationCriteria)
+	reviewPrompt := BuildReviewPromptTiered(originalPrompt, generatedFiles, referenceFiles, attributeMatchedCriteria, evaluationCriteria)
 
 	// Run all reviewers in parallel
 	type reviewOutput struct {
@@ -333,8 +333,8 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 }
 
 // Review implements the Reviewer interface using the panel (for backward compat).
-func (p *PanelReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (*ReviewResult, error) {
-	_, consolidated, err := p.ReviewPanel(ctx, originalPrompt, workDir, referenceDir, evaluationCriteria)
+func (p *PanelReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string, attributeMatchedCriteria string) (*ReviewResult, error) {
+	_, consolidated, err := p.ReviewPanel(ctx, originalPrompt, workDir, referenceDir, evaluationCriteria, attributeMatchedCriteria)
 	return consolidated, err
 }
 
