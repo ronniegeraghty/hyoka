@@ -335,7 +335,7 @@ func (d *Display) HandleEvent(evt ProgressEvent) {
 			l.duration = time.Since(l.startTime)
 			l.message = evt.Message
 			if l.message == "" {
-				l.message = "verification failed"
+				l.message = "failed"
 			}
 			if !d.ansi {
 				fmt.Fprintf(d.w, "  ❌ %-40s %s  %s\n",

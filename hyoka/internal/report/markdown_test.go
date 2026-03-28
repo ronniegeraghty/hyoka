@@ -29,11 +29,6 @@ func TestWriteMarkdownReport(t *testing.T) {
 			Success:  true,
 			Stdout:   "Build succeeded.",
 		},
-		Verification: &VerifyResult{
-			Pass:      true,
-			Reasoning: "Code correctly implements storage auth",
-			Summary:   "All requirements met",
-		},
 		Review: &review.ReviewResult{
 			Scores: review.ReviewScores{
 				Criteria: []review.CriterionResult{
@@ -91,8 +86,6 @@ func TestWriteMarkdownReport(t *testing.T) {
 		"Back to Summary",
 		"File created",
 		"150ms",
-		"Verification",
-		"All requirements met",
 	}
 	for _, check := range checks {
 		if !strings.Contains(content, check) {

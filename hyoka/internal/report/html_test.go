@@ -220,7 +220,7 @@ func TestWriteSummaryHTML(t *testing.T) {
 func TestWriteSummaryHTMLNoBuild(t *testing.T) {
 	dir := t.TempDir()
 
-	// Simulate Copilot-verified results (no Build, only Verification)
+	// Simulate results (no Build)
 	s := &RunSummary{
 		RunID:      "20240201-090000",
 		Timestamp:  "2024-02-01T09:00:00Z",
@@ -229,9 +229,9 @@ func TestWriteSummaryHTMLNoBuild(t *testing.T) {
 		Failed:     1,
 		Duration:   60.0,
 		Results: []*EvalReport{
-			{PromptID: "p1", ConfigName: "baseline", Success: true, Verification: &VerifyResult{Pass: true}},
-			{PromptID: "p1", ConfigName: "mcp", Success: true, Verification: &VerifyResult{Pass: true}, Review: &review.ReviewResult{OverallScore: 3, MaxScore: 5}},
-			{PromptID: "p2", ConfigName: "baseline", Success: false, Verification: &VerifyResult{Pass: false}},
+			{PromptID: "p1", ConfigName: "baseline", Success: true},
+			{PromptID: "p1", ConfigName: "mcp", Success: true, Review: &review.ReviewResult{OverallScore: 3, MaxScore: 5}},
+			{PromptID: "p2", ConfigName: "baseline", Success: false},
 		},
 	}
 

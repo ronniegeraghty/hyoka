@@ -41,7 +41,7 @@ func rootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "hyoka",
 		Short: "Azure SDK Prompt Evaluation Tool — test AI agent code generation quality",
-		Long:  "A tool for evaluating AI agent code generation quality by running prompts through the Copilot SDK, verifying builds, and generating reports.",
+		Long:  "A tool for evaluating AI agent code generation quality by running prompts through the Copilot SDK, running build verification, and generating reports.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			closer, err := logging.Setup(logging.Options{
 				Level:    logLevel,
@@ -130,7 +130,7 @@ type runFlags struct {
 	maxSessions     int
 	timeout         int
 	generateTimeout int
-	verifyTimeout   int
+	buildTimeout    int
 	reviewTimeout   int
 	model           string
 	output       string
@@ -167,7 +167,7 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().IntVar(&f.maxSessions, "max-sessions", 0, "Maximum concurrent Copilot sessions (default: workers × 3)")
 	cmd.Flags().IntVar(&f.timeout, "timeout", 600, "Per-prompt generation timeout in seconds (deprecated: use --generate-timeout)")
 	cmd.Flags().IntVar(&f.generateTimeout, "generate-timeout", 0, "Generation phase timeout in seconds (default: --timeout value or 600)")
-	cmd.Flags().IntVar(&f.verifyTimeout, "verify-timeout", 300, "Verification phase timeout in seconds")
+	cmd.Flags().IntVar(&f.buildTimeout, "build-timeout", 300, "Build verification timeout in seconds")
 	cmd.Flags().IntVar(&f.reviewTimeout, "review-timeout", 300, "Review phase timeout in seconds")
 	cmd.Flags().StringVar(&f.model, "model", "", "Override model for all configs")
 	cmd.Flags().StringVar(&f.output, "output", "./reports", "Report output directory")
@@ -410,7 +410,7 @@ func runCmd() *cobra.Command {
 			fmt.Printf("Found %d prompt(s), %d config(s) → %d evaluation(s)\n",
 				len(filtered), len(configs), len(filtered)*len(configs))
 
-			// Select evaluator, verifier, and reviewer
+			// Select evaluator and reviewer
 			var evaluator eval.CopilotEvaluator
 			var reviewer review.Reviewer
 			var panelReviewer *review.PanelReviewer
@@ -505,7 +505,7 @@ func runCmd() *cobra.Command {
 				MaxSessions:      f.maxSessions,
 				Timeout:          time.Duration(f.timeout) * time.Second,
 				GenerateTimeout:  time.Duration(f.generateTimeout) * time.Second,
-				VerifyTimeout:    time.Duration(f.verifyTimeout) * time.Second,
+				BuildTimeout:     time.Duration(f.buildTimeout) * time.Second,
 				ReviewTimeout:    time.Duration(f.reviewTimeout) * time.Second,
 				OutputDir:        f.output,
 				SkipTests:        f.skipTests,

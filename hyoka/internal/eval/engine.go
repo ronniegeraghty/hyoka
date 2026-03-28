@@ -62,7 +62,7 @@ type EngineOptions struct {
 	MaxSessions     int           // Maximum concurrent Copilot sessions (0 = workers × 3).
 	Timeout         time.Duration // Deprecated: use GenerateTimeout. Kept for backward compat.
 	GenerateTimeout time.Duration // Independent timeout for code generation phase.
-	VerifyTimeout   time.Duration // Independent timeout for verification phase.
+	BuildTimeout    time.Duration // Timeout for build verification phase (--verify-build).
 	ReviewTimeout   time.Duration // Independent timeout for review phase.
 	OutputDir       string
 	SkipTests       bool
@@ -112,8 +112,8 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 	if opts.GenerateTimeout <= 0 {
 		opts.GenerateTimeout = 10 * time.Minute
 	}
-	if opts.VerifyTimeout <= 0 {
-		opts.VerifyTimeout = 5 * time.Minute
+	if opts.BuildTimeout <= 0 {
+		opts.BuildTimeout = 5 * time.Minute
 	}
 	if opts.ReviewTimeout <= 0 {
 		opts.ReviewTimeout = 5 * time.Minute
@@ -168,7 +168,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 
 	// Pre-run summary (#34: fan-out visibility)
 	evalCount := len(tasks)
-	estimatedSessions := evalCount * 3 // generate + verify + review per eval
+	estimatedSessions := evalCount * 2 // generate + review per eval
 	maxSessions := e.opts.Workers * 3
 	slog.Info("Evaluation plan",
 		"evaluations", evalCount,
@@ -178,7 +178,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		"workers", e.opts.Workers,
 		"max_sessions", maxSessions)
 	fmt.Printf("\n📊 Evaluation plan: %d evaluations (%d prompts × %d configs)\n", evalCount, len(prompts), len(configs))
-	fmt.Printf("   Estimated Copilot sessions: %d (%d × 3 for generate/verify/review)\n", estimatedSessions, evalCount)
+	fmt.Printf("   Estimated Copilot sessions: %d (%d × 2 for generate/review)\n", estimatedSessions, evalCount)
 	fmt.Printf("   Workers: %d | Max sessions: %d\n\n", e.opts.Workers, maxSessions)
 
 	// Confirmation prompt for large runs (#34)
@@ -309,9 +309,6 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 				msg = "ERROR"
 			} else if !evalReport.Success {
 				evtType = progress.EventFailed
-				if evalReport.Verification != nil && !evalReport.Verification.Pass {
-					msg = "verification failed"
-				}
 				if evalReport.Review != nil {
 					msg = fmt.Sprintf("%d/%d criteria", evalReport.Review.OverallScore, evalReport.Review.MaxScore)
 				}
@@ -366,7 +363,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 
 func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string, sendPhase func(progress.Phase), sendEvent func(progress.EventType, string)) *report.EvalReport {
 	// Each phase gets its own independent timeout so a slow generation
-	// doesn't starve verification or review (fixes issue #3).
+	// doesn't starve build or review (fixes issue #3).
 	genCtx, genCancel := context.WithTimeout(ctx, e.opts.GenerateTimeout)
 	defer genCancel()
 
@@ -638,7 +635,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Optional build verification (--verify-build flag)
 	if e.opts.VerifyBuild && len(generatedFiles) > 0 {
-		buildCtx, buildCancel := context.WithTimeout(ctx, e.opts.VerifyTimeout)
+		buildCtx, buildCancel := context.WithTimeout(ctx, e.opts.BuildTimeout)
 		buildResult, err := build.Verify(buildCtx, task.Prompt.Language, ws.Dir)
 		buildCancel()
 		if err != nil {
@@ -798,12 +795,12 @@ func buildRerunCommand(promptID, configName string, opts EngineOptions) string {
 	}
 
 	// Include non-default timeouts.
-	// Default generate timeout is 10m (600s), verify and review are 5m (300s).
+	// Default generate timeout is 10m (600s), build and review are 5m (300s).
 	if opts.GenerateTimeout != 10*time.Minute {
 		parts = append(parts, fmt.Sprintf("--generate-timeout=%d", int(opts.GenerateTimeout.Seconds())))
 	}
-	if opts.VerifyTimeout != 5*time.Minute {
-		parts = append(parts, fmt.Sprintf("--verify-timeout=%d", int(opts.VerifyTimeout.Seconds())))
+	if opts.BuildTimeout != 5*time.Minute {
+		parts = append(parts, fmt.Sprintf("--build-timeout=%d", int(opts.BuildTimeout.Seconds())))
 	}
 	if opts.ReviewTimeout != 5*time.Minute {
 		parts = append(parts, fmt.Sprintf("--review-timeout=%d", int(opts.ReviewTimeout.Seconds())))

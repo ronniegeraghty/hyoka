@@ -195,7 +195,7 @@ type ToolAction struct {
 // TimelineStep represents one chronological step in the agent workflow.
 type TimelineStep struct {
 	Index     int
-	Phase     string // "generation", "verification", "review"
+	Phase     string // "generation", "review"
 	StepType  string // "prompt", "reasoning", "tool_call", "message", "complete"
 	Icon      string
 	Title     string
@@ -629,19 +629,16 @@ const reportTemplate = `<!DOCTYPE html>
   .phase { margin-bottom: 1.5rem; }
   .phase-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; font-weight: 700; font-size: 1rem; border-radius: 8px 8px 0 0; }
   .phase-gen .phase-header { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
-  .phase-verify .phase-header { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
   .phase-review .phase-header { background: #faf5ff; color: #6b21a8; border: 1px solid #d8b4fe; }
   .timeline { position: relative; padding: 1.25rem 1rem 0.5rem 3.5rem; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; background: var(--card-bg); }
   .timeline::before { content: ''; position: absolute; left: 1.6rem; top: 0; bottom: 0; width: 2px; }
   .phase-gen .timeline::before { background: #93c5fd; }
-  .phase-verify .timeline::before { background: #86efac; }
   .phase-review .timeline::before { background: #c4b5fd; }
 
   .tl-step { position: relative; margin-bottom: 1.25rem; }
   .tl-step:last-child { margin-bottom: 0.5rem; }
   .tl-marker { position: absolute; left: -2.65rem; top: 0.1rem; width: 1.75rem; height: 1.75rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; background: #fff; border: 2px solid var(--border); z-index: 1; }
   .phase-gen .tl-marker { border-color: #93c5fd; }
-  .phase-verify .tl-marker { border-color: #86efac; }
   .phase-review .tl-marker { border-color: #c4b5fd; }
 
   .tl-card { padding: 0.6rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: #fafbfc; }
@@ -774,30 +771,6 @@ const reportTemplate = `<!DOCTYPE html>
       </div>
     </div>
     {{end}}{{end}}
-  </div>
-</div>
-{{end}}
-
-<!-- ━━ Verification Timeline ━━ -->
-{{if .Verification}}
-<div class="phase phase-verify">
-  <div class="phase-header"><span>🔍</span> Verification {{if .Verification.Pass}}<span class="badge badge-pass" style="margin-left:auto">PASS</span>{{else}}<span class="badge badge-fail" style="margin-left:auto">FAIL</span>{{end}}</div>
-  <div class="timeline">
-    <div class="tl-step">
-      <div class="tl-marker">{{if .Verification.Pass}}✅{{else}}❌{{end}}</div>
-      <div class="tl-card tl-card-complete">
-        <div class="tl-title">{{if .Verification.Summary}}{{.Verification.Summary}}{{else}}{{if .Verification.Pass}}Verification passed{{else}}Verification failed{{end}}{{end}}</div>
-      </div>
-    </div>
-    {{if .Verification.Reasoning}}
-    <div class="tl-step">
-      <div class="tl-marker">🤔</div>
-      <div class="tl-card tl-card-reasoning">
-        <div class="tl-title">Verifier's Reasoning</div>
-        <details open><summary>Show reasoning</summary><pre>{{.Verification.Reasoning}}</pre></details>
-      </div>
-    </div>
-    {{end}}
   </div>
 </div>
 {{end}}

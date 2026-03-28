@@ -150,7 +150,7 @@ hyoka list --json
 | `--progress` | `auto` | Progress display mode: `auto`, `live`, `log`, `off` |
 | `--skip-tests` | `false` | Skip test generation |
 | `--skip-review` | `false` | Skip code review |
-| `--verify-build` | `false` | Run build verification (in addition to Copilot verification) |
+| `--verify-build` | `false` | Run build verification on generated code |
 | `--stub` | `false` | Use stub evaluator (no Copilot SDK) |
 | `--dry-run` | `false` | List matching prompts without running |
 | `--workers` | CPU cores (max 8) | Parallel evaluation workers |
@@ -341,14 +341,13 @@ hyoka/
 │   ├── cmd/hyoka/main.go
 │   ├── go.mod / go.sum
 │   └── internal/                      # config, prompt, eval, build, report,
-│       │                              #   validate, trends, verify, review
+│       │                              #   validate, trends, review
 │       ├── config/
 │       ├── prompt/
 │       ├── eval/
 │       ├── build/
 │       ├── report/
 │       ├── trends/
-│       ├── verify/
 │       ├── review/
 │       │   └── rubric.md              # Criteria-based scoring rubric (embedded)
 │       └── validate/

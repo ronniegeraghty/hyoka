@@ -33,13 +33,6 @@ type SessionEventRecord struct {
 	WarningText   string `json:"warningText,omitempty"`
 }
 
-// VerifyResult holds the outcome of Copilot-based code verification.
-type VerifyResult struct {
-	Pass      bool   `json:"pass"`
-	Reasoning string `json:"reasoning"`
-	Summary   string `json:"summary"`
-}
-
 // ToolUsageResult holds the comparison of expected vs actual tool usage.
 type ToolUsageResult struct {
 	ExpectedTools []string `json:"expected_tools"`
@@ -86,7 +79,6 @@ type EvalReport struct {
 	StarterFiles   []string             `json:"starter_files,omitempty"`
 	ReviewedFiles  []ReviewedFile       `json:"reviewed_files,omitempty"`
 	Build          *build.BuildResult   `json:"build,omitempty"`
-	Verification   *VerifyResult        `json:"verification,omitempty"`
 	Review         *review.ReviewResult   `json:"review,omitempty"`
 	ReviewPanel    []review.ReviewResult  `json:"review_panel,omitempty"`
 	ToolUsage      *ToolUsageResult     `json:"tool_usage,omitempty"`

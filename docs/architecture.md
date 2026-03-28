@@ -41,7 +41,6 @@ hyoka/                         # Go module (github.com/ronniegeraghty/hyoka)
     │
     ├── logging/logging.go     # slog setup, EvalLogger helper, CLI flag integration
     ├── progress/              # Live terminal display (TUI during eval runs)
-    ├── verify/verifier.go     # (Deprecated) Copilot-based pass/fail verification
     ├── trends/                # Cross-run trend analysis
     ├── history/               # Historical run tracking
     ├── validate/              # Prompt frontmatter validation

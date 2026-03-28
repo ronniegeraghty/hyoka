@@ -205,24 +205,6 @@ func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service,
 		b.WriteString("\n\n")
 	}
 
-	// Verification
-	if r.Verification != nil {
-		b.WriteString("## Verification\n\n")
-		verResult := "❌ FAIL"
-		if r.Verification.Pass {
-			verResult = "✅ PASS"
-		}
-		fmt.Fprintf(&b, "**Result:** %s\n\n", verResult)
-		if r.Verification.Summary != "" {
-			fmt.Fprintf(&b, "**Summary:** %s\n\n", r.Verification.Summary)
-		}
-		if r.Verification.Reasoning != "" {
-			b.WriteString("**Reasoning:**\n\n")
-			b.WriteString(r.Verification.Reasoning)
-			b.WriteString("\n\n")
-		}
-	}
-
 	// Tool usage evaluation
 	if r.ToolUsage != nil {
 		b.WriteString("## Tool Usage Evaluation\n\n")
