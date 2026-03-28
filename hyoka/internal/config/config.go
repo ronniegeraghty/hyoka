@@ -29,6 +29,45 @@ type Skill struct {
 	Path string `yaml:"path,omitempty" json:"path,omitempty"`
 }
 
+// HooksConfig holds declarative lifecycle hook rules that map to the SDK's
+// OnPreToolUse and OnPostToolUse callbacks. Hook names are strings that
+// the eval engine resolves to concrete handler functions at runtime.
+//
+// Built-in hooks:
+//   - validate_workspace_paths  — deny file writes outside workspace
+//   - block_destructive_commands — deny destructive shell commands (rm -rf, az delete, etc.)
+//   - validate_file_sizes       — warn on files exceeding size threshold
+type HooksConfig struct {
+	PreToolUse  []string `yaml:"pre_tool_use,omitempty" json:"pre_tool_use,omitempty"`
+	PostToolUse []string `yaml:"post_tool_use,omitempty" json:"post_tool_use,omitempty"`
+}
+
+// Plugin represents a composable bundle of skills, MCP servers, and hooks.
+// Plugins let users define a cohesive set of capabilities once and reference
+// them by name across multiple configs.
+//
+// Example YAML:
+//
+//	plugins:
+//	  - name: azure-sdk-tools
+//	    skills:
+//	      - type: local
+//	        path: ../skills/generator
+//	    mcp_servers:
+//	      azure:
+//	        type: sse
+//	        command: npx
+//	        args: ["-y", "@azure/mcp@latest"]
+//	    hooks:
+//	      pre_tool_use:
+//	        - validate_workspace_paths
+type Plugin struct {
+	Name       string                `yaml:"name" json:"name"`
+	Skills     []Skill               `yaml:"skills,omitempty" json:"skills,omitempty"`
+	MCPServers map[string]*MCPServer `yaml:"mcp_servers,omitempty" json:"mcp_servers,omitempty"`
+	Hooks      *HooksConfig          `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+}
+
 // GeneratorConfig holds all configuration for the code generation agent.
 type GeneratorConfig struct {
 	Model          string                `yaml:"model" json:"model"`
@@ -36,13 +75,21 @@ type GeneratorConfig struct {
 	MCPServers     map[string]*MCPServer `yaml:"mcp_servers,omitempty" json:"mcp_servers,omitempty"`
 	AvailableTools []string              `yaml:"available_tools,omitempty" json:"available_tools,omitempty"`
 	ExcludedTools  []string              `yaml:"excluded_tools,omitempty" json:"excluded_tools,omitempty"`
+	Plugins        []Plugin              `yaml:"plugins,omitempty" json:"plugins,omitempty"`
+	Hooks          *HooksConfig          `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+
+	pluginsMerged bool // internal flag to prevent re-merging on repeated Normalize
 }
 
 // ReviewerConfig holds all configuration for the review/grading plane.
 type ReviewerConfig struct {
-	Model  string  `yaml:"model,omitempty" json:"model,omitempty"`
-	Models []string `yaml:"models,omitempty" json:"models,omitempty"`
-	Skills []Skill  `yaml:"skills,omitempty" json:"skills,omitempty"`
+	Model   string       `yaml:"model,omitempty" json:"model,omitempty"`
+	Models  []string     `yaml:"models,omitempty" json:"models,omitempty"`
+	Skills  []Skill      `yaml:"skills,omitempty" json:"skills,omitempty"`
+	Plugins []Plugin     `yaml:"plugins,omitempty" json:"plugins,omitempty"`
+	Hooks   *HooksConfig `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+
+	pluginsMerged bool // internal flag to prevent re-merging on repeated Normalize
 }
 
 // ToolConfig represents a single evaluation configuration.
@@ -71,7 +118,8 @@ type ToolConfig struct {
 }
 
 // Normalize migrates legacy top-level fields into the Generator/Reviewer
-// sub-structs. It is idempotent — safe to call multiple times.
+// sub-structs and merges plugin contributions. It is idempotent — safe to
+// call multiple times.
 func (tc *ToolConfig) Normalize() {
 	if tc.Generator == nil {
 		tc.Generator = &GeneratorConfig{}
@@ -124,6 +172,67 @@ func (tc *ToolConfig) Normalize() {
 			tc.Reviewer.Skills = append(tc.Reviewer.Skills, Skill{Type: "local", Path: d})
 		}
 	}
+
+	// Merge generator plugins into generator config (only once)
+	if !tc.Generator.pluginsMerged {
+		mergePlugins(tc.Generator.Plugins, &tc.Generator.Skills, &tc.Generator.MCPServers, &tc.Generator.Hooks)
+		tc.Generator.pluginsMerged = true
+	}
+
+	// Merge reviewer plugins into reviewer config (only once)
+	if !tc.Reviewer.pluginsMerged {
+		mergePlugins(tc.Reviewer.Plugins, &tc.Reviewer.Skills, nil, &tc.Reviewer.Hooks)
+		tc.Reviewer.pluginsMerged = true
+	}
+}
+
+// mergePlugins folds plugin contributions (skills, MCP servers, hooks) into
+// the parent config's fields. Plugin-contributed items are appended after
+// directly-configured items, preserving plugin declaration order.
+func mergePlugins(plugins []Plugin, skills *[]Skill, mcpServers *map[string]*MCPServer, hooks **HooksConfig) {
+	for _, p := range plugins {
+		// Merge skills — plugin skills appended after direct skills
+		*skills = append(*skills, p.Skills...)
+
+		// Merge MCP servers — plugin servers added if not already present
+		if mcpServers != nil && len(p.MCPServers) > 0 {
+			if *mcpServers == nil {
+				*mcpServers = make(map[string]*MCPServer)
+			}
+			for name, srv := range p.MCPServers {
+				if _, exists := (*mcpServers)[name]; !exists {
+					(*mcpServers)[name] = srv
+				} else {
+					slog.Debug("Plugin MCP server skipped (already defined at config level)",
+						"plugin", p.Name, "server", name)
+				}
+			}
+		}
+
+		// Merge hooks — plugin hooks appended after direct hooks
+		if p.Hooks != nil {
+			if *hooks == nil {
+				*hooks = &HooksConfig{}
+			}
+			(*hooks).PreToolUse = appendUnique((*hooks).PreToolUse, p.Hooks.PreToolUse)
+			(*hooks).PostToolUse = appendUnique((*hooks).PostToolUse, p.Hooks.PostToolUse)
+		}
+	}
+}
+
+// appendUnique appends items from src to dst, skipping duplicates.
+func appendUnique(dst, src []string) []string {
+	seen := make(map[string]bool, len(dst))
+	for _, s := range dst {
+		seen[s] = true
+	}
+	for _, s := range src {
+		if !seen[s] {
+			dst = append(dst, s)
+			seen[s] = true
+		}
+	}
+	return dst
 }
 
 // EffectiveModel returns the generator model, preferring Generator.Model.
@@ -184,6 +293,40 @@ func (tc *ToolConfig) EffectiveGeneratorSkills() []Skill {
 func (tc *ToolConfig) EffectiveReviewerSkills() []Skill {
 	if tc.Reviewer != nil {
 		return tc.Reviewer.Skills
+	}
+	return nil
+}
+
+// EffectiveGeneratorHooks returns the merged hook config for the generator,
+// combining direct hooks with plugin-contributed hooks (after Normalize).
+func (tc *ToolConfig) EffectiveGeneratorHooks() *HooksConfig {
+	if tc.Generator != nil {
+		return tc.Generator.Hooks
+	}
+	return nil
+}
+
+// EffectiveReviewerHooks returns the merged hook config for the reviewer,
+// combining direct hooks with plugin-contributed hooks (after Normalize).
+func (tc *ToolConfig) EffectiveReviewerHooks() *HooksConfig {
+	if tc.Reviewer != nil {
+		return tc.Reviewer.Hooks
+	}
+	return nil
+}
+
+// EffectiveGeneratorPlugins returns the generator's plugin list.
+func (tc *ToolConfig) EffectiveGeneratorPlugins() []Plugin {
+	if tc.Generator != nil {
+		return tc.Generator.Plugins
+	}
+	return nil
+}
+
+// EffectiveReviewerPlugins returns the reviewer's plugin list.
+func (tc *ToolConfig) EffectiveReviewerPlugins() []Plugin {
+	if tc.Reviewer != nil {
+		return tc.Reviewer.Plugins
 	}
 	return nil
 }
@@ -266,6 +409,14 @@ func (cf *ConfigFile) Validate() error {
 				return fmt.Errorf("config %q reviewer skill: %w", c.Name, err)
 			}
 		}
+		// Validate generator plugins
+		if err := validatePlugins(c.EffectiveGeneratorPlugins(), c.Name, "generator"); err != nil {
+			return err
+		}
+		// Validate reviewer plugins
+		if err := validatePlugins(c.EffectiveReviewerPlugins(), c.Name, "reviewer"); err != nil {
+			return err
+		}
 		// Check for duplicate reviewer models
 		reviewerModels := c.EffectiveReviewerModels()
 		seen := make(map[string]bool, len(reviewerModels))
@@ -274,6 +425,40 @@ func (cf *ConfigFile) Validate() error {
 				return fmt.Errorf("config %q: duplicate reviewer model %q", c.Name, rm)
 			}
 			seen[rm] = true
+		}
+	}
+	return nil
+}
+
+// validatePlugins checks that plugins have valid names, no duplicate names,
+// no conflicting MCP server names, and valid skill entries.
+func validatePlugins(plugins []Plugin, configName, section string) error {
+	seenNames := make(map[string]bool, len(plugins))
+	seenMCP := make(map[string]string) // mcp server name → plugin name
+
+	for _, p := range plugins {
+		if p.Name == "" {
+			return fmt.Errorf("config %q %s: plugin missing name", configName, section)
+		}
+		if seenNames[p.Name] {
+			return fmt.Errorf("config %q %s: duplicate plugin name %q", configName, section, p.Name)
+		}
+		seenNames[p.Name] = true
+
+		// Validate plugin skills
+		for _, s := range p.Skills {
+			if err := validateSkill(s); err != nil {
+				return fmt.Errorf("config %q %s plugin %q skill: %w", configName, section, p.Name, err)
+			}
+		}
+
+		// Check for MCP server name conflicts across plugins
+		for name := range p.MCPServers {
+			if prevPlugin, exists := seenMCP[name]; exists {
+				return fmt.Errorf("config %q %s: MCP server %q defined in both plugin %q and %q",
+					configName, section, name, prevPlugin, p.Name)
+			}
+			seenMCP[name] = p.Name
 		}
 	}
 	return nil
