@@ -113,18 +113,9 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 
 	sessionCfg := e.buildSessionConfig(cfg, workDir, configDir)
 
-	session, err := client.CreateSession(ctx, sessionCfg)
-	if err != nil {
-		return &EvalResult{
-			Error:        fmt.Sprintf("session creation failed: %v", err),
-			ErrorDetails: err.Error(),
-		}, fmt.Errorf("creating session: %w", err)
-	}
-	// No session.Disconnect() — that sends session.destroy which causes the
-	// CLI to delete generated files from WorkingDirectory. ForceStop above
-	// handles process cleanup without file deletion.
-
-	// Subscribe to events with detailed capture and debug logging
+	// Subscribe to events with detailed capture and debug logging.
+	// This MUST be set before CreateSession — the SDK reads OnEvent during
+	// session creation and won't pick up a callback assigned afterwards.
 	var events []copilot.SessionEvent
 	var sessionRecords []report.SessionEventRecord
 	var mu sync.Mutex
@@ -426,6 +417,17 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			}
 		}
 	}
+
+	session, err := client.CreateSession(ctx, sessionCfg)
+	if err != nil {
+		return &EvalResult{
+			Error:        fmt.Sprintf("session creation failed: %v", err),
+			ErrorDetails: err.Error(),
+		}, fmt.Errorf("creating session: %w", err)
+	}
+	// No session.Disconnect() — that sends session.destroy which causes the
+	// CLI to delete generated files from WorkingDirectory. ForceStop above
+	// handles process cleanup without file deletion.
 
 	// Send the prompt
 	if e.progressFn != nil {

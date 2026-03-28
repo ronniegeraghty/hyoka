@@ -100,7 +100,7 @@ func TestWriteMarkdownReport(t *testing.T) {
 		}
 	}
 
-	expectedDir := filepath.Join(dir, "20240115-100000", "results", "storage", "data-plane", "dotnet", "authentication", "baseline")
+	expectedDir := filepath.Join(dir, "20240115-100000", "results", "storage", "data-plane", "dotnet", "authentication", "test-prompt", "baseline")
 	if _, err := os.Stat(expectedDir); err != nil {
 		t.Errorf("expected directory %s to exist", expectedDir)
 	}

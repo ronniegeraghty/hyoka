@@ -19,7 +19,7 @@ var (
 func WriteHTMLReport(r *EvalReport, outputDir string, runID string, service, plane, language, category string) (string, error) {
 	reportDir := filepath.Join(
 		outputDir, runID, "results",
-		service, plane, language, category, r.ConfigName,
+		service, plane, language, category, r.PromptID, r.ConfigName,
 	)
 	if err := os.MkdirAll(reportDir, 0755); err != nil {
 		return "", fmt.Errorf("creating HTML report directory: %w", err)
@@ -35,7 +35,13 @@ func WriteHTMLReport(r *EvalReport, outputDir string, runID string, service, pla
 
 	data := buildReportData(r)
 
-	// Read file contents from the generated-code directory for expandable display (Issue 3)
+	// Compute back-to-summary link dynamically: count path segments from
+	// runID dir to reportDir. ConfigName may contain '/' (e.g. "azure-mcp/claude-opus-4.6").
+	// Segments: results/service/plane/language/category/promptID + configName parts.
+	depth := 7 + strings.Count(r.ConfigName, "/")
+	data.BackPath = strings.Repeat("../", depth) + "summary.html"
+
+	// Read file contents from the generated-code directory for expandable display
 	codeDir := filepath.Join(reportDir, "generated-code")
 	data.FileContents = readFileContents(codeDir, r.GeneratedFiles, r.StarterFiles)
 
@@ -153,7 +159,7 @@ func buildMatrix(s *RunSummary) *MatrixData {
 		language, _ := r.PromptMeta["language"].(string)
 		category, _ := r.PromptMeta["category"].(string)
 		if service != "" && plane != "" && language != "" && category != "" {
-			cell.ReportLink = filepath.Join("results", service, plane, language, category, r.ConfigName, "report.html")
+			cell.ReportLink = filepath.Join("results", service, plane, language, category, r.PromptID, r.ConfigName, "report.html")
 		}
 		m.Cells[r.PromptID][r.ConfigName] = cell
 	}
@@ -171,6 +177,7 @@ type ReportTemplateData struct {
 	TimelineSteps []TimelineStep
 	FileCount     int
 	FileContents  map[string]string // filename → content for expandable display
+	BackPath      string            // relative path from report.html back to summary.html
 }
 
 // ToolAction represents one tool invocation extracted from session events.
@@ -513,7 +520,7 @@ func htmlFuncMap() template.FuncMap {
 			if service == "" || plane == "" || language == "" || category == "" {
 				return ""
 			}
-			return filepath.Join("results", service, plane, language, category, r.ConfigName, "report.html")
+			return filepath.Join("results", service, plane, language, category, r.PromptID, r.ConfigName, "report.html")
 		},
 	}
 }
@@ -656,7 +663,7 @@ const reportTemplate = `<!DOCTYPE html>
 </head>
 <body>
 
-<div class="nav"><a href="../../../../../../summary.html">← Back to Summary</a></div>
+<div class="nav"><a href="{{.BackPath}}">← Back to Summary</a></div>
 
 <div class="report-header">
   <h1>📋 {{.PromptID}}</h1>
@@ -1019,7 +1026,10 @@ const reportTemplate = `<!DOCTYPE html>
   <div class="section-header"><span class="icon">🔄</span><h2>Re-run Command</h2></div>
   <div class="section-body">
     <p style="font-size:0.85rem;color:var(--text-muted)">Copy and paste this command to reproduce this evaluation:</p>
-    <pre>{{.RerunCommand}}</pre>
+    <div style="position:relative">
+      <pre id="rerun-cmd">{{.RerunCommand}}</pre>
+      <button onclick="navigator.clipboard.writeText(document.getElementById('rerun-cmd').textContent).then(()=>{this.textContent='✅ Copied!';setTimeout(()=>{this.textContent='📋 Copy'},2000)})" style="position:absolute;top:8px;right:8px;padding:4px 12px;background:var(--accent,var(--blue));color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem">📋 Copy</button>
+    </div>
   </div>
 </div>
 {{end}}

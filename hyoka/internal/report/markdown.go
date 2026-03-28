@@ -12,7 +12,7 @@ import (
 func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service, plane, language, category string) (string, error) {
 	reportDir := filepath.Join(
 		outputDir, runID, "results",
-		service, plane, language, category, r.ConfigName,
+		service, plane, language, category, r.PromptID, r.ConfigName,
 	)
 	if err := os.MkdirAll(reportDir, 0755); err != nil {
 		return "", fmt.Errorf("creating markdown report directory: %w", err)
