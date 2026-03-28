@@ -150,6 +150,8 @@ type runFlags struct {
 	maxOutputSize string
 	// Generator safety (#36)
 	allowCloud bool
+	// Resource monitoring (#45)
+	monitorResources bool
 }
 
 func addFilterFlags(cmd *cobra.Command, f *runFlags) {
@@ -189,6 +191,8 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().BoolVar(&f.allowCloud, "allow-cloud", false, "Allow generated code to provision real Azure resources (disables safety boundaries)")
 	cmd.Flags().Bool("sandbox", true, "Enforce safety boundaries preventing real Azure resource provisioning (default, opposite of --allow-cloud)")
 	cmd.Flags().MarkHidden("sandbox") // sandbox is the default; --allow-cloud is the opt-out
+	// Resource monitoring (#45)
+	cmd.Flags().BoolVar(&f.monitorResources, "monitor-resources", false, "Monitor CPU and memory usage of Copilot sessions during evaluation")
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
@@ -518,6 +522,7 @@ func runCmd() *cobra.Command {
 				MaxTurns:         f.maxTurns,
 				MaxFiles:         f.maxFiles,
 				MaxOutputSize:    maxOutputSize,
+				MonitorResources: f.monitorResources,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)

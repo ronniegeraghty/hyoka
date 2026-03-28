@@ -80,6 +80,8 @@ type EngineOptions struct {
 	MaxOutputSize int64
 	// Process lifecycle (#46)
 	ValidateCleanup bool // Fail run if orphaned processes detected after cleanup.
+	// Resource monitoring (#45)
+	MonitorResources bool
 }
 
 // Engine orchestrates evaluation runs.
@@ -200,6 +202,14 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		return e.dryRun(tasks)
 	}
 
+	// Resource monitor (#45) — opt-in via --monitor-resources.
+	var resMonitor *ResourceMonitor
+	if e.opts.MonitorResources {
+		resMonitor = NewResourceMonitor(DefaultTracker, 5*time.Second)
+		resMonitor.Start()
+		defer resMonitor.Stop()
+	}
+
 	// Ensure all tracked Copilot processes are cleaned up when Run exits.
 	defer func() {
 		if errs := DefaultTracker.TerminateAll(5 * time.Second); len(errs) > 0 {
@@ -279,6 +289,12 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 			defer func() { <-sem }()
 
 			taskName := t.Prompt.ID + "/" + t.Config.Name
+
+			// Register eval with resource monitor if active (#45)
+			if resMonitor != nil {
+				resMonitor.RegisterEval(taskName)
+			}
+
 			display.HandleEvent(progress.ProgressEvent{
 				EvalID:     taskName,
 				PromptID:   t.Prompt.ID,
@@ -301,6 +317,17 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 			}
 
 			evalReport := e.runSingleEval(ctx, t, runID, sendPhase, sendEvent)
+
+			// Attach per-eval resource stats (#45)
+			if resMonitor != nil {
+				if es := resMonitor.EvalStats(taskName); es != nil {
+					evalReport.ResourceUsage = &report.ResourceStats{
+						PeakCPUPercent: es.PeakCPUPercent,
+						PeakMemoryMB:   es.PeakMemoryMB,
+						SampleCount:    es.SampleCount,
+					}
+				}
+			}
 
 			evtType := progress.EventPassed
 			msg := ""
@@ -380,6 +407,17 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	}
 	if reviewCount > 0 {
 		summary.AvgReviewDuration = reviewSum / float64(reviewCount)
+	}
+
+	// Attach aggregate resource stats and print summary (#45)
+	if resMonitor != nil {
+		rs := resMonitor.RunStats()
+		summary.ResourceUsage = &report.RunResourceStats{
+			PeakCPUPercent: rs.PeakCPUPercent,
+			PeakMemoryMB:   rs.PeakMemoryMB,
+			SessionCount:   rs.SessionCount,
+		}
+		fmt.Printf("\n🔍 Resource usage: %s\n", resMonitor.SummaryLine())
 	}
 
 	// Write JSON summary
@@ -856,6 +894,9 @@ func buildRerunCommand(promptID, configName string, opts EngineOptions) string {
 	}
 	if opts.VerifyBuild {
 		parts = append(parts, "--verify-build")
+	}
+	if opts.MonitorResources {
+		parts = append(parts, "--monitor-resources")
 	}
 
 	// Include non-default timeouts.

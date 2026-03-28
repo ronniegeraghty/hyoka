@@ -726,6 +726,9 @@ const reportTemplate = `<!DOCTYPE html>
     {{if or .Environment.TotalInputTokens .Environment.TotalOutputTokens}}<tr><td>Token Usage</td><td>in={{.Environment.TotalInputTokens}} out={{.Environment.TotalOutputTokens}}</td></tr>{{end}}
     {{if .Environment.TurnCount}}<tr><td>Turn Count</td><td>{{.Environment.TurnCount}}</td></tr>{{end}}
     {{if .Environment.ContextTruncated}}<tr><td>Context Truncated</td><td>⚠️ Yes</td></tr>{{end}}
+    {{if .GenerationDuration}}<tr><td>Generation Duration</td><td>{{fmtDuration .GenerationDuration}}</td></tr>{{end}}
+    {{if .BuildDuration}}<tr><td>Build Duration</td><td>{{fmtDuration .BuildDuration}}</td></tr>{{end}}
+    {{if .ReviewDuration}}<tr><td>Review Duration</td><td>{{fmtDuration .ReviewDuration}}</td></tr>{{end}}
   </table>
   </div>
 </div>
@@ -1061,6 +1064,9 @@ const summaryTemplate = `<!DOCTYPE html>
   <div class="stat"><div class="stat-value" style="color:var(--red)">{{.Summary.Failed}}</div><div class="stat-label">Failed</div></div>
   <div class="stat"><div class="stat-value" style="color:#f97316">{{.Summary.Errors}}</div><div class="stat-label">Errors</div></div>
   <div class="stat"><div class="stat-value">{{fmtDuration .Summary.Duration}}</div><div class="stat-label">Duration</div></div>
+  {{if .Summary.AvgGenerationDuration}}<div class="stat"><div class="stat-value">{{fmtDuration .Summary.AvgGenerationDuration}}</div><div class="stat-label">Avg Generation</div></div>{{end}}
+  {{if .Summary.AvgBuildDuration}}<div class="stat"><div class="stat-value">{{fmtDuration .Summary.AvgBuildDuration}}</div><div class="stat-label">Avg Build</div></div>{{end}}
+  {{if .Summary.AvgReviewDuration}}<div class="stat"><div class="stat-value">{{fmtDuration .Summary.AvgReviewDuration}}</div><div class="stat-label">Avg Review</div></div>{{end}}
 </div>
 
 <!-- ━━ AI Analysis (Issue 7) ━━ -->
