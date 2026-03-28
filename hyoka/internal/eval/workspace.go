@@ -3,7 +3,7 @@ package eval
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -123,7 +123,7 @@ func copyDir(src, dst string) error {
 		// Skip symlinks to prevent following links outside the source tree
 		if info.Mode()&os.ModeSymlink != 0 {
 			rel, _ := filepath.Rel(src, path)
-			log.Printf("warning: skipping symlink in starter project: %s", rel)
+			slog.Warn("Skipping symlink in starter project", "path", rel)
 			return nil
 		}
 		rel, err := filepath.Rel(src, path)
@@ -246,7 +246,7 @@ func snapshotDir(dir string) map[string]bool {
 // extension) are moved; new directories are either moved into the workspace or
 // deleted if they match a known junk pattern. Returns the count of recovered
 // items (files + directories moved or cleaned up).
-func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir string, debugPrefix string, debug bool) int {
+func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir string, _ string, debug bool) int {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0
@@ -268,7 +268,7 @@ func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir stri
 				if err := os.RemoveAll(src); err == nil {
 					recovered++
 					if debug {
-						log.Printf("[DEBUG] %s: Deleted junk directory: %s", debugPrefix, src)
+						slog.Debug("Deleted junk directory", "path", src)
 					}
 				}
 				continue
@@ -285,7 +285,7 @@ func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir stri
 			}
 			recovered++
 			if debug {
-				log.Printf("[DEBUG] %s: Recovered misplaced directory: %s → %s", debugPrefix, src, dst)
+				slog.Debug("Recovered misplaced directory", "src", src, "dst", dst)
 			}
 			continue
 		}
@@ -308,7 +308,7 @@ func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir stri
 		os.Remove(src) // clean up the misplaced file
 		recovered++
 		if debug {
-			log.Printf("[DEBUG] %s: Recovered misplaced file: %s → %s", debugPrefix, src, dst)
+			slog.Debug("Recovered misplaced file", "src", src, "dst", dst)
 		}
 	}
 	return recovered

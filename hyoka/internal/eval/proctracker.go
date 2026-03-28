@@ -1,7 +1,7 @@
 package eval
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"syscall"
@@ -93,7 +93,7 @@ waitLoop:
 	// Phase 3: SIGKILL any stragglers.
 	var errs []error
 	for pid, proc := range snapshot {
-		log.Printf("[WARN] Process %d did not exit after SIGTERM; sending SIGKILL", pid)
+		slog.Warn("Process did not exit after SIGTERM, sending SIGKILL", "pid", pid)
 		if err := proc.Kill(); err != nil {
 			errs = append(errs, err)
 		} else {
