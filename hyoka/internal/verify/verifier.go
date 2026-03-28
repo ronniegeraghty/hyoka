@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -68,12 +69,21 @@ func (v *CopilotVerifier) Verify(ctx context.Context, originalPrompt string, wor
 		}
 	}()
 
+	// Create isolated config directory to prevent user-level skills from
+	// leaking into the verification session (#21).
+	configDir, err := os.MkdirTemp("", "hyoka-config-*")
+	if err != nil {
+		return nil, fmt.Errorf("creating isolated config dir: %w", err)
+	}
+	defer os.RemoveAll(configDir)
+
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: v.model,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "append",
 			Content: "You are a code verification judge. Respond with ONLY valid JSON. No markdown, no explanation.",
 		},
+		ConfigDir:           configDir,
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		SkillDirectories:    v.skillDirectories,

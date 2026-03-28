@@ -19,6 +19,18 @@ type SessionEventRecord struct {
 	MCPServerName string  `json:"mcp_server_name,omitempty"`
 	MCPToolName   string  `json:"mcp_tool_name,omitempty"`
 	FilePath      string  `json:"file_path,omitempty"`
+	// Expanded event fields
+	TurnNumber    int    `json:"turnNumber,omitempty"`
+	InputTokens   int    `json:"inputTokens,omitempty"`
+	OutputTokens  int    `json:"outputTokens,omitempty"`
+	SkillName     string `json:"skillName,omitempty"`
+	CommandText   string `json:"commandText,omitempty"`
+	FileOperation string `json:"fileOperation,omitempty"`
+	FileSize      int64  `json:"fileSize,omitempty"`
+	SubagentID    string `json:"subagentId,omitempty"`
+	IsTruncation  bool   `json:"isTruncation,omitempty"`
+	Intent        string `json:"intent,omitempty"`
+	WarningText   string `json:"warningText,omitempty"`
 }
 
 // VerifyResult holds the outcome of Copilot-based code verification.
@@ -44,6 +56,24 @@ type ReviewedFile struct {
 	Content string `json:"content"`
 }
 
+// EnvironmentInfo captures session environment and configuration metadata.
+type EnvironmentInfo struct {
+	Model              string   `json:"model"`
+	SkillDirectories   []string `json:"skillDirectories,omitempty"`
+	SkillsInvoked      []string `json:"skillsInvoked,omitempty"`
+	SkillsLoaded       []string `json:"skillsLoaded,omitempty"`
+	AvailableTools     []string `json:"availableTools,omitempty"`
+	ExcludedTools      []string `json:"excludedTools,omitempty"`
+	MCPServers         []string `json:"mcpServers,omitempty"`
+	SafetyBoundaries   bool     `json:"safetyBoundaries"`
+	AllowCloud         bool     `json:"allowCloud"`
+	WorkingDirectory   string   `json:"workingDirectory"`
+	TotalInputTokens   int      `json:"totalInputTokens,omitempty"`
+	TotalOutputTokens  int      `json:"totalOutputTokens,omitempty"`
+	TurnCount          int      `json:"turnCount,omitempty"`
+	ContextTruncated   bool     `json:"contextTruncated,omitempty"`
+}
+
 // EvalReport contains the results of a single prompt evaluation.
 type EvalReport struct {
 	PromptID       string               `json:"prompt_id"`
@@ -63,6 +93,7 @@ type EvalReport struct {
 	SessionEvents  []SessionEventRecord `json:"session_events,omitempty"`
 	EventCount     int                  `json:"event_count"`
 	ToolCalls      []string             `json:"tool_calls"`
+	Environment    *EnvironmentInfo     `json:"environment,omitempty"`
 	Success        bool                 `json:"success"`
 	Error          string               `json:"error,omitempty"`
 	ErrorDetails   string               `json:"error_details,omitempty"`

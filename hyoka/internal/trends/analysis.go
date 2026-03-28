@@ -3,6 +3,7 @@ package trends
 import (
 "context"
 "fmt"
+"os"
 "strings"
 "sync"
 
@@ -20,12 +21,21 @@ return "", fmt.Errorf("starting copilot client: %w", err)
 }
 defer client.Stop()
 
+// Create isolated config directory to prevent user-level skills from
+// leaking into the analysis session (#21).
+configDir, err := os.MkdirTemp("", "hyoka-config-*")
+if err != nil {
+return "", fmt.Errorf("creating isolated config dir: %w", err)
+}
+defer os.RemoveAll(configDir)
+
 session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 Model: "gpt-4.1",
 SystemMessage: &copilot.SystemMessageConfig{
 Mode:    "append",
 Content: "You are an expert at analyzing AI agent tool usage and its impact on code generation quality. Focus on how tool availability affects output. Be concise and actionable.",
 },
+ConfigDir:           configDir,
 OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 })
 if err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -101,25 +102,29 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	}()
 
 	// Build session config from tool config
-	sessionCfg := e.buildSessionConfig(cfg, workDir)
-
-	session, err := client.CreateSession(ctx, sessionCfg)
+	// Create isolated config directory to prevent user-level skills from
+	// leaking into the eval session (#21). Only skills explicitly listed
+	// in the eval config's SkillDirectories are loaded.
+	configDir, err := NewIsolatedConfigDir()
 	if err != nil {
-		return &EvalResult{
-			Error:        fmt.Sprintf("session creation failed: %v", err),
-			ErrorDetails: err.Error(),
-		}, fmt.Errorf("creating session: %w", err)
+		return nil, fmt.Errorf("creating isolated config dir: %w", err)
 	}
-	// No session.Disconnect() — that sends session.destroy which causes the
-	// CLI to delete generated files from WorkingDirectory. ForceStop above
-	// handles process cleanup without file deletion.
+	defer os.RemoveAll(configDir)
 
-	// Subscribe to events with detailed capture and debug logging
+	sessionCfg := e.buildSessionConfig(cfg, workDir, configDir)
+
+	// Subscribe to events with detailed capture and debug logging.
+	// This MUST be set before CreateSession — the SDK reads OnEvent during
+	// session creation and won't pick up a callback assigned afterwards.
 	var events []copilot.SessionEvent
 	var sessionRecords []report.SessionEventRecord
 	var mu sync.Mutex
 	debugPrefix := p.ID + "/" + cfg.Name
-	unsub := session.On(func(event copilot.SessionEvent) {
+
+	// Capture turn counter for expanded events
+	var turnCounter int
+
+	sessionCfg.OnEvent = func(event copilot.SessionEvent) {
 		mu.Lock()
 		events = append(events, event)
 
@@ -167,6 +172,99 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		if event.Data.Path != nil {
 			rec.FilePath = *event.Data.Path
 		}
+
+		// Expanded event fields
+		switch event.Type {
+		case copilot.SessionEventTypeAssistantTurnStart:
+			turnCounter++
+			rec.TurnNumber = turnCounter
+			log.Printf("[EVENT] Turn %d started", turnCounter)
+		case copilot.SessionEventTypeAssistantTurnEnd:
+			rec.TurnNumber = turnCounter
+			if event.Data.Duration != nil {
+				log.Printf("[EVENT] Turn %d ended (%.0fms)", turnCounter, *event.Data.Duration)
+			}
+		case copilot.SessionEventTypeAssistantReasoning:
+			// Content already captured above
+		case copilot.SessionEventTypeAssistantIntent:
+			if event.Data.Intent != nil {
+				rec.Intent = *event.Data.Intent
+			}
+		case copilot.SessionEventTypeAssistantUsage:
+			if event.Data.InputTokens != nil {
+				rec.InputTokens = int(*event.Data.InputTokens)
+			}
+			if event.Data.OutputTokens != nil {
+				rec.OutputTokens = int(*event.Data.OutputTokens)
+			}
+		case copilot.SessionEventTypeSessionWorkspaceFileChanged:
+			if event.Data.Operation != nil {
+				rec.FileOperation = string(*event.Data.Operation)
+			}
+		case copilot.SessionEventTypeCommandExecute:
+			if event.Data.Command != nil {
+				rec.CommandText = *event.Data.Command
+			}
+		case copilot.SessionEventTypeCommandCompleted:
+			if event.Data.Command != nil {
+				rec.CommandText = *event.Data.Command
+			}
+		case copilot.SessionEventTypeSkillInvoked:
+			if event.Data.Name != nil {
+				rec.SkillName = *event.Data.Name
+			}
+		case copilot.SessionEventTypeExternalToolRequested, copilot.SessionEventTypeExternalToolCompleted:
+			if event.Data.ToolName != nil {
+				rec.ToolName = *event.Data.ToolName
+			}
+		case copilot.SessionEventTypeSessionTruncation:
+			rec.IsTruncation = true
+			log.Printf("[EVENT] ⚠ Context truncated")
+		case copilot.SessionEventTypeSessionCompactionStart:
+			log.Printf("[EVENT] Context compaction started")
+		case copilot.SessionEventTypeSessionCompactionComplete:
+			log.Printf("[EVENT] Context compaction complete")
+		case copilot.SessionEventTypeSessionWarning:
+			if event.Data.Message != nil {
+				rec.WarningText = *event.Data.Message
+				log.Printf("[EVENT] ⚠ Warning: %s", *event.Data.Message)
+			}
+		case copilot.SessionEventTypeAbort:
+			log.Printf("[EVENT] ✗ Session aborted")
+		case copilot.SessionEventTypePermissionRequested:
+			// Audit trail
+		case copilot.SessionEventTypePermissionCompleted:
+			// Audit trail
+		case copilot.SessionEventTypeSessionSkillsLoaded:
+			if len(event.Data.Skills) > 0 {
+				names := make([]string, 0, len(event.Data.Skills))
+				for _, s := range event.Data.Skills {
+					names = append(names, s.Name)
+				}
+				rec.Content = strings.Join(names, ", ")
+				log.Printf("[EVENT] Skills loaded: %s", rec.Content)
+			}
+		case copilot.SessionEventTypeSessionMcpServersLoaded:
+			if len(event.Data.Servers) > 0 {
+				names := make([]string, 0, len(event.Data.Servers))
+				for _, s := range event.Data.Servers {
+					names = append(names, s.Name)
+				}
+				rec.Content = strings.Join(names, ", ")
+				log.Printf("[EVENT] MCP servers loaded: %s", rec.Content)
+			}
+		case copilot.SessionEventTypeSessionToolsUpdated:
+			log.Printf("[EVENT] Tools updated")
+		case copilot.SessionEventTypeSubagentCompleted:
+			if event.Data.ToolCallID != nil {
+				rec.SubagentID = *event.Data.ToolCallID
+			}
+		case copilot.SessionEventTypeSubagentFailed:
+			if event.Data.ToolCallID != nil {
+				rec.SubagentID = *event.Data.ToolCallID
+			}
+		}
+
 		sessionRecords = append(sessionRecords, rec)
 		mu.Unlock()
 
@@ -229,6 +327,18 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 						Message: summary,
 					})
 				}
+			case copilot.SessionEventTypeAssistantTurnStart:
+				e.progressFn(progress.ProgressEvent{
+					EvalID: evalID, PromptID: p.ID, ConfigName: cfg.Name,
+					Type:    progress.EventReasoning,
+					Message: fmt.Sprintf("Turn %d started", turnCounter),
+				})
+			case copilot.SessionEventTypeSessionTruncation:
+				e.progressFn(progress.ProgressEvent{
+					EvalID: evalID, PromptID: p.ID, ConfigName: cfg.Name,
+					Type:    progress.EventReasoning,
+					Message: "⚠ Context truncated",
+				})
 			}
 		}
 
@@ -270,8 +380,31 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 					content = *event.Data.Content
 				}
 				log.Printf("[DEBUG] %s: ✗ Session error: %s", debugPrefix, content)
+			case copilot.SessionEventTypeAssistantTurnStart:
+				log.Printf("[DEBUG] %s: ▶ Turn %d started", debugPrefix, turnCounter)
+			case copilot.SessionEventTypeAssistantTurnEnd:
+				log.Printf("[DEBUG] %s: ◼ Turn %d ended", debugPrefix, turnCounter)
+			case copilot.SessionEventTypeAssistantUsage:
+				in, out := 0, 0
+				if event.Data.InputTokens != nil {
+					in = int(*event.Data.InputTokens)
+				}
+				if event.Data.OutputTokens != nil {
+					out = int(*event.Data.OutputTokens)
+				}
+				log.Printf("[DEBUG] %s: 📊 Tokens: in=%d out=%d", debugPrefix, in, out)
+			case copilot.SessionEventTypeSessionTruncation:
+				log.Printf("[DEBUG] %s: ⚠ Context truncated", debugPrefix)
+			case copilot.SessionEventTypeSkillInvoked:
+				name := ""
+				if event.Data.Name != nil {
+					name = *event.Data.Name
+				}
+				log.Printf("[DEBUG] %s: 🔮 Skill invoked: %s", debugPrefix, name)
+			case copilot.SessionEventTypeSubagentCompleted, copilot.SessionEventTypeSubagentFailed:
+				log.Printf("[DEBUG] %s:   Subagent %s", debugPrefix, event.Type)
 			default:
-				// Log all other events (session.start, session.idle, user.message, assistant.turn_end, etc.)
+				// Log all other events (session.start, session.idle, user.message, etc.)
 				content := ""
 				if event.Data.Content != nil {
 					content = truncateStr(*event.Data.Content, 100)
@@ -283,8 +416,18 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 				}
 			}
 		}
-	})
-	defer unsub()
+	}
+
+	session, err := client.CreateSession(ctx, sessionCfg)
+	if err != nil {
+		return &EvalResult{
+			Error:        fmt.Sprintf("session creation failed: %v", err),
+			ErrorDetails: err.Error(),
+		}, fmt.Errorf("creating session: %w", err)
+	}
+	// No session.Disconnect() — that sends session.destroy which causes the
+	// CLI to delete generated files from WorkingDirectory. ForceStop above
+	// handles process cleanup without file deletion.
 
 	// Send the prompt
 	if e.progressFn != nil {
@@ -398,7 +541,7 @@ func (e *CopilotSDKEvaluator) Client(ctx context.Context, workDir string) (*copi
 	return client, nil
 }
 
-func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir string) *copilot.SessionConfig {
+func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir string, configDir string) *copilot.SessionConfig {
 	// Use generator-specific skills if configured, otherwise fall back to shared
 	skillDirs := cfg.GeneratorSkillDirectories
 	if len(skillDirs) == 0 {
@@ -444,8 +587,52 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 			Mode:    "append",
 			Content: systemMsg,
 		},
+		ConfigDir:           configDir,
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+		Hooks: &copilot.SessionHooks{
+			OnPreToolUse: func(input copilot.PreToolUseHookInput, invocation copilot.HookInvocation) (*copilot.PreToolUseHookOutput, error) {
+				toolName := input.ToolName
+				// Validate file paths for file-write tools
+				if isFileWriteTool(toolName) {
+					if args, ok := input.ToolArgs.(map[string]interface{}); ok {
+						if p, ok := args["path"].(string); ok {
+							if !strings.HasPrefix(p, workDir) {
+								log.Printf("[HOOK] ⚠ %s path outside workspace: %s (expected prefix: %s)", toolName, p, workDir)
+								return &copilot.PreToolUseHookOutput{
+									PermissionDecision:       "deny",
+									PermissionDecisionReason: fmt.Sprintf("path %q is outside workspace %q", p, workDir),
+								}, nil
+							}
+						}
+					}
+				}
+				// Log bash/command tools
+				if toolName == "bash" || toolName == "shell" || toolName == "run_command" {
+					if args, ok := input.ToolArgs.(map[string]interface{}); ok {
+						if cmd, ok := args["command"].(string); ok {
+							log.Printf("[HOOK] 🖥 %s: %s", toolName, truncateStr(cmd, 120))
+						}
+					}
+				}
+				return &copilot.PreToolUseHookOutput{}, nil
+			},
+			OnPostToolUse: func(input copilot.PostToolUseHookInput, invocation copilot.HookInvocation) (*copilot.PostToolUseHookOutput, error) {
+				// Log completion
+				log.Printf("[HOOK] ✓ %s complete", input.ToolName)
+				// Check file sizes for file operations
+				if isFileWriteTool(input.ToolName) {
+					if args, ok := input.ToolArgs.(map[string]interface{}); ok {
+						if p, ok := args["path"].(string); ok {
+							if info, err := os.Stat(p); err == nil && info.Size() > 100*1024 {
+								log.Printf("[HOOK] ⚠ Large file created: %s (%d bytes)", p, info.Size())
+							}
+						}
+					}
+				}
+				return &copilot.PostToolUseHookOutput{}, nil
+			},
+		},
 		SkillDirectories:    skillDirs,
 	}
 

@@ -142,6 +142,60 @@ func copyDir(src, dst string) error {
 	})
 }
 
+// NewIsolatedConfigDir creates an empty temporary directory to serve as the
+// Copilot CLI configuration directory. By pointing ConfigDir at this empty
+// directory, user-level skills and settings from ~/.config/github-copilot/
+// are excluded from eval sessions. Only skills explicitly listed in the eval
+// config's SkillDirectories are loaded (fixes #21).
+// The caller must defer os.RemoveAll on the returned path.
+func NewIsolatedConfigDir() (string, error) {
+	dir, err := os.MkdirTemp("", "hyoka-config-*")
+	if err != nil {
+		return "", fmt.Errorf("creating isolated config dir: %w", err)
+	}
+	return dir, nil
+}
+
+// NewReviewerWorkspace creates an ephemeral temporary workspace and copies
+// all files from sourceDir into it. Reviewers operate on this copy so they
+// cannot modify the original generated output (fixes #26).
+// The caller must defer os.RemoveAll on the returned path.
+func NewReviewerWorkspace(sourceDir string) (string, error) {
+	dir, err := os.MkdirTemp("", "hyoka-review-*")
+	if err != nil {
+		return "", fmt.Errorf("creating reviewer workspace: %w", err)
+	}
+	if err := copyDir(sourceDir, dir); err != nil {
+		os.RemoveAll(dir)
+		return "", fmt.Errorf("copying files to reviewer workspace: %w", err)
+	}
+	return dir, nil
+}
+
+// ValidateWorkspaceContainment checks whether any new items appeared in dir
+// since the pre-eval snapshot. Returns the names of items that escaped the
+// workspace boundary. Called after recoverMisplacedFiles as a safety net
+// to catch anything recovery could not handle (fixes #26).
+func ValidateWorkspaceContainment(dir string, preSnapshot map[string]bool) []string {
+	if preSnapshot == nil {
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var escaped []string
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if !preSnapshot[e.Name()] {
+			escaped = append(escaped, e.Name())
+		}
+	}
+	return escaped
+}
+
 // codeFileExts lists extensions that indicate generated code files.
 var codeFileExts = map[string]bool{
 	".py": true, ".cs": true, ".java": true, ".go": true, ".rs": true,

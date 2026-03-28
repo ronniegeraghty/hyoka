@@ -17,7 +17,7 @@ func TestBuildSessionConfig_EmptyAvailableToolsIsNil(t *testing.T) {
 		AvailableTools: []string{},
 		ExcludedTools:  []string{},
 	}
-	sc := e.buildSessionConfig(cfg, "/tmp/test")
+	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
 	if sc.AvailableTools != nil {
 		t.Errorf("expected AvailableTools nil (all tools), got %v", sc.AvailableTools)
@@ -34,7 +34,7 @@ func TestBuildSessionConfig_NilAvailableToolsIsNil(t *testing.T) {
 		Name:  "test",
 		Model: "gpt-4",
 	}
-	sc := e.buildSessionConfig(cfg, "/tmp/test")
+	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
 	if sc.AvailableTools != nil {
 		t.Errorf("expected AvailableTools nil, got %v", sc.AvailableTools)
@@ -53,7 +53,7 @@ func TestBuildSessionConfig_PopulatedAvailableToolsPreserved(t *testing.T) {
 		AvailableTools: []string{"create", "edit", "bash"},
 		ExcludedTools:  []string{"web_fetch"},
 	}
-	sc := e.buildSessionConfig(cfg, "/tmp/test")
+	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
 	if len(sc.AvailableTools) != 3 {
 		t.Errorf("expected 3 AvailableTools, got %d", len(sc.AvailableTools))
@@ -67,10 +67,21 @@ func TestBuildSessionConfig_WorkingDirectory(t *testing.T) {
 	e := &CopilotSDKEvaluator{}
 
 	cfg := &config.ToolConfig{Name: "test", Model: "gpt-4"}
-	sc := e.buildSessionConfig(cfg, "/workspace/eval-123")
+	sc := e.buildSessionConfig(cfg, "/workspace/eval-123", "")
 
 	if sc.WorkingDirectory != "/workspace/eval-123" {
 		t.Errorf("expected WorkingDirectory '/workspace/eval-123', got %q", sc.WorkingDirectory)
+	}
+}
+
+func TestBuildSessionConfig_ConfigDir(t *testing.T) {
+	e := &CopilotSDKEvaluator{}
+
+	cfg := &config.ToolConfig{Name: "test", Model: "gpt-4"}
+	sc := e.buildSessionConfig(cfg, "/workspace/eval-123", "/isolated/config")
+
+	if sc.ConfigDir != "/isolated/config" {
+		t.Errorf("expected ConfigDir '/isolated/config', got %q", sc.ConfigDir)
 	}
 }
 
@@ -78,7 +89,7 @@ func TestBuildSessionConfig_PermissionHandler(t *testing.T) {
 	e := &CopilotSDKEvaluator{}
 
 	cfg := &config.ToolConfig{Name: "test", Model: "gpt-4"}
-	sc := e.buildSessionConfig(cfg, "/tmp/test")
+	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
 	if sc.OnPermissionRequest == nil {
 		t.Error("expected OnPermissionRequest to be set (ApproveAll)")
@@ -99,7 +110,7 @@ func TestBuildSessionConfig_MCPServers(t *testing.T) {
 			},
 		},
 	}
-	sc := e.buildSessionConfig(cfg, "/tmp/test")
+	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
 	if len(sc.MCPServers) != 1 {
 		t.Errorf("expected 1 MCP server, got %d", len(sc.MCPServers))

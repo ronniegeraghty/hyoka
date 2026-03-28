@@ -42,14 +42,14 @@ func TestRerenderRun(t *testing.T) {
 		t.Fatalf("rerender failed: %v", err)
 	}
 
-	// Check HTML report was generated
-	htmlPath := filepath.Join(reportDir, "report.html")
+	// Check HTML report was generated (now includes promptID in path)
+	htmlPath := filepath.Join(dir, runID, "results", "storage", "data-plane", "go", "auth", "test-prompt", "baseline", "report.html")
 	if _, err := os.Stat(htmlPath); os.IsNotExist(err) {
 		t.Error("expected report.html to exist")
 	}
 
 	// Check MD report was generated
-	mdPath := filepath.Join(reportDir, "report.md")
+	mdPath := filepath.Join(dir, runID, "results", "storage", "data-plane", "go", "auth", "test-prompt", "baseline", "report.md")
 	if _, err := os.Stat(mdPath); os.IsNotExist(err) {
 		t.Error("expected report.md to exist")
 	}

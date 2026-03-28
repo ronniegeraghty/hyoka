@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -59,35 +60,20 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 
 	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles, evaluationCriteria)
 
-	session, err := r.client.CreateSession(ctx, &copilot.SessionConfig{
-		Model: r.model,
-		SystemMessage: &copilot.SystemMessageConfig{
-			Mode:    "append",
-			Content: "You are a code review judge evaluating another AI agent's work. Actively verify the code: attempt to build it, check if SDK packages are the latest versions, and test any claims. Score each criterion as pass/fail per the rubric. Respond with ONLY valid JSON. No markdown, no explanation.",
-		},
-		WorkingDirectory:    workDir,
-		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
-		SkillDirectories:    r.skillDirectories,
-	})
+	// Create isolated config directory to prevent user-level skills from
+	// leaking into the review session (#21).
+	configDir, err := os.MkdirTemp("", "hyoka-config-*")
 	if err != nil {
-		return nil, fmt.Errorf("creating review session: %w", err)
+		return nil, fmt.Errorf("creating isolated config dir: %w", err)
 	}
-	// SDK's Disconnect() can block if the CLI subprocess is stuck.
-	// Timeout and let the owning client's Stop handle final cleanup.
-	defer func() {
-		done := make(chan struct{})
-		go func() { session.Disconnect(); close(done) }()
-		select {
-		case <-done:
-		case <-time.After(15 * time.Second):
-		}
-	}()
+	defer os.RemoveAll(configDir)
 
 	// Capture the assistant's response and all session events
 	var assistantContent strings.Builder
 	var reviewEvents []ReviewEvent
 	var mu sync.Mutex
-	unsub := session.On(func(event copilot.SessionEvent) {
+
+	eventHandler := func(event copilot.SessionEvent) {
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -124,8 +110,33 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 			evt.Duration = *event.Data.Duration
 		}
 		reviewEvents = append(reviewEvents, evt)
+	}
+
+	session, err := r.client.CreateSession(ctx, &copilot.SessionConfig{
+		Model: r.model,
+		SystemMessage: &copilot.SystemMessageConfig{
+			Mode:    "append",
+			Content: "You are a code review judge evaluating another AI agent's work. Actively verify the code: attempt to build it, check if SDK packages are the latest versions, and test any claims. Score each criterion as pass/fail per the rubric. Respond with ONLY valid JSON. No markdown, no explanation.",
+		},
+		ConfigDir:           configDir,
+		WorkingDirectory:    workDir,
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+		SkillDirectories:    r.skillDirectories,
+		OnEvent:             eventHandler,
 	})
-	defer unsub()
+	if err != nil {
+		return nil, fmt.Errorf("creating review session: %w", err)
+	}
+	// SDK's Disconnect() can block if the CLI subprocess is stuck.
+	// Timeout and let the owning client's Stop handle final cleanup.
+	defer func() {
+		done := make(chan struct{})
+		go func() { session.Disconnect(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(15 * time.Second):
+		}
+	}()
 
 	_, err = session.SendAndWait(ctx, copilot.MessageOptions{
 		Prompt: reviewPrompt,
@@ -321,24 +332,19 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 		}
 	}()
 
-	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
-		Model: model,
-		SystemMessage: &copilot.SystemMessageConfig{
-			Mode:    "append",
-			Content: "You are a code review judge evaluating another AI agent's work. Actively verify the code: attempt to build it, check if SDK packages are the latest versions, and test any claims. Score each criterion as pass/fail per the rubric. Respond with ONLY valid JSON. No markdown, no explanation.",
-		},
-		WorkingDirectory:    workDir,
-		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
-		SkillDirectories:    p.skillDirectories,
-	})
+	// Create isolated config directory to prevent user-level skills from
+	// leaking into the review session (#21).
+	configDir, err := os.MkdirTemp("", "hyoka-config-*")
 	if err != nil {
-		return nil, fmt.Errorf("creating review session for %s: %w", model, err)
+		return nil, fmt.Errorf("creating isolated config dir for %s: %w", model, err)
 	}
+	defer os.RemoveAll(configDir)
 
 	var assistantContent strings.Builder
 	var reviewEvents []ReviewEvent
 	var mu sync.Mutex
-	unsub := session.On(func(event copilot.SessionEvent) {
+
+	eventHandler := func(event copilot.SessionEvent) {
 		mu.Lock()
 		defer mu.Unlock()
 		if event.Type == copilot.SessionEventTypeAssistantMessage && event.Data.Content != nil {
@@ -373,8 +379,23 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 			evt.Duration = *event.Data.Duration
 		}
 		reviewEvents = append(reviewEvents, evt)
+	}
+
+	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
+		Model: model,
+		SystemMessage: &copilot.SystemMessageConfig{
+			Mode:    "append",
+			Content: "You are a code review judge evaluating another AI agent's work. Actively verify the code: attempt to build it, check if SDK packages are the latest versions, and test any claims. Score each criterion as pass/fail per the rubric. Respond with ONLY valid JSON. No markdown, no explanation.",
+		},
+		ConfigDir:           configDir,
+		WorkingDirectory:    workDir,
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+		SkillDirectories:    p.skillDirectories,
+		OnEvent:             eventHandler,
 	})
-	defer unsub()
+	if err != nil {
+		return nil, fmt.Errorf("creating review session for %s: %w", model, err)
+	}
 
 	_, err = session.SendAndWait(ctx, copilot.MessageOptions{
 		Prompt: reviewPrompt,

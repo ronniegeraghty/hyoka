@@ -19,7 +19,7 @@ var (
 func WriteHTMLReport(r *EvalReport, outputDir string, runID string, service, plane, language, category string) (string, error) {
 	reportDir := filepath.Join(
 		outputDir, runID, "results",
-		service, plane, language, category, r.ConfigName,
+		service, plane, language, category, r.PromptID, r.ConfigName,
 	)
 	if err := os.MkdirAll(reportDir, 0755); err != nil {
 		return "", fmt.Errorf("creating HTML report directory: %w", err)
@@ -35,7 +35,13 @@ func WriteHTMLReport(r *EvalReport, outputDir string, runID string, service, pla
 
 	data := buildReportData(r)
 
-	// Read file contents from the generated-code directory for expandable display (Issue 3)
+	// Compute back-to-summary link dynamically: count path segments from
+	// runID dir to reportDir. ConfigName may contain '/' (e.g. "azure-mcp/claude-opus-4.6").
+	// Segments: results/service/plane/language/category/promptID + configName parts.
+	depth := 7 + strings.Count(r.ConfigName, "/")
+	data.BackPath = strings.Repeat("../", depth) + "summary.html"
+
+	// Read file contents from the generated-code directory for expandable display
 	codeDir := filepath.Join(reportDir, "generated-code")
 	data.FileContents = readFileContents(codeDir, r.GeneratedFiles, r.StarterFiles)
 
@@ -153,7 +159,7 @@ func buildMatrix(s *RunSummary) *MatrixData {
 		language, _ := r.PromptMeta["language"].(string)
 		category, _ := r.PromptMeta["category"].(string)
 		if service != "" && plane != "" && language != "" && category != "" {
-			cell.ReportLink = filepath.Join("results", service, plane, language, category, r.ConfigName, "report.html")
+			cell.ReportLink = filepath.Join("results", service, plane, language, category, r.PromptID, r.ConfigName, "report.html")
 		}
 		m.Cells[r.PromptID][r.ConfigName] = cell
 	}
@@ -171,6 +177,7 @@ type ReportTemplateData struct {
 	TimelineSteps []TimelineStep
 	FileCount     int
 	FileContents  map[string]string // filename → content for expandable display
+	BackPath      string            // relative path from report.html back to summary.html
 }
 
 // ToolAction represents one tool invocation extracted from session events.
@@ -513,7 +520,7 @@ func htmlFuncMap() template.FuncMap {
 			if service == "" || plane == "" || language == "" || category == "" {
 				return ""
 			}
-			return filepath.Join("results", service, plane, language, category, r.ConfigName, "report.html")
+			return filepath.Join("results", service, plane, language, category, r.PromptID, r.ConfigName, "report.html")
 		},
 	}
 }
@@ -656,7 +663,7 @@ const reportTemplate = `<!DOCTYPE html>
 </head>
 <body>
 
-<div class="nav"><a href="../../../../../../summary.html">← Back to Summary</a></div>
+<div class="nav"><a href="{{.BackPath}}">← Back to Summary</a></div>
 
 <div class="report-header">
   <h1>📋 {{.PromptID}}</h1>
@@ -702,6 +709,27 @@ const reportTemplate = `<!DOCTYPE html>
       {{with index .PromptMeta "sdk_package"}}{{if .}}<tr><td>SDK Package</td><td><code>{{.}}</code></td></tr>{{end}}{{end}}
       {{with index .PromptMeta "tags"}}{{if .}}<tr><td>Tags</td><td>{{.}}</td></tr>{{end}}{{end}}
     </table>
+  </div>
+</div>
+{{end}}
+
+{{if .Environment}}
+<div class="section">
+  <div class="section-header"><span class="icon">🔧</span><h2>Environment & Configuration</h2></div>
+  <div class="section-body">
+  <table class="meta-table">
+    <tr><td>Model</td><td>{{.Environment.Model}}</td></tr>
+    {{if .Environment.SkillsLoaded}}<tr><td>Skills Loaded</td><td>{{join .Environment.SkillsLoaded ", "}}</td></tr>{{end}}
+    {{if .Environment.SkillsInvoked}}<tr><td>Skills Invoked</td><td>{{join .Environment.SkillsInvoked ", "}}</td></tr>{{end}}
+    {{if .Environment.AvailableTools}}<tr><td>Available Tools</td><td>{{join .Environment.AvailableTools ", "}}</td></tr>{{end}}
+    {{if .Environment.ExcludedTools}}<tr><td>Excluded Tools</td><td>{{join .Environment.ExcludedTools ", "}}</td></tr>{{end}}
+    {{if .Environment.MCPServers}}<tr><td>MCP Servers</td><td>{{join .Environment.MCPServers ", "}}</td></tr>{{end}}
+    <tr><td>Safety Boundaries</td><td>{{if .Environment.SafetyBoundaries}}✅ Active{{else}}❌ Off{{end}}</td></tr>
+    <tr><td>Cloud Access</td><td>{{if .Environment.AllowCloud}}✅ Allowed{{else}}❌ Denied{{end}}</td></tr>
+    {{if or .Environment.TotalInputTokens .Environment.TotalOutputTokens}}<tr><td>Token Usage</td><td>in={{.Environment.TotalInputTokens}} out={{.Environment.TotalOutputTokens}}</td></tr>{{end}}
+    {{if .Environment.TurnCount}}<tr><td>Turn Count</td><td>{{.Environment.TurnCount}}</td></tr>{{end}}
+    {{if .Environment.ContextTruncated}}<tr><td>Context Truncated</td><td>⚠️ Yes</td></tr>{{end}}
+  </table>
   </div>
 </div>
 {{end}}
@@ -998,7 +1026,10 @@ const reportTemplate = `<!DOCTYPE html>
   <div class="section-header"><span class="icon">🔄</span><h2>Re-run Command</h2></div>
   <div class="section-body">
     <p style="font-size:0.85rem;color:var(--text-muted)">Copy and paste this command to reproduce this evaluation:</p>
-    <pre>{{.RerunCommand}}</pre>
+    <div style="position:relative">
+      <pre id="rerun-cmd">{{.RerunCommand}}</pre>
+      <button onclick="navigator.clipboard.writeText(document.getElementById('rerun-cmd').textContent).then(()=>{this.textContent='✅ Copied!';setTimeout(()=>{this.textContent='📋 Copy'},2000)})" style="position:absolute;top:8px;right:8px;padding:4px 12px;background:var(--accent,var(--blue));color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem">📋 Copy</button>
+    </div>
   </div>
 </div>
 {{end}}
