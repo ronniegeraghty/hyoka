@@ -67,6 +67,13 @@ type EnvironmentInfo struct {
 	ContextTruncated   bool     `json:"contextTruncated,omitempty"`
 }
 
+// ResourceStats holds per-eval peak resource utilization (#45).
+type ResourceStats struct {
+	PeakCPUPercent float64 `json:"peak_cpu_percent"`
+	PeakMemoryMB   float64 `json:"peak_memory_mb"`
+	SampleCount    int     `json:"sample_count"`
+}
+
 // EvalReport contains the results of a single prompt evaluation.
 type EvalReport struct {
 	PromptID       string               `json:"prompt_id"`
@@ -86,6 +93,7 @@ type EvalReport struct {
 	EventCount     int                  `json:"event_count"`
 	ToolCalls      []string             `json:"tool_calls"`
 	Environment    *EnvironmentInfo     `json:"environment,omitempty"`
+	ResourceUsage  *ResourceStats       `json:"resource_usage,omitempty"` // Per-eval resource stats (#45)
 	Success        bool                 `json:"success"`
 	Error          string               `json:"error,omitempty"`
 	ErrorDetails   string               `json:"error_details,omitempty"`
@@ -100,18 +108,26 @@ type EvalReport struct {
 	GuardrailAbortReason   string `json:"guardrail_abort_reason,omitempty"`
 }
 
+// RunResourceStats holds aggregate resource utilization across all evals (#45).
+type RunResourceStats struct {
+	PeakCPUPercent float64 `json:"peak_cpu_percent"`
+	PeakMemoryMB   float64 `json:"peak_memory_mb"`
+	SessionCount   int     `json:"session_count"`
+}
+
 // RunSummary contains aggregate statistics for an evaluation run.
 type RunSummary struct {
-	RunID        string        `json:"run_id"`
-	Timestamp    string        `json:"timestamp"`
-	TotalPrompts int           `json:"total_prompts"`
-	TotalConfigs int           `json:"total_configs"`
-	TotalEvals   int           `json:"total_evaluations"`
-	Passed       int           `json:"passed"`
-	Failed       int           `json:"failed"`
-	Errors       int           `json:"errors"`
-	Duration     float64       `json:"duration_seconds"`
-	Reports      []string      `json:"report_paths"`
-	Results      []*EvalReport `json:"results,omitempty"`
-	Analysis     string        `json:"analysis,omitempty"`
+	RunID          string            `json:"run_id"`
+	Timestamp      string            `json:"timestamp"`
+	TotalPrompts   int               `json:"total_prompts"`
+	TotalConfigs   int               `json:"total_configs"`
+	TotalEvals     int               `json:"total_evaluations"`
+	Passed         int               `json:"passed"`
+	Failed         int               `json:"failed"`
+	Errors         int               `json:"errors"`
+	Duration       float64           `json:"duration_seconds"`
+	Reports        []string          `json:"report_paths"`
+	Results        []*EvalReport     `json:"results,omitempty"`
+	Analysis       string            `json:"analysis,omitempty"`
+	ResourceUsage  *RunResourceStats `json:"resource_usage,omitempty"` // Aggregate resource stats (#45)
 }
