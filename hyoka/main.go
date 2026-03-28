@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 	"github.com/ronniegeraghty/hyoka/internal/rerender"
 	"github.com/ronniegeraghty/hyoka/internal/report"
 	"github.com/ronniegeraghty/hyoka/internal/review"
+	"github.com/ronniegeraghty/hyoka/internal/serve"
 	"github.com/ronniegeraghty/hyoka/internal/trends"
 	"github.com/ronniegeraghty/hyoka/internal/validate"
 	"github.com/spf13/cobra"
@@ -70,6 +72,7 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(checkEnvCmd())
 	root.AddCommand(trendsCmd())
 	root.AddCommand(reportCmd())
+	root.AddCommand(serveCmd())
 	root.AddCommand(newPromptCmd())
 
 	return root
@@ -912,6 +915,47 @@ func reportCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&reportsDir, "reports-dir", "./reports", "Directory containing evaluation reports")
 	cmd.Flags().BoolVar(&all, "all", false, "Re-render all runs")
+
+	return cmd
+}
+
+func serveCmd() *cobra.Command {
+	var reportsDir string
+	var port int
+	var noOpen bool
+
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Start a local HTTP server to browse evaluation reports",
+		Long:  "Starts a local web server that provides an index of all evaluation runs with links to summary and individual report HTML files. Press Ctrl+C to stop.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reportsDir = resolvePathFlag(cmd, "reports-dir", []string{"../reports", "./reports"})
+
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+			defer stop()
+
+			open := !noOpen
+
+			if open {
+				url := fmt.Sprintf("http://localhost:%d", port)
+				go func() {
+					// Small delay so the server has time to bind.
+					time.Sleep(300 * time.Millisecond)
+					openInBrowser(url)
+				}()
+			}
+
+			return serve.Run(ctx, serve.Options{
+				ReportsDir: reportsDir,
+				Port:       port,
+				Open:       open,
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&reportsDir, "reports-dir", "./reports", "Directory containing evaluation reports")
+	cmd.Flags().IntVar(&port, "port", 8080, "Port to listen on")
+	cmd.Flags().BoolVar(&noOpen, "no-open", false, "Do not auto-open the browser")
 
 	return cmd
 }
