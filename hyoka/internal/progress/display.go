@@ -278,6 +278,24 @@ func (d *Display) HandleEvent(evt ProgressEvent) {
 		EventWritingFile, EventWaiting:
 		if idx, ok := d.lineIndex[evt.EvalID]; ok {
 			d.lines[idx].activity = evt.Message
+			if !d.ansi && evt.Message != "" {
+				prefix := "  "
+				switch evt.Type {
+				case EventToolStart:
+					prefix = "    🔧"
+				case EventToolComplete:
+					prefix = "    ✓ "
+				case EventWritingFile:
+					prefix = "    📄"
+				case EventSendingPrompt:
+					prefix = "    📨"
+				case EventReasoning:
+					prefix = "    💭"
+				default:
+					prefix = "    ⏳"
+				}
+				fmt.Fprintf(d.w, "%s %s\n", prefix, evt.Message)
+			}
 		}
 
 	case EventPhaseChange:
