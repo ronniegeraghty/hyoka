@@ -51,6 +51,24 @@ func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service,
 	}
 	b.WriteString("\n")
 
+	// Phase Timing
+	if r.GenerationDuration > 0 || r.ReviewDuration > 0 || r.BuildDuration > 0 {
+		b.WriteString("## Phase Timing\n\n")
+		b.WriteString("| Phase | Duration |\n")
+		b.WriteString("|-------|----------|\n")
+		if r.GenerationDuration > 0 {
+			fmt.Fprintf(&b, "| Generation | %.1fs |\n", r.GenerationDuration)
+		}
+		if r.BuildDuration > 0 {
+			fmt.Fprintf(&b, "| Build | %.1fs |\n", r.BuildDuration)
+		}
+		if r.ReviewDuration > 0 {
+			fmt.Fprintf(&b, "| Review | %.1fs |\n", r.ReviewDuration)
+		}
+		fmt.Fprintf(&b, "| **Total** | **%.1fs** |\n", r.Duration)
+		b.WriteString("\n")
+	}
+
 	// Config used
 	if len(r.ConfigUsed) > 0 {
 		b.WriteString("## Configuration\n\n")

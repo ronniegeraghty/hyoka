@@ -15,13 +15,15 @@ func TestWriteMarkdownReport(t *testing.T) {
 
 	boolTrue := true
 	r := &EvalReport{
-		PromptID:   "test-prompt",
-		ConfigName: "baseline",
-		Timestamp:  "2024-01-15T10:00:00Z",
-		Duration:   12.5,
-		PromptMeta: map[string]any{"service": "storage", "language": "dotnet"},
-		ConfigUsed: map[string]any{"name": "baseline", "model": "gpt-4"},
-		GeneratedFiles: []string{"Program.cs"},
+		PromptID:           "test-prompt",
+		ConfigName:         "baseline",
+		Timestamp:          "2024-01-15T10:00:00Z",
+		Duration:           12.5,
+		GenerationDuration: 8.2,
+		ReviewDuration:     3.1,
+		PromptMeta:         map[string]any{"service": "storage", "language": "dotnet"},
+		ConfigUsed:         map[string]any{"name": "baseline", "model": "gpt-4"},
+		GeneratedFiles:     []string{"Program.cs"},
 		Build: &build.BuildResult{
 			Language: "dotnet",
 			Command:  "dotnet build",
@@ -86,6 +88,11 @@ func TestWriteMarkdownReport(t *testing.T) {
 		"Back to Summary",
 		"File created",
 		"150ms",
+		"Phase Timing",
+		"Generation",
+		"8.2s",
+		"Review",
+		"3.1s",
 	}
 	for _, check := range checks {
 		if !strings.Contains(content, check) {

@@ -78,14 +78,17 @@ type EngineOptions struct {
 	MaxTurns      int
 	MaxFiles      int
 	MaxOutputSize int64
+	// Process lifecycle (#46)
+	ValidateCleanup bool // Fail run if orphaned processes detected after cleanup.
 }
 
 // Engine orchestrates evaluation runs.
 type Engine struct {
-	evaluator      CopilotEvaluator
-	reviewer       review.Reviewer
-	panelReviewer  *review.PanelReviewer
-	opts           EngineOptions
+	evaluator     CopilotEvaluator
+	reviewer      review.Reviewer
+	panelReviewer *review.PanelReviewer
+	opts          EngineOptions
+	tracker       *ProcessTracker
 }
 
 // NewEngine creates a new Engine with the given evaluator and options.
@@ -141,6 +144,7 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 		evaluator: evaluator,
 		reviewer:  reviewer,
 		opts:      opts,
+		tracker:   DefaultTracker,
 	}
 }
 
@@ -185,7 +189,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	if evalCount > 10 && e.opts.ConfirmLargeRuns && !e.opts.AutoConfirm {
 		fmt.Printf("⚠️  Large run detected (%d evaluations). Continue? [y/N] ", evalCount)
 		var answer string
-		fmt.Scanln(&answer)
+		_ = fmt.Scanln(&answer)
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer != "y" && answer != "yes" {
 			return nil, fmt.Errorf("run aborted by user (use -y to skip confirmation)")
@@ -341,7 +345,42 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	wg.Wait()
 	display.Done()
 
+	// Post-run orphan scan — terminate any leaked copilot processes (#46)
+	if orphans := e.tracker.TerminateOrphans(); orphans > 0 {
+		slog.Warn("Terminated orphaned copilot processes", "count", orphans)
+		if e.opts.ValidateCleanup {
+			return summary, fmt.Errorf("validate-cleanup: %d orphaned copilot processes detected and terminated", orphans)
+		}
+	}
+
 	summary.Duration = time.Since(start).Seconds()
+
+	// Calculate per-phase average durations across all reports (#44)
+	var genSum, buildSum, reviewSum float64
+	var genCount, buildCount, reviewCount int
+	for _, r := range summary.Results {
+		if r.GenerationDuration > 0 {
+			genSum += r.GenerationDuration
+			genCount++
+		}
+		if r.BuildDuration > 0 {
+			buildSum += r.BuildDuration
+			buildCount++
+		}
+		if r.ReviewDuration > 0 {
+			reviewSum += r.ReviewDuration
+			reviewCount++
+		}
+	}
+	if genCount > 0 {
+		summary.AvgGenerationDuration = genSum / float64(genCount)
+	}
+	if buildCount > 0 {
+		summary.AvgBuildDuration = buildSum / float64(buildCount)
+	}
+	if reviewCount > 0 {
+		summary.AvgReviewDuration = reviewSum / float64(reviewCount)
+	}
 
 	// Write JSON summary
 	if _, err := report.WriteSummary(summary, e.opts.OutputDir); err != nil {
@@ -445,8 +484,27 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Run evaluation (generation phase — uses its own timeout)
 	sendPhase(progress.PhaseGenerating)
+
+	// Snapshot copilot PIDs before starting the SDK client (#46)
+	beforePIDs, _ := FindCopilotProcesses()
+	beforeSet := make(map[int]bool, len(beforePIDs))
+	for _, p := range beforePIDs {
+		beforeSet[p] = true
+	}
+
+	genStart := time.Now()
 	result, err := e.evaluator.Evaluate(genCtx, task.Prompt, &task.Config, genDir)
 	genCancel() // release generation timeout immediately
+
+	// Register any new copilot PIDs spawned during evaluation (#46)
+	afterPIDs, _ := FindCopilotProcesses()
+	for _, p := range afterPIDs {
+		if !beforeSet[p] {
+			desc := fmt.Sprintf("%s/%s", task.Prompt.ID, task.Config.Name)
+			e.tracker.Register(p, desc)
+		}
+	}
+	evalReport.GenerationDuration = time.Since(genStart).Seconds()
 	evalFailed := err != nil
 	if evalFailed {
 		if genCtx.Err() == context.DeadlineExceeded {
@@ -547,9 +605,8 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		"files_generated", len(generatedFiles),
 		"elapsed", time.Since(start).Truncate(time.Millisecond).String())
 
-	// Capture generation duration BEFORE review/verification so it only reflects
-	// the time the generator agent took, not the additional review time.
-	evalReport.Duration = time.Since(start).Seconds()
+	// Per-phase generation duration already captured above (evalReport.GenerationDuration).
+	// Overall Duration is set at the end of the function after all phases complete.
 
 	// Populate environment info from config and captured events
 	env := &report.EnvironmentInfo{
@@ -635,9 +692,11 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Optional build verification (--verify-build flag)
 	if e.opts.VerifyBuild && len(generatedFiles) > 0 {
+		buildStart := time.Now()
 		buildCtx, buildCancel := context.WithTimeout(ctx, e.opts.BuildTimeout)
 		buildResult, err := build.Verify(buildCtx, task.Prompt.Language, ws.Dir)
 		buildCancel()
+		evalReport.BuildDuration = time.Since(buildStart).Seconds()
 		if err != nil {
 			lg.Error("Build verification error", "error", err)
 			if evalReport.Error == "" {
@@ -658,6 +717,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	// Code review — use panel reviewer if available, otherwise single reviewer
 	// Uses its own independent timeout context (fixes issue #3).
 	if !e.opts.SkipReview && len(generatedFiles) > 0 {
+		reviewStart := time.Now()
 		sendPhase(progress.PhaseReviewing)
 		rlg := logging.WithPhase(lg, "review")
 
@@ -726,6 +786,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			rlg.Debug("Captured reviewed files", "count", len(reviewedFiles))
 		}
 		reviewCancel()
+		evalReport.ReviewDuration = time.Since(reviewStart).Seconds()
 	}
 
 	// Tool usage evaluation (compare expected vs actual tools)
@@ -749,6 +810,9 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Build re-run command so users can reproduce this evaluation
 	evalReport.RerunCommand = buildRerunCommand(task.Prompt.ID, task.Config.Name, e.opts)
+
+	// Capture overall duration after all phases (generation, build, review) complete.
+	evalReport.Duration = time.Since(start).Seconds()
 
 	// Write JSON report
 	reportPath, err := report.WriteReport(evalReport, e.opts.OutputDir, runID, task.Prompt)
