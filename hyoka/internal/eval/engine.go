@@ -418,8 +418,22 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		return evalReport
 	}
 
+	// Create an isolated temporary workspace for the generator (#26).
+	// The agent writes files here — not directly to the report tree.
+	// After generation, files are copied to the persistent report directory.
+	genDir, err := os.MkdirTemp("", "hyoka-gen-*")
+	if err != nil {
+		evalReport.Error = fmt.Sprintf("generator workspace setup failed: %v", err)
+		evalReport.ErrorDetails = err.Error()
+		evalReport.ErrorCategory = "generation_failure"
+		evalReport.FailureReason = fmt.Sprintf("Could not create isolated generator workspace: %v", err)
+		evalReport.Duration = time.Since(start).Seconds()
+		return evalReport
+	}
+	defer os.RemoveAll(genDir)
+
 	if e.opts.Debug {
-		log.Printf("[DEBUG] %s: Workspace: %s", debugPrefix, ws.Dir)
+		log.Printf("[DEBUG] %s: Workspace: %s (gen: %s)", debugPrefix, ws.Dir, genDir)
 	}
 
 	// Snapshot home directory and CWD before eval so we can recover misplaced files after
@@ -437,7 +451,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Run evaluation (generation phase — uses its own timeout)
 	sendPhase(progress.PhaseGenerating)
-	result, err := e.evaluator.Evaluate(genCtx, task.Prompt, &task.Config, ws.Dir)
+	result, err := e.evaluator.Evaluate(genCtx, task.Prompt, &task.Config, genDir)
 	genCancel() // release generation timeout immediately
 	evalFailed := err != nil
 	if evalFailed {
@@ -476,17 +490,29 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	// First, recover any files the agent wrote to the home directory instead of the workspace.
 	// The Copilot CLI sometimes creates files in ~ when the agent omits the path parameter.
 	if homeDir != "" && preEvalHomeFiles != nil {
-		recovered := recoverMisplacedFiles(homeDir, preEvalHomeFiles, ws.Dir, debugPrefix, e.opts.Debug)
+		recovered := recoverMisplacedFiles(homeDir, preEvalHomeFiles, genDir, debugPrefix, e.opts.Debug)
 		if recovered > 0 {
 			log.Printf("%s: Recovered %d misplaced files from home dir to workspace", debugPrefix, recovered)
+		}
+		// Post-recovery validation: flag anything recovery couldn't handle (#26)
+		if remaining := ValidateWorkspaceContainment(homeDir, preEvalHomeFiles); len(remaining) > 0 {
+			log.Printf("WARNING %s: %d items still outside workspace after recovery (home): %v", debugPrefix, len(remaining), remaining)
 		}
 	}
 	// Also recover from CWD
 	if cwdDir != "" && preEvalCwdFiles != nil {
-		recovered := recoverMisplacedFiles(cwdDir, preEvalCwdFiles, ws.Dir, debugPrefix, e.opts.Debug)
+		recovered := recoverMisplacedFiles(cwdDir, preEvalCwdFiles, genDir, debugPrefix, e.opts.Debug)
 		if recovered > 0 {
 			log.Printf("%s: Recovered %d misplaced files from CWD to workspace", debugPrefix, recovered)
 		}
+		if remaining := ValidateWorkspaceContainment(cwdDir, preEvalCwdFiles); len(remaining) > 0 {
+			log.Printf("WARNING %s: %d items still outside workspace after recovery (CWD): %v", debugPrefix, len(remaining), remaining)
+		}
+	}
+
+	// Copy generated files from isolated workspace to persistent report directory (#26)
+	if err := copyDir(genDir, ws.Dir); err != nil {
+		log.Printf("WARNING %s: failed to copy generated files to report dir: %v", debugPrefix, err)
 	}
 
 	generatedFiles, _ := ws.ListFiles()
@@ -637,6 +663,18 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	// Uses its own independent timeout context (fixes issue #3).
 	if !e.opts.SkipReview && len(generatedFiles) > 0 {
 		sendPhase(progress.PhaseReviewing)
+
+		// Create an isolated reviewer workspace with a copy of the generated
+		// files. Reviewers operate on this copy and cannot modify the original
+		// output in the report directory (#26).
+		reviewWorkDir, err := NewReviewerWorkspace(ws.Dir)
+		if err != nil {
+			log.Printf("WARNING %s: reviewer workspace creation failed, using original: %v", debugPrefix, err)
+			reviewWorkDir = ws.Dir
+		} else {
+			defer os.RemoveAll(reviewWorkDir)
+		}
+
 		reviewCtx, reviewCancel := context.WithTimeout(ctx, e.opts.ReviewTimeout)
 		referenceDir := ""
 		if task.Prompt.ReferenceAnswer != "" {
@@ -647,7 +685,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			if e.opts.Debug {
 				log.Printf("[DEBUG] %s: Starting review panel...", debugPrefix)
 			}
-			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
+			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria)
 			if err != nil {
 				if e.opts.Debug {
 					log.Printf("[DEBUG] %s: ERROR: review panel failed: %v", debugPrefix, err)
@@ -668,7 +706,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			if e.opts.Debug {
 				log.Printf("[DEBUG] %s: Starting single review session...", debugPrefix)
 			}
-			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, ws.Dir, referenceDir, task.Prompt.EvaluationCriteria)
+			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria)
 			if err != nil {
 				if e.opts.Debug {
 					log.Printf("[DEBUG] %s: ERROR: code review failed: %v", debugPrefix, err)
@@ -685,8 +723,8 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			}
 		}
 
-		// Capture reviewed (annotated) files
-		reviewedFiles, err := readReviewedFiles(ws.Dir)
+		// Capture reviewed (annotated) files from the reviewer workspace
+		reviewedFiles, err := readReviewedFiles(reviewWorkDir)
 		if err == nil && len(reviewedFiles) > 0 {
 			evalReport.ReviewedFiles = reviewedFiles
 			if e.opts.Debug {
