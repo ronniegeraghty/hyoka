@@ -41,17 +41,6 @@ t.Error("expected IsStub to be true for stub evaluator")
 }
 }
 
-func TestStubVerifier(t *testing.T) {
-stub := &StubVerifier{}
-result, err := stub.Verify(context.Background(), "test prompt", "/tmp/test", "")
-if err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if !result.Pass {
-t.Error("expected stub verifier to pass")
-}
-}
-
 func TestEngineDryRun(t *testing.T) {
 engine := NewEngine(&StubEvaluator{}, EngineOptions{
 Workers: 2,

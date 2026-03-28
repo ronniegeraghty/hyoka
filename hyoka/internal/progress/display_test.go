@@ -78,7 +78,6 @@ d := NewDisplay(DisplayConfig{Total: 2, Workers: 2, Writer: &buf, Mode: ModeLog}
 
 d.HandleEvent(ProgressEvent{EvalID: "a", PromptID: "p1", ConfigName: "c1", Type: EventStarting})
 d.HandleEvent(ProgressEvent{EvalID: "a", Type: EventPhaseChange, Phase: PhaseGenerating})
-d.HandleEvent(ProgressEvent{EvalID: "a", Type: EventPhaseChange, Phase: PhaseVerifying})
 d.HandleEvent(ProgressEvent{EvalID: "a", Type: EventPassed, FileCount: 2})
 d.Finish()
 
@@ -88,9 +87,6 @@ if !strings.Contains(out, "starting...") {
 }
 if !strings.Contains(out, "generating...") {
 	t.Errorf("log mode should show phase transitions, got %q", out)
-}
-if !strings.Contains(out, "verifying...") {
-	t.Errorf("log mode should show verifying phase, got %q", out)
 }
 if !strings.Contains(out, "✅") {
 	t.Errorf("log mode should show pass result, got %q", out)

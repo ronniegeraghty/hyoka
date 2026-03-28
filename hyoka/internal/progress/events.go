@@ -22,7 +22,6 @@ type Phase string
 
 const (
 	PhaseGenerating Phase = "generating"
-	PhaseVerifying  Phase = "verifying"
 	PhaseReviewing  Phase = "reviewing"
 )
 

@@ -81,39 +81,21 @@ type EngineOptions struct {
 	MaxOutputSize int64
 }
 
-// Verifier evaluates generated code against prompt requirements.
-type Verifier interface {
-	Verify(ctx context.Context, originalPrompt string, workDir string, evaluationCriteria string) (*report.VerifyResult, error)
-}
-
-// StubVerifier returns a placeholder pass result.
-type StubVerifier struct{}
-
-// Verify returns a stub verification pass.
-func (s *StubVerifier) Verify(_ context.Context, _ string, _ string, _ string) (*report.VerifyResult, error) {
-	return &report.VerifyResult{
-		Pass:      true,
-		Reasoning: "Verification skipped (stub mode)",
-		Summary:   "Stub mode — no Copilot verification performed",
-	}, nil
-}
-
 // Engine orchestrates evaluation runs.
 type Engine struct {
 	evaluator      CopilotEvaluator
 	reviewer       review.Reviewer
 	panelReviewer  *review.PanelReviewer
-	verifier       Verifier
 	opts           EngineOptions
 }
 
 // NewEngine creates a new Engine with the given evaluator and options.
 func NewEngine(evaluator CopilotEvaluator, opts EngineOptions) *Engine {
-	return NewEngineWithReviewer(evaluator, nil, nil, opts)
+	return NewEngineWithReviewer(evaluator, nil, opts)
 }
 
-// NewEngineWithReviewer creates a new Engine with an evaluator, verifier, and reviewer.
-func NewEngineWithReviewer(evaluator CopilotEvaluator, verifier Verifier, reviewer review.Reviewer, opts EngineOptions) *Engine {
+// NewEngineWithReviewer creates a new Engine with an evaluator and reviewer.
+func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer, opts EngineOptions) *Engine {
 	if opts.Workers <= 0 {
 		w := runtime.NumCPU()
 		if w > 8 {
@@ -159,7 +141,6 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, verifier Verifier, review
 	return &Engine{
 		evaluator: evaluator,
 		reviewer:  reviewer,
-		verifier:  verifier,
 		opts:      opts,
 	}
 }
@@ -646,37 +627,6 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			evalReport.Error = reason
 			evalReport.Success = false
 			lg.Warn("Guardrail triggered", "reason", reason, "total_size", totalSize, "max_size", e.opts.MaxOutputSize)
-		}
-	}
-
-	// Copilot-based verification (skip if eval hard-failed with no files)
-	// Uses its own independent timeout context (fixes issue #3).
-	if e.verifier != nil && len(generatedFiles) > 0 {
-		sendPhase(progress.PhaseVerifying)
-		vlg := logging.WithPhase(lg, "verification")
-		vlg.Debug("Starting verification session")
-		verifyCtx, verifyCancel := context.WithTimeout(ctx, e.opts.VerifyTimeout)
-		verifyResult, err := e.verifier.Verify(verifyCtx, task.Prompt.PromptText, ws.Dir, task.Prompt.EvaluationCriteria)
-		verifyCancel()
-		if err != nil {
-			vlg.Error("Verification error", "error", err)
-			if evalReport.Error == "" {
-				evalReport.Error = fmt.Sprintf("verification error: %v", err)
-				evalReport.ErrorDetails = err.Error()
-				evalReport.ErrorCategory = "review_failure"
-				evalReport.FailureReason = fmt.Sprintf("Verification phase failed: %v", err)
-			}
-			evalReport.Success = false
-		} else {
-			evalReport.Verification = verifyResult
-			if !evalFailed {
-				evalReport.Success = verifyResult.Pass
-			}
-			passStr := "FAIL"
-			if verifyResult.Pass {
-				passStr = "PASS"
-			}
-			vlg.Debug("Verification complete", "result", passStr, "summary", verifyResult.Summary)
 		}
 	}
 

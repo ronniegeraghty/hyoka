@@ -24,7 +24,6 @@ import (
 	"github.com/ronniegeraghty/hyoka/internal/review"
 	"github.com/ronniegeraghty/hyoka/internal/trends"
 	"github.com/ronniegeraghty/hyoka/internal/validate"
-	"github.com/ronniegeraghty/hyoka/internal/verify"
 	"github.com/spf13/cobra"
 )
 
@@ -175,7 +174,7 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.output, "output", "./reports", "Report output directory")
 	cmd.Flags().BoolVar(&f.skipTests, "skip-tests", false, "Skip test generation")
 	cmd.Flags().BoolVar(&f.skipReview, "skip-review", false, "Skip code review")
-	cmd.Flags().BoolVar(&f.verifyBuild, "verify-build", false, "Also run build verification (in addition to Copilot verification)")
+	cmd.Flags().BoolVar(&f.verifyBuild, "verify-build", false, "Run build verification on generated code")
 	cmd.Flags().BoolVar(&f.debug, "debug", false, "Verbose output (deprecated: use --log-level debug)")
 	cmd.Flags().MarkDeprecated("debug", "use --log-level debug instead")
 	cmd.Flags().StringVar(&f.progressMode, "progress", "auto", "Progress display mode: auto, live, log, off")
@@ -429,7 +428,6 @@ func runCmd() *cobra.Command {
 			// Select evaluator, verifier, and reviewer
 			var evaluator eval.CopilotEvaluator
 			var reviewer review.Reviewer
-			var verifier eval.Verifier
 			var panelReviewer *review.PanelReviewer
 
 			if f.useStub {
@@ -437,7 +435,6 @@ func runCmd() *cobra.Command {
 				fmt.Println("Using stub evaluator (--stub flag)")
 				evaluator = &eval.StubEvaluator{}
 				reviewer = &review.StubReviewer{}
-				verifier = &eval.StubVerifier{}
 			} else {
 				// Try to create a real Copilot SDK evaluator
 				sdkEval := eval.NewCopilotSDKEvaluator(eval.CopilotEvalOptions{
@@ -453,25 +450,18 @@ func runCmd() *cobra.Command {
 					fmt.Printf("⚠️  Copilot SDK unavailable (%v), falling back to stub evaluator\n", err)
 					evaluator = &eval.StubEvaluator{}
 					reviewer = &review.StubReviewer{}
-					verifier = &eval.StubVerifier{}
 				} else {
 					client.Stop()
 					slog.Info("Using Copilot SDK evaluator")
 					fmt.Println("Using Copilot SDK evaluator")
 
-					// Create a real CopilotVerifier with its own client options
 					clientOpts := &copilot.ClientOptions{}
 					if f.debug {
 						clientOpts.LogLevel = "debug"
 					}
-					copilotVerifier := verify.NewCopilotVerifier(clientOpts, f.model, f.debug)
 
-					// Wire skills directories separately for generator, reviewer, and verifier
+					// Wire skills directories separately for generator and reviewer
 					generatorSkillsDirs, reviewerSkillsDirs := resolveSkillsDirs(f.prompts)
-					if len(reviewerSkillsDirs) > 0 {
-						copilotVerifier.SetSkillDirectories(reviewerSkillsDirs)
-					}
-					verifier = copilotVerifier
 
 					// Create reviewer(s) — use panel if reviewer_models list configured
 					var reviewerModels []string
@@ -526,7 +516,7 @@ func runCmd() *cobra.Command {
 			}
 
 			// Create and run engine
-			engine := eval.NewEngineWithReviewer(evaluator, verifier, reviewer, eval.EngineOptions{
+			engine := eval.NewEngineWithReviewer(evaluator, reviewer, eval.EngineOptions{
 				Workers:          f.workers,
 				MaxSessions:      f.maxSessions,
 				Timeout:          time.Duration(f.timeout) * time.Second,
