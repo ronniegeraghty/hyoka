@@ -40,7 +40,7 @@ snap := snapshotDir(home)
 // Simulate agent creating a new file
 os.WriteFile(filepath.Join(home, "main.py"), []byte("print('hello')"), 0644)
 
-recovered := recoverMisplacedFiles(home, snap, workspace, "test", false)
+recovered := recoverMisplacedFiles(home, snap, workspace, "test")
 if recovered != 1 {
 t.Fatalf("expected 1 recovered, got %d", recovered)
 }
@@ -65,7 +65,7 @@ pycache := filepath.Join(home, "__pycache__")
 os.Mkdir(pycache, 0755)
 os.WriteFile(filepath.Join(pycache, "mod.cpython-311.pyc"), []byte{0}, 0644)
 
-recovered := recoverMisplacedFiles(home, snap, workspace, "test", false)
+recovered := recoverMisplacedFiles(home, snap, workspace, "test")
 if recovered != 1 {
 t.Fatalf("expected 1 recovered (junk dir deleted), got %d", recovered)
 }
@@ -89,7 +89,7 @@ projDir := filepath.Join(home, "myproject")
 os.Mkdir(projDir, 0755)
 os.WriteFile(filepath.Join(projDir, "app.py"), []byte("app"), 0644)
 
-recovered := recoverMisplacedFiles(home, snap, workspace, "test", false)
+recovered := recoverMisplacedFiles(home, snap, workspace, "test")
 if recovered != 1 {
 t.Fatalf("expected 1 recovered, got %d", recovered)
 }
@@ -111,7 +111,7 @@ workspace := t.TempDir()
 os.Mkdir(filepath.Join(home, "Documents"), 0755)
 snap := snapshotDir(home)
 
-recovered := recoverMisplacedFiles(home, snap, workspace, "test", false)
+recovered := recoverMisplacedFiles(home, snap, workspace, "test")
 if recovered != 0 {
 t.Fatalf("expected 0 recovered, got %d", recovered)
 }

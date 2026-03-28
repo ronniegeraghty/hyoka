@@ -68,7 +68,6 @@ type EngineOptions struct {
 	SkipTests       bool
 	SkipReview      bool
 	VerifyBuild     bool
-	Debug           bool
 	DryRun          bool
 	ProgressMode    string // "auto", "live", "log", "off"
 
@@ -482,7 +481,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	// First, recover any files the agent wrote to the home directory instead of the workspace.
 	// The Copilot CLI sometimes creates files in ~ when the agent omits the path parameter.
 	if homeDir != "" && preEvalHomeFiles != nil {
-		recovered := recoverMisplacedFiles(homeDir, preEvalHomeFiles, genDir, debugPrefix, e.opts.Debug)
+		recovered := recoverMisplacedFiles(homeDir, preEvalHomeFiles, genDir, debugPrefix)
 		if recovered > 0 {
 			lg.Info("Recovered misplaced files from home dir", "count", recovered)
 		}
@@ -493,7 +492,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	}
 	// Also recover from CWD
 	if cwdDir != "" && preEvalCwdFiles != nil {
-		recovered := recoverMisplacedFiles(cwdDir, preEvalCwdFiles, genDir, debugPrefix, e.opts.Debug)
+		recovered := recoverMisplacedFiles(cwdDir, preEvalCwdFiles, genDir, debugPrefix)
 		if recovered > 0 {
 			lg.Info("Recovered misplaced files from CWD", "count", recovered)
 		}

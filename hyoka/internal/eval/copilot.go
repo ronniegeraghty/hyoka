@@ -22,7 +22,6 @@ import (
 // CopilotSDKEvaluator uses the Copilot SDK to run real evaluations.
 type CopilotSDKEvaluator struct {
 	clientOpts *copilot.ClientOptions
-	debug      bool
 	allowCloud bool
 	progressFn progress.ProgressFunc
 }
@@ -38,8 +37,6 @@ type CopilotEvalOptions struct {
 	GitHubToken string
 	// CLIPath overrides the Copilot CLI executable path.
 	CLIPath string
-	// Debug enables verbose logging.
-	Debug bool
 	// AllowCloud permits generated code to provision real cloud resources (#36).
 	AllowCloud bool
 }
@@ -53,12 +50,11 @@ func NewCopilotSDKEvaluator(opts CopilotEvalOptions) *CopilotSDKEvaluator {
 	if opts.CLIPath != "" {
 		clientOpts.CLIPath = opts.CLIPath
 	}
-	if opts.Debug {
+	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 		clientOpts.LogLevel = "debug"
 	}
 	return &CopilotSDKEvaluator{
 		clientOpts: clientOpts,
-		debug:      opts.Debug,
 		allowCloud: opts.AllowCloud,
 	}
 }

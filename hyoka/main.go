@@ -139,7 +139,6 @@ type runFlags struct {
 	skipReview   bool
 	skipTrends   bool
 	verifyBuild  bool
-	debug        bool
 	dryRun       bool
 	useStub      bool
 	// Fan-out visibility (#34)
@@ -175,8 +174,6 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().BoolVar(&f.skipTests, "skip-tests", false, "Skip test generation")
 	cmd.Flags().BoolVar(&f.skipReview, "skip-review", false, "Skip code review")
 	cmd.Flags().BoolVar(&f.verifyBuild, "verify-build", false, "Run build verification on generated code")
-	cmd.Flags().BoolVar(&f.debug, "debug", false, "Verbose output (deprecated: use --log-level debug)")
-	cmd.Flags().MarkDeprecated("debug", "use --log-level debug instead")
 	cmd.Flags().StringVar(&f.progressMode, "progress", "auto", "Progress display mode: auto, live, log, off")
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "List matching prompts without running")
 	cmd.Flags().BoolVar(&f.useStub, "stub", false, "Use stub evaluator (no Copilot SDK)")
@@ -325,32 +322,11 @@ func runCmd() *cobra.Command {
 		Long:  "Run evaluations with optional filters against the prompt library.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Backward compat: --debug upgrades log level to debug
-			if f.debug {
-				if err := cmd.Root().PersistentFlags().Set("log-level", "debug"); err == nil {
-					// Re-initialise logger with the upgraded level
-					logFile, _ := cmd.Root().PersistentFlags().GetString("log-file")
-					closer, err := logging.Setup(logging.Options{Level: "debug", FilePath: logFile})
-					if err != nil {
-						return err
-					}
-					cmd.Root().PersistentPostRun = func(*cobra.Command, []string) { closer() }
-				}
-			}
-
-			// Forward compat: --log-level debug also sets the Debug flag so that
-			// downstream components (SDK log level, progress suppression) behave
-			// identically regardless of which flag the user passed.
-			if !f.debug {
-				if ll, _ := cmd.Root().PersistentFlags().GetString("log-level"); ll == "debug" {
-					f.debug = true
-				}
-			}
-
 			// When log-level is debug or info and progress mode is auto,
 			// disable live progress so slog output is visible on stderr.
 			if f.progressMode == "auto" {
 				logLevel, _ := cmd.Root().PersistentFlags().GetString("log-level")
-				if logLevel == "debug" || logLevel == "info" || f.debug {
+				if logLevel == "debug" || logLevel == "info" {
 					f.progressMode = "log"
 				}
 			}
@@ -447,7 +423,6 @@ func runCmd() *cobra.Command {
 			} else {
 				// Try to create a real Copilot SDK evaluator
 				sdkEval := eval.NewCopilotSDKEvaluator(eval.CopilotEvalOptions{
-					Debug:      f.debug,
 					AllowCloud: f.allowCloud,
 				})
 				evaluator = sdkEval
@@ -465,7 +440,7 @@ func runCmd() *cobra.Command {
 					fmt.Println("Using Copilot SDK evaluator")
 
 					clientOpts := &copilot.ClientOptions{}
-					if f.debug {
+					if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 						clientOpts.LogLevel = "debug"
 					}
 
@@ -483,7 +458,7 @@ func runCmd() *cobra.Command {
 
 					if len(reviewerModels) > 1 {
 						// Multi-model panel
-						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.debug)
+						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels)
 						if len(reviewerSkillsDirs) > 0 {
 							panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}
@@ -536,7 +511,6 @@ func runCmd() *cobra.Command {
 				SkipTests:        f.skipTests,
 				SkipReview:       f.skipReview,
 				VerifyBuild:      f.verifyBuild,
-				Debug:            f.debug,
 				DryRun:           f.dryRun,
 				ProgressMode:     f.progressMode,
 				ConfirmLargeRuns: true,

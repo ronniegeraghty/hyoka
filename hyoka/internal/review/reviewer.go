@@ -215,16 +215,14 @@ type PanelReviewer struct {
 	clientOpts       *copilot.ClientOptions
 	models           []string // first model is the consolidator
 	skillDirectories []string
-	debug            bool
 }
 
 // NewPanelReviewer creates a panel reviewer that runs multiple models concurrently.
 // The first model in the list is used as the consolidator.
-func NewPanelReviewer(clientOpts *copilot.ClientOptions, models []string, debug bool) *PanelReviewer {
+func NewPanelReviewer(clientOpts *copilot.ClientOptions, models []string) *PanelReviewer {
 	return &PanelReviewer{
 		clientOpts: clientOpts,
 		models:     models,
-		debug:      debug,
 	}
 }
 

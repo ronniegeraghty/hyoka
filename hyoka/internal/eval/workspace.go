@@ -246,7 +246,7 @@ func snapshotDir(dir string) map[string]bool {
 // extension) are moved; new directories are either moved into the workspace or
 // deleted if they match a known junk pattern. Returns the count of recovered
 // items (files + directories moved or cleaned up).
-func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir string, _ string, debug bool) int {
+func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir string, _ string) int {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0
@@ -267,9 +267,7 @@ func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir stri
 			if junkDirs[e.Name()] {
 				if err := os.RemoveAll(src); err == nil {
 					recovered++
-					if debug {
-						slog.Debug("Deleted junk directory", "path", src)
-					}
+					slog.Debug("Deleted junk directory", "path", src)
 				}
 				continue
 			}
@@ -284,9 +282,7 @@ func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir stri
 				}
 			}
 			recovered++
-			if debug {
-				slog.Debug("Recovered misplaced directory", "src", src, "dst", dst)
-			}
+			slog.Debug("Recovered misplaced directory", "src", src, "dst", dst)
 			continue
 		}
 
@@ -307,9 +303,7 @@ func recoverMisplacedFiles(dir string, preSnapshot map[string]bool, destDir stri
 		}
 		os.Remove(src) // clean up the misplaced file
 		recovered++
-		if debug {
-			slog.Debug("Recovered misplaced file", "src", src, "dst", dst)
-		}
+		slog.Debug("Recovered misplaced file", "src", src, "dst", dst)
 	}
 	return recovered
 }
