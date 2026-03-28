@@ -4,6 +4,7 @@ package skills
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,6 +28,7 @@ func ResolveSkillDirs(skills []config.Skill, baseDir string) ([]string, error) {
 			if err != nil {
 				return nil, fmt.Errorf("resolving local skill %q: %w", s.Path, err)
 			}
+			slog.Debug("Resolved local skill", "path", s.Path, "resolved_count", len(resolved))
 			dirs = append(dirs, resolved...)
 		case "remote":
 			dir, err := fetchRemote(s, baseDir)
@@ -106,6 +108,7 @@ func fetchRemote(s config.Skill, baseDir string) (string, error) {
 	}
 
 	fmt.Printf("Fetching remote skill: %s (repo: %s)\n", s.Name, s.Repo)
+	slog.Info("Fetching remote skill", "skill", s.Name, "repo", s.Repo)
 	cmd := exec.Command("npx", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

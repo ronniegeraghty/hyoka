@@ -3,6 +3,7 @@ package prompt
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 // Returns an error if the directory contains zero valid prompts, along with
 // near-miss suggestions for files that almost match the naming pattern.
 func LoadPrompts(root string) ([]*Prompt, error) {
+	slog.Debug("Scanning for prompts", "root", root)
 	var prompts []*Prompt
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -36,6 +38,7 @@ func LoadPrompts(root string) ([]*Prompt, error) {
 		}
 
 		prompts = append(prompts, p)
+		slog.Debug("Loaded prompt", "id", p.ID, "path", path)
 		return nil
 	})
 	if err != nil {

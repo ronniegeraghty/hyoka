@@ -3,6 +3,7 @@ package config
 
 import (
 "fmt"
+"log/slog"
 "os"
 "os/exec"
 "path/filepath"
@@ -194,6 +195,7 @@ Configs []ToolConfig `yaml:"configs"`
 
 // Load reads and parses a configuration file from the given path.
 func Load(path string) (*ConfigFile, error) {
+slog.Debug("Loading config file", "path", path)
 data, err := os.ReadFile(path)
 if err != nil {
 return nil, fmt.Errorf("reading config file: %w", err)
@@ -204,6 +206,7 @@ return Parse(data)
 // LoadDir reads all .yaml files in a directory and merges their configs.
 // This allows splitting configs across multiple files (e.g., baseline.yaml, azure-mcp.yaml).
 func LoadDir(dir string) (*ConfigFile, error) {
+slog.Debug("Loading config directory", "dir", dir)
 entries, err := os.ReadDir(dir)
 if err != nil {
 return nil, fmt.Errorf("reading config directory %s: %w", dir, err)

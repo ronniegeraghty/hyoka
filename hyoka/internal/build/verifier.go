@@ -4,6 +4,7 @@ package build
 import (
 "context"
 "fmt"
+"log/slog"
 "os"
 "os/exec"
 "path/filepath"
@@ -26,6 +27,7 @@ Success  bool          `json:"success"`
 func Verify(ctx context.Context, language string, workDir string) (*BuildResult, error) {
 lc := DetectLanguage(language)
 if lc == nil {
+slog.Warn("Unsupported language for build verification", "language", language)
 return &BuildResult{
 Language: language,
 Command:  "",
@@ -36,6 +38,7 @@ Success:  false,
 }
 
 cmdStr, args := buildCommand(lc, workDir)
+slog.Info("Starting build verification", "language", lc.Name, "command", fmt.Sprintf("%s %s", cmdStr, strings.Join(args, " ")))
 
 start := time.Now()
 
@@ -65,9 +68,11 @@ result.ExitCode = -1
 result.Stderr = err.Error()
 }
 result.Success = false
+slog.Info("Build verification failed", "language", lc.Name, "exit_code", result.ExitCode, "duration", duration)
 } else {
 result.ExitCode = 0
 result.Success = true
+slog.Info("Build verification passed", "language", lc.Name, "duration", duration)
 }
 
 return result, nil

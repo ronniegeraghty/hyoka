@@ -4,6 +4,7 @@ package report
 import (
 "encoding/json"
 "fmt"
+"log/slog"
 "os"
 "path/filepath"
 
@@ -41,6 +42,7 @@ if err := os.WriteFile(reportPath, data, 0644); err != nil {
 return "", fmt.Errorf("writing report: %w", err)
 }
 
+slog.Debug("Report written", "path", reportPath, "size", len(data))
 return reportPath, nil
 }
 
@@ -62,5 +64,6 @@ if err := os.WriteFile(summaryPath, data, 0644); err != nil {
 return "", fmt.Errorf("writing summary: %w", err)
 }
 
+slog.Debug("Summary written", "path", summaryPath, "size", len(data))
 return summaryPath, nil
 }

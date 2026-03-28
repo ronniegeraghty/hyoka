@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -41,6 +42,7 @@ func (r *CopilotReviewer) SetSkillDirectories(dirs []string) {
 
 // Review creates a separate Copilot session, sends the review prompt, and parses results.
 func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (*ReviewResult, error) {
+	slog.Debug("Reading generated files for review", "workDir", workDir)
 	generatedFiles, err := utils.ReadDirFiles(workDir)
 	if err != nil {
 		return nil, fmt.Errorf("reading generated files: %w", err)
@@ -48,12 +50,14 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 	if len(generatedFiles) == 0 {
 		return nil, fmt.Errorf("no generated files found in %s", workDir)
 	}
+	slog.Debug("Generated files loaded", "file_count", len(generatedFiles))
 
 	var referenceFiles map[string]string
 	if referenceDir != "" {
 		referenceFiles, err = utils.ReadDirFiles(referenceDir)
 		if err != nil {
 			// Non-fatal: proceed without reference
+			slog.Warn("Could not read reference files, proceeding without", "referenceDir", referenceDir, "error", err)
 			referenceFiles = nil
 		}
 	}
@@ -112,6 +116,7 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		reviewEvents = append(reviewEvents, evt)
 	}
 
+	slog.Debug("Creating review session", "model", r.model)
 	session, err := r.client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: r.model,
 		SystemMessage: &copilot.SystemMessageConfig{
@@ -125,6 +130,7 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		OnEvent:             eventHandler,
 	})
 	if err != nil {
+		slog.Error("Failed to create review session", "model", r.model, "error", err)
 		return nil, fmt.Errorf("creating review session: %w", err)
 	}
 	// SDK's Disconnect() can block if the CLI subprocess is stuck.
@@ -138,10 +144,12 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		}
 	}()
 
+	slog.Debug("Sending review prompt", "model", r.model)
 	_, err = session.SendAndWait(ctx, copilot.MessageOptions{
 		Prompt: reviewPrompt,
 	})
 	if err != nil {
+		slog.Error("Review session send failed", "model", r.model, "error", err)
 		return nil, fmt.Errorf("review session send: %w", err)
 	}
 
@@ -153,9 +161,11 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 
 	result, err := parseReviewResponse(responseText)
 	if err != nil {
+		slog.Error("Failed to parse review response", "model", r.model, "error", err)
 		return nil, err
 	}
 	result.Events = capturedEvents
+	slog.Info("Review complete", "model", r.model, "overall_score", result.OverallScore, "max_score", result.MaxScore)
 	return result, nil
 }
 
@@ -227,6 +237,7 @@ func (p *PanelReviewer) SetSkillDirectories(dirs []string) {
 // plus a consolidated result. The consolidated result is produced by the first model
 // in the list, which receives all other reviewers' outputs.
 func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (panel []ReviewResult, consolidated *ReviewResult, err error) {
+	slog.Info("Starting panel review", "model_count", len(p.models), "models", p.models)
 	if len(p.models) == 0 {
 		return nil, nil, fmt.Errorf("no reviewer models configured")
 	}
@@ -258,9 +269,15 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 		wg.Add(1)
 		go func(idx int, m string) {
 			defer wg.Done()
+			slog.Debug("Panel reviewer starting", "model", m, "index", idx)
 			result, reviewErr := p.runSingleReview(ctx, m, reviewPrompt, workDir)
 			if result != nil {
 				result.Model = m
+			}
+			if reviewErr != nil {
+				slog.Warn("Panel reviewer failed", "model", m, "error", reviewErr)
+			} else {
+				slog.Debug("Panel reviewer complete", "model", m, "overall_score", result.OverallScore, "max_score", result.MaxScore)
 			}
 			results <- reviewOutput{index: idx, model: m, result: result, err: reviewErr}
 		}(i, model)
@@ -275,8 +292,8 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 	// Collect results in order
 	ordered := make([]*ReviewResult, len(p.models))
 	for out := range results {
-		if out.err != nil && p.debug {
-			fmt.Printf("[DEBUG] reviewer %s failed: %v\n", out.model, out.err)
+		if out.err != nil {
+			slog.Warn("Reviewer model failed", "model", out.model, "error", out.err)
 		}
 		ordered[out.index] = out.result
 	}
@@ -299,12 +316,15 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 	}
 
 	// Consolidate: use the first model to synthesize all reviews
+	slog.Info("Starting review consolidation", "consolidator_model", p.models[0], "panel_size", len(panel))
 	consolidated, err = p.consolidate(ctx, originalPrompt, generatedFiles, panel)
 	if err != nil {
 		// Fallback: use average scores from panel
+		slog.Warn("Consolidation failed, falling back to average", "error", err)
 		consolidated = averageReview(panel)
 	}
 	consolidated.Model = "consensus"
+	slog.Info("Panel review complete", "panel_size", len(panel), "consensus_score", consolidated.OverallScore, "max_score", consolidated.MaxScore)
 
 	return panel, consolidated, nil
 }
@@ -317,6 +337,7 @@ func (p *PanelReviewer) Review(ctx context.Context, originalPrompt string, workD
 
 // runSingleReview creates a Copilot client, runs a review session, and returns the result.
 func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, reviewPrompt string, workDir string) (*ReviewResult, error) {
+	slog.Debug("Starting single review", "model", model)
 	opts := *p.clientOpts
 	client := copilot.NewClient(&opts)
 
@@ -381,6 +402,7 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 		reviewEvents = append(reviewEvents, evt)
 	}
 
+	slog.Debug("Creating review session", "model", model)
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: model,
 		SystemMessage: &copilot.SystemMessageConfig{
@@ -397,6 +419,7 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 		return nil, fmt.Errorf("creating review session for %s: %w", model, err)
 	}
 
+	slog.Debug("Sending review prompt", "model", model)
 	_, err = session.SendAndWait(ctx, copilot.MessageOptions{
 		Prompt: reviewPrompt,
 	})
@@ -420,6 +443,8 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 
 // consolidate uses the first model to synthesize all individual reviews into a consensus.
 func (p *PanelReviewer) consolidate(ctx context.Context, originalPrompt string, generatedFiles map[string]string, panel []ReviewResult) (*ReviewResult, error) {
+	consolidatorModel := p.models[0]
+	slog.Debug("Starting consolidation", "consolidator_model", consolidatorModel, "panel_size", len(panel))
 	var b strings.Builder
 	b.WriteString("You are a senior review consolidator. Multiple independent reviewers have scored the same generated code.\n")
 	b.WriteString("Synthesize their feedback into a single consensus review.\n\n")
@@ -442,11 +467,12 @@ func (p *PanelReviewer) consolidate(ctx context.Context, originalPrompt string, 
 	b.WriteString("Write a summary that captures the consensus view.\n\n")
 	b.WriteString("Respond with ONLY a JSON object in the same format as the individual reviews.\n")
 
-	consolidatorModel := p.models[0]
+	slog.Debug("Sending consolidation prompt", "consolidator_model", consolidatorModel)
 	result, err := p.runSingleReview(ctx, consolidatorModel, b.String(), "")
 	if err != nil {
 		return nil, fmt.Errorf("consolidation failed: %w", err)
 	}
+	slog.Debug("Consolidation complete", "overall_score", result.OverallScore, "max_score", result.MaxScore)
 	return result, nil
 }
 
