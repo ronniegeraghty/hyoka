@@ -1,8 +1,12 @@
 package eval
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -17,17 +21,23 @@ var DefaultTracker = &ProcessTracker{}
 type ProcessTracker struct {
 	mu    sync.Mutex
 	procs map[int]*os.Process
+	pids  map[int]string // pid -> description
 }
 
-// Register adds a process to the tracker by PID.
-func (pt *ProcessTracker) Register(pid int) {
+// Register adds a process to the tracker by PID with a description.
+func (pt *ProcessTracker) Register(pid int, description string) {
 	pt.mu.Lock()
 	defer pt.mu.Unlock()
 	if pt.procs == nil {
 		pt.procs = make(map[int]*os.Process)
 	}
+	if pt.pids == nil {
+		pt.pids = make(map[int]string)
+	}
 	if proc, err := os.FindProcess(pid); err == nil {
 		pt.procs[pid] = proc
+		pt.pids[pid] = description
+		slog.Info("Registering copilot process", "pid", pid, "description", description)
 	}
 }
 
@@ -35,7 +45,124 @@ func (pt *ProcessTracker) Register(pid int) {
 func (pt *ProcessTracker) Deregister(pid int) {
 	pt.mu.Lock()
 	defer pt.mu.Unlock()
+	slog.Info("Deregistering copilot process", "pid", pid)
 	delete(pt.procs, pid)
+	delete(pt.pids, pid)
+}
+
+// TrackedPIDs returns a snapshot of all currently tracked PIDs.
+func (pt *ProcessTracker) TrackedPIDs() map[int]string {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+	out := make(map[int]string, len(pt.pids))
+	for pid, desc := range pt.pids {
+		out[pid] = desc
+	}
+	return out
+}
+
+// FindCopilotProcesses scans /proc for running processes with "copilot" or
+// "github-copilot" in their command line. Returns PIDs of matching processes.
+func FindCopilotProcesses() ([]int, error) {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil, fmt.Errorf("reading /proc: %w", err)
+	}
+
+	var pids []int
+	myPID := os.Getpid()
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			continue // not a PID directory
+		}
+		if pid == myPID {
+			continue
+		}
+		cmdline, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "cmdline"))
+		if err != nil {
+			continue // process may have exited
+		}
+		// cmdline uses null bytes as separators
+		cmd := strings.ToLower(strings.ReplaceAll(string(cmdline), "\x00", " "))
+		if strings.Contains(cmd, "copilot") || strings.Contains(cmd, "github-copilot") {
+			pids = append(pids, pid)
+		}
+	}
+	return pids, nil
+}
+
+// ScanOrphans finds copilot processes not tracked by this ProcessTracker.
+func (pt *ProcessTracker) ScanOrphans() []int {
+	allCopilot, err := FindCopilotProcesses()
+	if err != nil {
+		slog.Warn("Failed to scan for copilot processes", "error", err)
+		return nil
+	}
+
+	pt.mu.Lock()
+	tracked := make(map[int]bool, len(pt.procs))
+	for pid := range pt.procs {
+		tracked[pid] = true
+	}
+	pt.mu.Unlock()
+
+	var orphans []int
+	for _, pid := range allCopilot {
+		if !tracked[pid] {
+			orphans = append(orphans, pid)
+		}
+	}
+	return orphans
+}
+
+// TerminateOrphans finds and kills orphaned copilot processes.
+// Returns the number of orphaned processes found.
+func (pt *ProcessTracker) TerminateOrphans() int {
+	orphans := pt.ScanOrphans()
+	if len(orphans) == 0 {
+		return 0
+	}
+
+	terminated := 0
+	for _, pid := range orphans {
+		slog.Warn("Terminating orphaned copilot process", "pid", pid)
+		proc, err := os.FindProcess(pid)
+		if err != nil {
+			continue
+		}
+		// SIGTERM first
+		if err := proc.Signal(syscall.SIGTERM); err != nil {
+			continue // already gone
+		}
+		terminated++
+
+		// Wait up to 5s for graceful exit, then SIGKILL
+		go func(p *os.Process, id int) {
+			deadline := time.After(5 * time.Second)
+			tick := time.NewTicker(200 * time.Millisecond)
+			defer tick.Stop()
+			for {
+				select {
+				case <-deadline:
+					slog.Warn("Orphaned process did not exit after SIGTERM, sending SIGKILL", "pid", id)
+					p.Kill()
+					p.Release()
+					return
+				case <-tick.C:
+					if err := p.Signal(syscall.Signal(0)); err != nil {
+						return // process exited
+					}
+				}
+			}
+		}(proc, pid)
+	}
+
+	slog.Info("Post-run cleanup", "orphans_found", len(orphans), "orphans_terminated", terminated)
+	return len(orphans)
 }
 
 // TerminateAll sends SIGTERM to every tracked process, waits up to timeout
@@ -98,7 +225,7 @@ waitLoop:
 			errs = append(errs, err)
 		} else {
 			// Reap zombie to avoid leaving defunct processes.
-			proc.Release()
+			_ = proc.Release()
 		}
 		_ = pid // used in log above
 	}
