@@ -3,6 +3,8 @@ package eval
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +14,20 @@ import (
 	"github.com/ronniegeraghty/hyoka/internal/config"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
 	"github.com/ronniegeraghty/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/review"
 )
+
+func TestMain(m *testing.M) {
+	// Suppress slog output during tests to keep output clean.
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError + 1})))
+	os.Exit(m.Run())
+}
+
+// quietOpts returns EngineOptions with stdout suppressed for clean test output.
+func quietOpts(opts EngineOptions) EngineOptions {
+	opts.Stdout = io.Discard
+	return opts
+}
 
 // slowEvaluator blocks until context cancellation, simulating a timeout.
 type slowEvaluator struct{}
@@ -43,10 +58,10 @@ t.Error("expected IsStub to be true for stub evaluator")
 }
 
 func TestEngineDryRun(t *testing.T) {
-engine := NewEngine(&StubEvaluator{}, EngineOptions{
+engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 Workers: 2,
 DryRun:  true,
-})
+}))
 
 prompts := []*prompt.Prompt{
 {ID: "p1", Service: "storage", Language: "dotnet"},
@@ -77,11 +92,11 @@ t.Errorf("expected 2 configs, got %d", summary.TotalConfigs)
 
 func TestEngineRun(t *testing.T) {
 outputDir := t.TempDir()
-engine := NewEngine(&StubEvaluator{}, EngineOptions{
+engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 Workers:   1,
 Timeout:   30 * time.Second,
 OutputDir: outputDir,
-})
+}))
 
 prompts := []*prompt.Prompt{
 {ID: "test-prompt", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
@@ -104,11 +119,11 @@ func TestEngineRunCapturesGeneratedFiles(t *testing.T) {
 	// files on disk (e.g., SDK cleanup removes them). The engine must use the
 	// evaluator's captured list rather than relying solely on ws.ListFiles().
 	outputDir := t.TempDir()
-	engine := NewEngine(&StubEvaluator{}, EngineOptions{
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:   1,
 		Timeout:   30 * time.Second,
 		OutputDir: outputDir,
-	})
+	}))
 
 	prompts := []*prompt.Prompt{
 		{ID: "filelist-test", Service: "storage", Plane: "data-plane", Language: "python", Category: "crud"},
@@ -134,11 +149,11 @@ func TestEngineRunTimeoutError(t *testing.T) {
 	// An evaluator that blocks until the context is cancelled.
 	slowEval := &slowEvaluator{}
 	outputDir := t.TempDir()
-	engine := NewEngine(slowEval, EngineOptions{
+	engine := NewEngine(slowEval, quietOpts(EngineOptions{
 		Workers:   1,
 		Timeout:   100 * time.Millisecond,
 		OutputDir: outputDir,
-	})
+	}))
 
 	prompts := []*prompt.Prompt{
 		{ID: "timeout-test", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
@@ -276,13 +291,13 @@ func (m *manyTurnsEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cfg
 
 func TestGuardrailMaxFiles(t *testing.T) {
 	outputDir := t.TempDir()
-	engine := NewEngine(&manyFilesEvaluator{fileCount: 10}, EngineOptions{
+	engine := NewEngine(&manyFilesEvaluator{fileCount: 10}, quietOpts(EngineOptions{
 		Workers:   1,
 		Timeout:   30 * time.Second,
 		OutputDir: outputDir,
 		SkipReview: true,
 		MaxFiles:  5,
-	})
+	}))
 
 	prompts := []*prompt.Prompt{
 		{ID: "guardrail-files", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
@@ -309,13 +324,13 @@ func TestGuardrailMaxFiles(t *testing.T) {
 
 func TestGuardrailMaxTurns(t *testing.T) {
 	outputDir := t.TempDir()
-	engine := NewEngine(&manyTurnsEvaluator{turnCount: 30}, EngineOptions{
+	engine := NewEngine(&manyTurnsEvaluator{turnCount: 30}, quietOpts(EngineOptions{
 		Workers:   1,
 		Timeout:   30 * time.Second,
 		OutputDir: outputDir,
 		SkipReview: true,
 		MaxTurns:  5,
-	})
+	}))
 
 	prompts := []*prompt.Prompt{
 		{ID: "guardrail-turns", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
@@ -344,13 +359,13 @@ func TestGuardrailMaxOutputSize(t *testing.T) {
 	outputDir := t.TempDir()
 	// Use a custom evaluator that creates a large file
 	largeEval := &manyFilesEvaluator{fileCount: 1}
-	engine := NewEngine(largeEval, EngineOptions{
+	engine := NewEngine(largeEval, quietOpts(EngineOptions{
 		Workers:       1,
 		Timeout:       30 * time.Second,
 		OutputDir:     outputDir,
 		SkipReview:    true,
 		MaxOutputSize: 10, // 10 bytes
-	})
+	}))
 
 	prompts := []*prompt.Prompt{
 		{ID: "guardrail-size", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
@@ -377,7 +392,7 @@ func TestGuardrailMaxOutputSize(t *testing.T) {
 }
 
 func TestGuardrailDefaultValues(t *testing.T) {
-	engine := NewEngine(&StubEvaluator{}, EngineOptions{})
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{}))
 	if engine.opts.MaxTurns != 25 {
 		t.Errorf("default MaxTurns: expected 25, got %d", engine.opts.MaxTurns)
 	}
@@ -392,12 +407,12 @@ func TestGuardrailDefaultValues(t *testing.T) {
 // Integration-style: full stub eval lifecycle — verifies reports are generated and result is consistent.
 func TestStubEvalLifecycle(t *testing.T) {
 	outputDir := t.TempDir()
-	engine := NewEngine(&StubEvaluator{}, EngineOptions{
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:    1,
 		Timeout:    30 * time.Second,
 		OutputDir:  outputDir,
 		SkipReview: true,
-	})
+	}))
 
 	prompts := []*prompt.Prompt{
 		{ID: "lifecycle-test", Service: "storage", Plane: "data-plane", Language: "go", Category: "crud"},
@@ -464,12 +479,12 @@ func TestStubEvalLifecycle(t *testing.T) {
 // Integration-style: verify multi-prompt multi-config fan-out
 func TestMultiPromptMultiConfigFanOut(t *testing.T) {
 	outputDir := t.TempDir()
-	engine := NewEngine(&StubEvaluator{}, EngineOptions{
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:    2,
 		Timeout:    30 * time.Second,
 		OutputDir:  outputDir,
 		SkipReview: true,
-	})
+	}))
 
 	prompts := []*prompt.Prompt{
 		{ID: "p1", Service: "storage", Plane: "data-plane", Language: "go", Category: "crud"},
@@ -521,12 +536,12 @@ func TestMultiPromptMultiConfigFanOut(t *testing.T) {
 // Integration-style: per-phase duration tracking
 func TestPhaseDurationTracking(t *testing.T) {
 	outputDir := t.TempDir()
-	engine := NewEngine(&StubEvaluator{}, EngineOptions{
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:    1,
 		Timeout:    30 * time.Second,
 		OutputDir:  outputDir,
 		SkipReview: true,
-	})
+	}))
 
 	prompts := []*prompt.Prompt{
 		{ID: "timing-test", Service: "storage", Plane: "data-plane", Language: "go", Category: "crud"},
@@ -554,14 +569,14 @@ func TestPhaseDurationTracking(t *testing.T) {
 func TestLargeRunAutoConfirmBypass(t *testing.T) {
 	// With AutoConfirm=true, a run of >10 evals should proceed without blocking on stdin.
 	outputDir := t.TempDir()
-	engine := NewEngine(&StubEvaluator{}, EngineOptions{
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:          1,
 		Timeout:          30 * time.Second,
 		OutputDir:        outputDir,
 		SkipReview:       true,
 		ConfirmLargeRuns: true,
 		AutoConfirm:      true,
-	})
+	}))
 
 	// Create 12 prompt×config combinations to exceed the 10-eval threshold.
 	var prompts []*prompt.Prompt
@@ -590,14 +605,14 @@ func TestLargeRunAutoConfirmBypass(t *testing.T) {
 func TestLargeRunConfirmAbort(t *testing.T) {
 	// With ConfirmLargeRuns=true and stdin providing "n", the run should abort.
 	outputDir := t.TempDir()
-	engine := NewEngine(&StubEvaluator{}, EngineOptions{
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:          1,
 		Timeout:          30 * time.Second,
 		OutputDir:        outputDir,
 		SkipReview:       true,
 		ConfirmLargeRuns: true,
 		AutoConfirm:      false,
-	})
+	}))
 
 	var prompts []*prompt.Prompt
 	for i := 0; i < 12; i++ {
@@ -624,5 +639,137 @@ func TestLargeRunConfirmAbort(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "run aborted by user") {
 		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// capturingReviewer records the evaluation criteria passed to Review.
+type capturingReviewer struct {
+	capturedCriteria string
+}
+
+func (c *capturingReviewer) Review(_ context.Context, _ string, _ string, _ string, evaluationCriteria string) (*review.ReviewResult, error) {
+	c.capturedCriteria = evaluationCriteria
+	return &review.ReviewResult{
+		OverallScore: 5,
+		MaxScore:     5,
+	}, nil
+}
+
+func TestCriteriaMergedIntoReview(t *testing.T) {
+	// Create criteria directory with a language-matched file
+	criteriaDir := t.TempDir()
+	os.MkdirAll(filepath.Join(criteriaDir, "language"), 0755)
+	os.WriteFile(filepath.Join(criteriaDir, "language", "go.yaml"), []byte(`
+match:
+  language: go
+criteria:
+  - name: Uses DefaultAzureCredential
+    description: Must use azidentity.DefaultAzureCredential
+`), 0644)
+
+	reviewer := &capturingReviewer{}
+	engine := NewEngineWithReviewer(&StubEvaluator{}, reviewer, quietOpts(EngineOptions{
+		Workers:     1,
+		Timeout:     30 * time.Second,
+		OutputDir:   t.TempDir(),
+		CriteriaDir: criteriaDir,
+	}))
+
+	prompts := []*prompt.Prompt{
+		{
+			ID: "criteria-test", Service: "storage", Plane: "data-plane",
+			Language: "go", Category: "crud",
+			EvaluationCriteria: "- Must handle errors properly",
+		},
+	}
+	configs := []config.ToolConfig{{Name: "test", Model: "gpt-4"}}
+
+	_, err := engine.Run(context.Background(), prompts, configs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(reviewer.capturedCriteria, "DefaultAzureCredential") {
+		t.Errorf("expected tier 2 criteria in review, got: %s", reviewer.capturedCriteria)
+	}
+	if !strings.Contains(reviewer.capturedCriteria, "handle errors properly") {
+		t.Errorf("expected tier 3 criteria in review, got: %s", reviewer.capturedCriteria)
+	}
+}
+
+func TestCriteriaDirNotExist(t *testing.T) {
+	// Non-existent criteria dir should not cause an error
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
+		Workers:     1,
+		Timeout:     30 * time.Second,
+		OutputDir:   t.TempDir(),
+		CriteriaDir: "/nonexistent/path",
+		SkipReview:  true,
+	}))
+
+	prompts := []*prompt.Prompt{
+		{ID: "dir-test", Service: "storage", Language: "go", Plane: "data-plane", Category: "crud"},
+	}
+	configs := []config.ToolConfig{{Name: "test", Model: "gpt-4"}}
+
+	_, err := engine.Run(context.Background(), prompts, configs)
+	if err != nil {
+		t.Fatalf("non-existent criteria dir should not fail: %v", err)
+	}
+}
+
+func TestCriteriaDirEmpty(t *testing.T) {
+	// Empty criteria dir should work fine — no criteria matched
+	reviewer := &capturingReviewer{}
+	engine := NewEngineWithReviewer(&StubEvaluator{}, reviewer, quietOpts(EngineOptions{
+		Workers:     1,
+		Timeout:     30 * time.Second,
+		OutputDir:   t.TempDir(),
+		CriteriaDir: t.TempDir(), // empty dir
+	}))
+
+	prompts := []*prompt.Prompt{
+		{
+			ID: "empty-criteria", Service: "storage", Language: "go",
+			Plane: "data-plane", Category: "crud",
+			EvaluationCriteria: "- Prompt specific criterion",
+		},
+	}
+	configs := []config.ToolConfig{{Name: "test", Model: "gpt-4"}}
+
+	_, err := engine.Run(context.Background(), prompts, configs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should fall back to prompt-only criteria
+	if !strings.Contains(reviewer.capturedCriteria, "Prompt specific criterion") {
+		t.Errorf("expected prompt criteria as fallback, got: %s", reviewer.capturedCriteria)
+	}
+}
+
+func TestStrictCleanupOptionWired(t *testing.T) {
+	// Verify StrictCleanup option flows through to the engine.
+	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
+		Workers:       1,
+		Timeout:       30 * time.Second,
+		OutputDir:     t.TempDir(),
+		SkipReview:    true,
+		StrictCleanup: true,
+	}))
+
+	if !engine.opts.StrictCleanup {
+		t.Error("expected StrictCleanup to be true")
+	}
+
+	// Verify it defaults to false
+	engine2 := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
+		Workers:  1,
+		Timeout:  30 * time.Second,
+		OutputDir: t.TempDir(),
+	}))
+
+	if engine2.opts.StrictCleanup {
+		t.Error("expected StrictCleanup to default to false")
 	}
 }

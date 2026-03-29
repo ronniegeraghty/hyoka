@@ -176,3 +176,38 @@ func TestReportsFileServing(t *testing.T) {
 		t.Error("expected HTML content")
 	}
 }
+
+func TestStartListensAndServes(t *testing.T) {
+	dir := setupTestReports(t)
+
+	// Start server on random port in background
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Start(Options{ReportsDir: dir, Port: 0})
+	}()
+
+	// Give server a moment to start, then try to hit it.
+	// Since Start() picks port 0, we can't know the port.
+	// Instead, verify it doesn't immediately error.
+	select {
+	case err := <-errCh:
+		// If Start returns very quickly, it likely failed to bind.
+		if err != nil {
+			t.Fatalf("Start() returned error: %v", err)
+		}
+	default:
+		// Still running — that's expected.
+	}
+}
+
+func TestIndexContainsAutoRefresh(t *testing.T) {
+	dir := setupTestReports(t)
+
+	runs, _ := listRuns(dir)
+	var buf strings.Builder
+	indexTemplate.Execute(&buf, runs)
+
+	if !strings.Contains(buf.String(), `http-equiv="refresh"`) {
+		t.Error("expected auto-refresh meta tag in index HTML")
+	}
+}

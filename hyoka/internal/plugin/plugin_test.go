@@ -2,11 +2,18 @@ package plugin
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError + 1})))
+	os.Exit(m.Run())
+}
 
 func TestLoadPlugin(t *testing.T) {
 	dir := t.TempDir()

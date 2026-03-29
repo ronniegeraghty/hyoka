@@ -383,3 +383,91 @@ func TestBuildReportData(t *testing.T) {
 		t.Errorf("expected last step to be complete, got %q", d.TimelineSteps[5].StepType)
 	}
 }
+
+func TestWriteHTMLReportPhaseTimings(t *testing.T) {
+	dir := t.TempDir()
+
+	r := &EvalReport{
+		PromptID:           "timing-test",
+		ConfigName:         "baseline",
+		Timestamp:          "2024-01-15T10:00:00Z",
+		Duration:           45.3,
+		GenerationDuration: 20.1,
+		BuildDuration:      5.5,
+		ReviewDuration:     15.2,
+		PromptMeta:         map[string]any{"service": "storage", "language": "go"},
+		ConfigUsed:         map[string]any{"name": "baseline", "model": "gpt-4"},
+		GeneratedFiles:     []string{"main.go"},
+		Success:            true,
+		Environment: &EnvironmentInfo{
+			Model: "gpt-4",
+		},
+	}
+
+	reportPath, err := WriteHTMLReport(r, dir, "20240115-100000", "storage", "data-plane", "go", "crud")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("failed to read report: %v", err)
+	}
+
+	content := string(data)
+	for _, want := range []string{
+		"Generation Duration",
+		"Build Duration",
+		"Review Duration",
+		"20.1s",
+		"5.5s",
+		"15.2s",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("HTML report missing phase timing %q", want)
+		}
+	}
+}
+
+func TestWriteSummaryHTMLAvgPhaseTimings(t *testing.T) {
+	dir := t.TempDir()
+
+	summary := &RunSummary{
+		RunID:                 "20240115-100000",
+		Timestamp:             "2024-01-15T10:00:00Z",
+		TotalEvals:            2,
+		Passed:                2,
+		Duration:              90.0,
+		AvgGenerationDuration: 18.5,
+		AvgBuildDuration:      4.2,
+		AvgReviewDuration:     12.8,
+		Results: []*EvalReport{
+			{PromptID: "p1", ConfigName: "c1", Success: true, Duration: 45.0},
+			{PromptID: "p2", ConfigName: "c1", Success: true, Duration: 45.0},
+		},
+	}
+
+	_, err := WriteSummaryHTML(summary, dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "20240115-100000", "summary.html"))
+	if err != nil {
+		t.Fatalf("failed to read summary: %v", err)
+	}
+
+	content := string(data)
+	for _, want := range []string{
+		"Avg Generation",
+		"Avg Build",
+		"Avg Review",
+		"18.5s",
+		"4.2s",
+		"12.8s",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("Summary HTML missing avg phase timing %q", want)
+		}
+	}
+}

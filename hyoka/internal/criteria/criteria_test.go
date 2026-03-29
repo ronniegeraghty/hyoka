@@ -1,11 +1,18 @@
 package criteria
 
 import (
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError + 1})))
+	os.Exit(m.Run())
+}
 
 func TestMatchConditionMatchesAll(t *testing.T) {
 	m := MatchCondition{Language: "java", Service: "keyvault"}

@@ -43,7 +43,7 @@ hyoka tracks all spawned Copilot processes to ensure cleanup:
 - **PID registration**: Child Copilot processes are registered with the ProcessTracker
 - **Graceful shutdown**: On completion or Ctrl+C, processes receive SIGTERM then SIGKILL
 - **Orphan detection**: After cleanup, hyoka scans for orphaned Copilot processes and terminates them
-- **Validation**: Use `--validate-cleanup` to fail the run if any orphans are found (CI mode)
+- **Validation**: Use `--strict-cleanup` to fail the run if any orphans are found (CI mode)
 
 ## Resource Monitoring
 
@@ -68,7 +68,7 @@ ps aux | grep 'copilot.*headless'
 pkill -f 'copilot.*headless'
 ```
 
-Use `--validate-cleanup` in CI to detect this automatically.
+Use `--strict-cleanup` in CI to detect this automatically.
 
 ### Timeouts
 

@@ -130,4 +130,4 @@ Key flags for `hyoka run`:
 - `--verify-build` — Run real build verification
 - `--skip-review` — Skip the review phase
 - `--criteria-dir` — Directory with tiered criteria YAML files
-- `--validate-cleanup` — Run cleanup with validate command
+- `--strict-cleanup` — Fail run if orphaned processes detected after cleanup

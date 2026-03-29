@@ -78,7 +78,7 @@ hyoka run --config baseline --dry-run
 | `--verify-build` | false | Run build verification on generated code |
 | `--dry-run` | false | List matches without running |
 | `--monitor-resources` | false | Track CPU/memory of Copilot sessions |
-| `--validate-cleanup` | false | Fail if orphaned processes remain after cleanup |
+| `--strict-cleanup` | false | Fail if orphaned processes remain after cleanup |
 | `--allow-cloud` | false | Allow real Azure resource provisioning |
 
 #### Guardrail Flags

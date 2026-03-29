@@ -157,7 +157,7 @@ type runFlags struct {
 	// Resource monitoring (#45)
 	monitorResources bool
 	// Process lifecycle (#46)
-	validateCleanup bool
+	strictCleanup bool
 	// Tiered criteria (#30)
 	criteriaDir string
 }
@@ -202,7 +202,7 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	// Resource monitoring (#45)
 	cmd.Flags().BoolVar(&f.monitorResources, "monitor-resources", false, "Monitor CPU and memory usage of Copilot sessions during evaluation")
 	// Process lifecycle (#46)
-	cmd.Flags().BoolVar(&f.validateCleanup, "validate-cleanup", false, "Fail run with non-zero exit if orphaned Copilot processes remain after cleanup")
+	cmd.Flags().BoolVar(&f.strictCleanup, "strict-cleanup", false, "Fail run with non-zero exit if orphaned Copilot processes remain after cleanup")
 	// Tiered criteria (#30)
 	cmd.Flags().StringVar(&f.criteriaDir, "criteria-dir", "", "Directory containing attribute-matched criteria YAML files (e.g., criteria/)")
 }
@@ -535,7 +535,7 @@ func runCmd() *cobra.Command {
 				MaxFiles:         f.maxFiles,
 				MaxOutputSize:    maxOutputSize,
 				MonitorResources: f.monitorResources,
-				ValidateCleanup:  f.validateCleanup,
+				StrictCleanup:    f.strictCleanup,
 				CriteriaDir:      f.criteriaDir,
 			})
 			if panelReviewer != nil && !f.skipReview {

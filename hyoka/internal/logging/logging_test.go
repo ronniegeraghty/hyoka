@@ -2,10 +2,23 @@ package logging
 
 import (
 	"bytes"
+	"io"
 	"log/slog"
+	"os"
 	"strings"
 	"testing"
 )
+
+// silentLogger returns a logger that discards all output, for use as a
+// restore point after tests that mutate the global slog default.
+func silentLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError + 1}))
+}
+
+func TestMain(m *testing.M) {
+	slog.SetDefault(silentLogger())
+	os.Exit(m.Run())
+}
 
 func TestResolveLevel(t *testing.T) {
 	tests := []struct {
@@ -57,6 +70,7 @@ func TestEvalLoggerStructuredFields(t *testing.T) {
 	var buf bytes.Buffer
 	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
 
 	l := EvalLogger("cosmos-crud", "baseline-opus", "generation", 3)
 	l.Info("phase started")
@@ -73,6 +87,7 @@ func TestWithPhaseReplacesPhase(t *testing.T) {
 	var buf bytes.Buffer
 	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
 
 	l := EvalLogger("p1", "c1", "generation", 0)
 	l2 := WithPhase(l, "review")
@@ -88,6 +103,7 @@ func TestWithTurnAddsTurnField(t *testing.T) {
 	var buf bytes.Buffer
 	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
 
 	l := EvalLogger("p1", "c1", "generation", 0)
 	l2 := WithTurn(l, 5)
@@ -111,6 +127,6 @@ func TestSetupLogFile(t *testing.T) {
 	slog.Info("file log test message")
 	closer()
 
-	// Restore stderr logger
-	slog.SetDefault(slog.New(slog.NewTextHandler(nil, nil)))
+	// Restore silent logger
+	slog.SetDefault(silentLogger())
 }

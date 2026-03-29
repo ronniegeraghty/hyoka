@@ -166,7 +166,7 @@ hyoka list --json
 | `--allow-cloud` | `false` | Allow generated code to provision real Azure resources |
 | `--sandbox` | `true` | Alias confirming safe/local-only mode (default behavior) |
 | `--criteria-dir` | `criteria` | Directory with tiered evaluation criteria YAML files |
-| `--validate-cleanup` | `false` | Clean up invalid prompts during validation |
+| `--strict-cleanup` | `false` | Fail run if orphaned Copilot processes remain after cleanup |
 
 ### Run Command Examples
 

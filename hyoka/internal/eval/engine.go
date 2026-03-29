@@ -3,6 +3,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -80,11 +81,13 @@ type EngineOptions struct {
 	MaxFiles      int
 	MaxOutputSize int64
 	// Process lifecycle (#46)
-	ValidateCleanup bool // Fail run if orphaned processes detected after cleanup.
+	StrictCleanup bool // Fail run if orphaned processes detected after cleanup.
 	// Resource monitoring (#45)
 	MonitorResources bool
 	// Tiered criteria (#30)
 	CriteriaDir string // Directory containing attribute-matched criteria YAML files.
+	// Output writer for user-facing messages (defaults to os.Stdout).
+	Stdout io.Writer
 }
 
 // Engine orchestrates evaluation runs.
@@ -146,12 +149,20 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 	if abs, err := filepath.Abs(opts.OutputDir); err == nil {
 		opts.OutputDir = abs
 	}
+	if opts.Stdout == nil {
+		opts.Stdout = os.Stdout
+	}
 	return &Engine{
 		evaluator: evaluator,
 		reviewer:  reviewer,
 		opts:      opts,
 		tracker:   DefaultTracker,
 	}
+}
+
+// printf writes user-facing output to the configured writer.
+func (e *Engine) printf(format string, args ...any) {
+	fmt.Fprintf(e.opts.Stdout, format, args...)
 }
 
 // loadCriteria loads Tier 2 criteria sets if CriteriaDir is configured.
@@ -226,13 +237,13 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		"estimated_sessions", estimatedSessions,
 		"workers", e.opts.Workers,
 		"max_sessions", maxSessions)
-	fmt.Printf("\n📊 Evaluation plan: %d evaluations (%d prompts × %d configs)\n", evalCount, len(prompts), len(configs))
-	fmt.Printf("   Estimated Copilot sessions: %d (%d × 2 for generate/review)\n", estimatedSessions, evalCount)
-	fmt.Printf("   Workers: %d | Max sessions: %d\n\n", e.opts.Workers, maxSessions)
+	e.printf("\n📊 Evaluation plan: %d evaluations (%d prompts × %d configs)\n", evalCount, len(prompts), len(configs))
+	e.printf("   Estimated Copilot sessions: %d (%d × 2 for generate/review)\n", estimatedSessions, evalCount)
+	e.printf("   Workers: %d | Max sessions: %d\n\n", e.opts.Workers, maxSessions)
 
 	// Confirmation prompt for large runs (#34)
 	if evalCount > 10 && e.opts.ConfirmLargeRuns && !e.opts.AutoConfirm {
-		fmt.Printf("⚠️  Large run detected (%d evaluations). Continue? [y/N] ", evalCount)
+		e.printf("⚠️  Large run detected (%d evaluations). Continue? [y/N] ", evalCount)
 		var answer string
 		_, _ = fmt.Scanln(&answer)
 		answer = strings.TrimSpace(strings.ToLower(answer))
@@ -418,8 +429,8 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	// Post-run orphan scan — terminate any leaked copilot processes (#46)
 	if orphans := e.tracker.TerminateOrphans(); orphans > 0 {
 		slog.Warn("Terminated orphaned copilot processes", "count", orphans)
-		if e.opts.ValidateCleanup {
-			return summary, fmt.Errorf("validate-cleanup: %d orphaned copilot processes detected and terminated", orphans)
+		if e.opts.StrictCleanup {
+			return summary, fmt.Errorf("strict-cleanup: %d orphaned copilot processes detected and terminated", orphans)
 		}
 	}
 
@@ -460,7 +471,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 			PeakMemoryMB:   rs.PeakMemoryMB,
 			SessionCount:   rs.SessionCount,
 		}
-		fmt.Printf("\n🔍 Resource usage: %s\n", resMonitor.SummaryLine())
+		e.printf("\n🔍 Resource usage: %s\n", resMonitor.SummaryLine())
 	}
 
 	// Write JSON summary

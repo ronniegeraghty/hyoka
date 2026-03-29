@@ -1,12 +1,14 @@
 package main
 
 import (
+	"io"
 	"testing"
 )
 
 func TestRunCmdFlagDefaults(t *testing.T) {
 	cmd := runCmd()
-	// Execute with --help to initialise flags without actually running.
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"--help"})
 	_ = cmd.Execute()
 
@@ -53,6 +55,8 @@ func TestRunCmdFlagDefaults(t *testing.T) {
 
 func TestRunCmdBoolFlagDefaults(t *testing.T) {
 	cmd := runCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"--help"})
 	_ = cmd.Execute()
 
@@ -67,7 +71,7 @@ func TestRunCmdBoolFlagDefaults(t *testing.T) {
 		"all-configs",
 		"allow-cloud",
 		"monitor-resources",
-		"validate-cleanup",
+		"strict-cleanup",
 	}
 
 	for _, name := range falseFlags {
@@ -92,7 +96,7 @@ func TestRunCmdFlagOverride(t *testing.T) {
 		"--max-output-size", "512KB",
 		"--workers", "4",
 		"--monitor-resources",
-		"--validate-cleanup",
+		"--strict-cleanup",
 		"--verify-build",
 		"--skip-review",
 	}
@@ -132,7 +136,7 @@ func TestRunCmdFlagOverride(t *testing.T) {
 		expected bool
 	}{
 		{"monitor-resources", true},
-		{"validate-cleanup", true},
+		{"strict-cleanup", true},
 		{"verify-build", true},
 		{"skip-review", true},
 	}
@@ -186,6 +190,8 @@ func TestParseByteSizeInvalid(t *testing.T) {
 
 func TestRootCmdLogLevelFlags(t *testing.T) {
 	cmd := rootCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"--help"})
 	_ = cmd.Execute()
 
@@ -203,5 +209,73 @@ func TestRootCmdLogLevelFlags(t *testing.T) {
 	}
 	if logFile.DefValue != "" {
 		t.Errorf("log-file default: expected empty, got %q", logFile.DefValue)
+	}
+}
+
+func TestServeCmdHelp(t *testing.T) {
+	cmd := serveCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--help"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("serve --help failed: %v", err)
+	}
+
+	port := cmd.Flags().Lookup("port")
+	if port == nil {
+		t.Fatal("expected --port flag")
+	}
+	if port.DefValue != "8080" {
+		t.Errorf("port default: expected 8080, got %s", port.DefValue)
+	}
+}
+
+func TestPluginsCmdHelp(t *testing.T) {
+	cmd := pluginsCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--help"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("plugins --help failed: %v", err)
+	}
+
+	dir := cmd.Flags().Lookup("plugins-dir")
+	if dir == nil {
+		t.Fatal("expected --plugins-dir flag")
+	}
+}
+
+func TestValidateCmdHelp(t *testing.T) {
+	cmd := validateCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--help"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("validate --help failed: %v", err)
+	}
+}
+
+func TestPluginsCmdEmptyDir(t *testing.T) {
+	cmd := pluginsCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--plugins-dir", t.TempDir()})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("plugins with empty dir failed: %v", err)
+	}
+}
+
+func TestAllSubcommandsRegistered(t *testing.T) {
+	cmd := rootCmd()
+	names := make(map[string]bool)
+	for _, sub := range cmd.Commands() {
+		names[sub.Name()] = true
+	}
+
+	expected := []string{"run", "list", "validate", "check-env", "configs", "trends", "report", "serve", "plugins", "new-prompt", "version"}
+	for _, name := range expected {
+		if !names[name] {
+			t.Errorf("expected subcommand %q to be registered", name)
+		}
 	}
 }
