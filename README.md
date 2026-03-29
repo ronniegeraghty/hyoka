@@ -109,6 +109,8 @@ Did you mean one of these?
 | `hyoka trends` | | Generate historical trend reports with AI analysis |
 | `hyoka report` | | Re-render HTML/MD reports from existing JSON data |
 | `hyoka new-prompt` | | Scaffold a new prompt file interactively |
+| `hyoka serve` | | Launch local web UI for browsing reports |
+| `hyoka plugins` | | List registered plugins |
 | `hyoka version` | | Print version |
 
 ### Filtering
@@ -163,6 +165,8 @@ hyoka list --json
 | `--max-output-size` | `1MB` | Maximum total output size per evaluation (supports KB, MB suffixes) |
 | `--allow-cloud` | `false` | Allow generated code to provision real Azure resources |
 | `--sandbox` | `true` | Alias confirming safe/local-only mode (default behavior) |
+| `--criteria-dir` | `criteria` | Directory with tiered evaluation criteria YAML files |
+| `--validate-cleanup` | `false` | Clean up invalid prompts during validation |
 
 ### Run Command Examples
 

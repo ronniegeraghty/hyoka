@@ -47,11 +47,15 @@ hyoka/                         # Go module (github.com/ronniegeraghty/hyoka)
     ├── rerender/              # Re-render reports from existing JSON
     ├── manifest/              # Prompt manifest generation
     ├── checkenv/              # Environment prerequisite checks
-    └── utils/                 # Shared helpers
+    ├── utils/                 # Shared helpers
+    ├── criteria/              # Tiered evaluation criteria (attribute-matched YAML)
+    ├── plugin/                # Composable plugin system (bundles skills + MCP servers)
+    └── serve/                 # Local web server for browsing eval reports
 
 configs/                       # Evaluation config YAML files
 prompts/                       # Prompt library (organized by language/service)
 skills/                        # Copilot skills (generator/ and reviewer/)
+criteria/                      # Tiered criteria YAML (language/ and service/ subdirs)
 reports/                       # Generated output (gitignored)
 docs/                          # Documentation
 ```
@@ -112,6 +116,8 @@ hyoka validate      # Validate prompt frontmatter
 hyoka check-env     # Verify prerequisites
 hyoka trends        # Analyze trends across runs
 hyoka report        # Re-generate reports from JSON
+hyoka serve         # Launch local web UI for browsing reports
+hyoka plugins       # List registered plugins
 hyoka version       # Print version
 ```
 
@@ -123,3 +129,5 @@ Key flags for `hyoka run`:
 - `--log-file path` — Redirect logs to file
 - `--verify-build` — Run real build verification
 - `--skip-review` — Skip the review phase
+- `--criteria-dir` — Directory with tiered criteria YAML files
+- `--validate-cleanup` — Run cleanup with validate command
