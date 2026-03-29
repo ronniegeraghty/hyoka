@@ -1,0 +1,15 @@
+match:
+  service: key-vault
+criteria:
+  - name: Secret/Key/Certificate Client Separation
+    description: >
+      Uses the correct sub-client for the operation (SecretClient for
+      secrets, KeyClient for keys, CertificateClient for certificates).
+  - name: Key Vault URI Format
+    description: >
+      Vault URI follows the https://{vault-name}.vault.azure.net
+      pattern and is parameterized, not hardcoded.
+  - name: Purge Protection Awareness
+    description: >
+      Delete operations account for soft-delete and purge protection —
+      code includes comments or handling for the recovery period.

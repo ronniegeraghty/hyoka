@@ -1,0 +1,34 @@
+match:
+  language: java
+criteria:
+  - name: Maven/Gradle Dependency Declaration
+    description: >
+      Generated code includes correct dependency declarations
+      (groupId, artifactId, version) for all Azure SDK packages used.
+  - name: Try-With-Resources for Clients
+    description: >
+      All Azure SDK client instances that implement AutoCloseable
+      are used within try-with-resources blocks or explicitly closed
+      in a finally block.
+  - name: Correct Import Packages
+    description: >
+      Imports use the latest azure-sdk-for-java package structure
+      (com.azure.*), not legacy packages (com.microsoft.azure.*).
+  - name: TokenCredential Authentication
+    description: >
+      Authentication uses DefaultAzureCredential or another
+      TokenCredential implementation, not connection strings or
+      hardcoded keys.
+  - name: Builder Pattern for Clients
+    description: >
+      SDK clients are constructed using the builder pattern
+      (e.g., new SecretClientBuilder().credential(...).buildClient()).
+  - name: Proper Exception Handling
+    description: >
+      Azure SDK exceptions (HttpResponseException and subclasses) are
+      caught and handled with status code inspection where appropriate.
+  - name: Pagination Handling
+    description: >
+      List operations use PagedIterable/PagedFlux correctly, iterating
+      with .stream() or .forEach() rather than calling .getValue() on
+      the paged response directly.
