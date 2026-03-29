@@ -15,6 +15,7 @@ import (
 
 	"github.com/ronniegeraghty/hyoka/internal/build"
 	"github.com/ronniegeraghty/hyoka/internal/config"
+	"github.com/ronniegeraghty/hyoka/internal/criteria"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
 	"github.com/ronniegeraghty/hyoka/internal/progress"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
@@ -82,6 +83,8 @@ type EngineOptions struct {
 	ValidateCleanup bool // Fail run if orphaned processes detected after cleanup.
 	// Resource monitoring (#45)
 	MonitorResources bool
+	// Tiered criteria (#30)
+	CriteriaDir string // Directory containing attribute-matched criteria YAML files.
 }
 
 // Engine orchestrates evaluation runs.
@@ -91,6 +94,7 @@ type Engine struct {
 	panelReviewer *review.PanelReviewer
 	opts          EngineOptions
 	tracker       *ProcessTracker
+	criteriaSets  []criteria.CriteriaSet // Tier 2 attribute-matched criteria (#30)
 }
 
 // NewEngine creates a new Engine with the given evaluator and options.
@@ -150,6 +154,42 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 	}
 }
 
+// loadCriteria loads Tier 2 criteria sets if CriteriaDir is configured.
+func (e *Engine) loadCriteria() {
+	if e.opts.CriteriaDir == "" {
+		return
+	}
+	if _, err := os.Stat(e.opts.CriteriaDir); os.IsNotExist(err) {
+		slog.Debug("Criteria directory does not exist, skipping", "dir", e.opts.CriteriaDir)
+		return
+	}
+	sets, err := criteria.LoadDir(e.opts.CriteriaDir)
+	if err != nil {
+		slog.Warn("Failed to load criteria sets", "dir", e.opts.CriteriaDir, "error", err)
+		return
+	}
+	e.criteriaSets = sets
+	slog.Info("Loaded attribute-matched criteria", "sets", len(sets), "dir", e.opts.CriteriaDir)
+}
+
+// mergedCriteria returns the combined Tier 2 + Tier 3 evaluation criteria
+// text for the given prompt.
+func (e *Engine) mergedCriteria(p *prompt.Prompt) string {
+	attrs := criteria.PromptAttrs{
+		Language: p.Language,
+		Service:  p.Service,
+		Plane:    p.Plane,
+		Category: p.Category,
+		SDK:      p.SDKPackage,
+	}
+	matched := criteria.MatchingCriteria(e.criteriaSets, attrs)
+	merged := criteria.MergeCriteria(matched, p.EvaluationCriteria)
+	if merged == "" {
+		return p.EvaluationCriteria
+	}
+	return merged
+}
+
 // SetPanelReviewer configures a multi-model review panel.
 // When set, the engine uses the panel instead of the single reviewer.
 func (e *Engine) SetPanelReviewer(pr *review.PanelReviewer) {
@@ -164,6 +204,9 @@ type EvalTask struct {
 
 // Run executes evaluations for the given prompts crossed with configs.
 func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []config.ToolConfig) (*report.RunSummary, error) {
+	// Load tiered criteria sets (#30) if configured.
+	e.loadCriteria()
+
 	// Build task list (cross product: prompts × configs)
 	var tasks []EvalTask
 	for _, p := range prompts {
@@ -191,7 +234,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	if evalCount > 10 && e.opts.ConfirmLargeRuns && !e.opts.AutoConfirm {
 		fmt.Printf("⚠️  Large run detected (%d evaluations). Continue? [y/N] ", evalCount)
 		var answer string
-		_ = fmt.Scanln(&answer)
+		_, _ = fmt.Scanln(&answer)
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer != "y" && answer != "yes" {
 			return nil, fmt.Errorf("run aborted by user (use -y to skip confirmation)")
@@ -776,11 +819,14 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			referenceDir = task.Prompt.ReferenceAnswer
 		}
 
+		// Merge tiered evaluation criteria (#30)
+		evalCriteria := e.mergedCriteria(task.Prompt)
+
 		if e.panelReviewer != nil {
 			models := e.panelReviewer.Models()
 			rlg.Debug("Starting review panel")
 			sendEvent(progress.EventToolStart, fmt.Sprintf("Review panel: %v", models))
-			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria)
+			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
 			if err != nil {
 				rlg.Error("Review panel failed", "error", err)
 				sendEvent(progress.EventReasoning, fmt.Sprintf("Review panel failed: %v", err))
@@ -800,7 +846,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		} else if e.reviewer != nil {
 			rlg.Debug("Starting single review session")
 			sendEvent(progress.EventToolStart, "Single model review")
-			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, task.Prompt.EvaluationCriteria)
+			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
 			if err != nil {
 				rlg.Error("Code review failed", "error", err)
 				sendEvent(progress.EventReasoning, fmt.Sprintf("Review failed: %v", err))

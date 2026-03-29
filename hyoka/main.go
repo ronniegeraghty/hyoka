@@ -18,10 +18,12 @@ import (
 	"github.com/ronniegeraghty/hyoka/internal/config"
 	"github.com/ronniegeraghty/hyoka/internal/eval"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
+	"github.com/ronniegeraghty/hyoka/internal/plugin"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
 	"github.com/ronniegeraghty/hyoka/internal/rerender"
 	"github.com/ronniegeraghty/hyoka/internal/report"
 	"github.com/ronniegeraghty/hyoka/internal/review"
+	"github.com/ronniegeraghty/hyoka/internal/serve"
 	"github.com/ronniegeraghty/hyoka/internal/trends"
 	"github.com/ronniegeraghty/hyoka/internal/validate"
 	"github.com/spf13/cobra"
@@ -71,6 +73,8 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(trendsCmd())
 	root.AddCommand(reportCmd())
 	root.AddCommand(newPromptCmd())
+	root.AddCommand(serveCmd())
+	root.AddCommand(pluginsCmd())
 
 	return root
 }
@@ -152,6 +156,10 @@ type runFlags struct {
 	allowCloud bool
 	// Resource monitoring (#45)
 	monitorResources bool
+	// Process lifecycle (#46)
+	validateCleanup bool
+	// Tiered criteria (#30)
+	criteriaDir string
 }
 
 func addFilterFlags(cmd *cobra.Command, f *runFlags) {
@@ -193,6 +201,10 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().MarkHidden("sandbox") // sandbox is the default; --allow-cloud is the opt-out
 	// Resource monitoring (#45)
 	cmd.Flags().BoolVar(&f.monitorResources, "monitor-resources", false, "Monitor CPU and memory usage of Copilot sessions during evaluation")
+	// Process lifecycle (#46)
+	cmd.Flags().BoolVar(&f.validateCleanup, "validate-cleanup", false, "Fail run with non-zero exit if orphaned Copilot processes remain after cleanup")
+	// Tiered criteria (#30)
+	cmd.Flags().StringVar(&f.criteriaDir, "criteria-dir", "", "Directory containing attribute-matched criteria YAML files (e.g., criteria/)")
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
@@ -523,6 +535,8 @@ func runCmd() *cobra.Command {
 				MaxFiles:         f.maxFiles,
 				MaxOutputSize:    maxOutputSize,
 				MonitorResources: f.monitorResources,
+				ValidateCleanup:  f.validateCleanup,
+				CriteriaDir:      f.criteriaDir,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)
@@ -917,6 +931,77 @@ func reportCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&reportsDir, "reports-dir", "./reports", "Directory containing evaluation reports")
 	cmd.Flags().BoolVar(&all, "all", false, "Re-render all runs")
+
+	return cmd
+}
+
+func serveCmd() *cobra.Command {
+	var port int
+	var reportsDir string
+
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Start a local web server to browse evaluation reports",
+		Long:  "Starts an HTTP server that provides a web UI for browsing past evaluation runs, viewing summaries, and individual report pages.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reportsDir = resolveOutputFile(cmd, []string{"./reports", "../reports"})
+			return serve.Start(serve.Options{
+				ReportsDir: reportsDir,
+				Port:       port,
+			})
+		},
+	}
+
+	cmd.Flags().IntVar(&port, "port", 8080, "Port to serve on")
+	cmd.Flags().StringVar(&reportsDir, "output", "./reports", "Directory containing evaluation reports")
+
+	return cmd
+}
+
+func pluginsCmd() *cobra.Command {
+	var pluginsDir string
+
+	cmd := &cobra.Command{
+		Use:   "plugins",
+		Short: "List available plugins",
+		Long:  "Scans the plugins directory and lists all available plugin definitions with their skills and MCP servers.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reg := plugin.NewRegistry()
+			if err := reg.LoadDir(pluginsDir); err != nil {
+				return fmt.Errorf("loading plugins: %w", err)
+			}
+
+			plugins := reg.All()
+			if len(plugins) == 0 {
+				fmt.Printf("No plugins found in %s\n", pluginsDir)
+				return nil
+			}
+
+			fmt.Printf("Found %d plugin(s) in %s:\n\n", len(plugins), pluginsDir)
+			for _, p := range plugins {
+				fmt.Printf("  %s", p.Name)
+				if p.Description != "" {
+					fmt.Printf(" — %s", p.Description)
+				}
+				fmt.Println()
+				if len(p.Skills) > 0 {
+					fmt.Printf("    Skills: %d\n", len(p.Skills))
+				}
+				if len(p.MCPServers) > 0 {
+					fmt.Printf("    MCP Servers: %d\n", len(p.MCPServers))
+				}
+				if p.Hooks != nil {
+					hooks := len(p.Hooks.PreToolUse) + len(p.Hooks.PostToolUse)
+					if hooks > 0 {
+						fmt.Printf("    Hooks: %d\n", hooks)
+					}
+				}
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&pluginsDir, "plugins-dir", "./plugins", "Directory containing plugin YAML files")
 
 	return cmd
 }
