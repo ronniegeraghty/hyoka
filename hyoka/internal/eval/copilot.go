@@ -90,10 +90,20 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	// osProcess field is unexported). The SDK manages its own process lifecycle
 	// via client.Stop()/ForceStop(). DefaultTracker.TerminateAll is still called
 	// from the signal handler in engine.go for any future tracked processes.
-	// Defer client cleanup. We use client.Stop() which sends session.destroy
-	// for a graceful shutdown. The generated files are in the report tree
-	// (not a temp dir), so session.destroy won't delete them.
+
+	// Track session ID for cleanup — set after CreateSession.
+	var sessionID string
+	// Defer client cleanup (#62). Delete session state first (requires
+	// connected client), then stop the client. DeleteSession sends
+	// session.delete RPC which removes session-state dir AND the SQLite
+	// session-store.db entry — unlike os.RemoveAll which misses the DB.
 	defer func() {
+		if sessionID != "" {
+			if err := client.DeleteSession(context.Background(), sessionID); err != nil {
+				slog.Debug("session delete failed, session-state may remain",
+					"sessionID", sessionID, "error", err)
+			}
+		}
 		done := make(chan struct{})
 		go func() { client.Stop(); close(done) }()
 		select {
@@ -421,9 +431,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			ErrorDetails: err.Error(),
 		}, fmt.Errorf("creating session: %w", err)
 	}
-	// No session.Disconnect() — that sends session.destroy which causes the
-	// CLI to delete generated files from WorkingDirectory. ForceStop above
-	// handles process cleanup without file deletion.
+	sessionID = session.SessionID
 
 	// Send the prompt
 	if e.progressFn != nil {

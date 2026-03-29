@@ -133,9 +133,13 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		slog.Error("Failed to create review session", "model", r.model, "error", err)
 		return nil, fmt.Errorf("creating review session: %w", err)
 	}
-	// SDK's Disconnect() can block if the CLI subprocess is stuck.
-	// Timeout and let the owning client's Stop handle final cleanup.
+	// Clean up session state (#62). DeleteSession removes session-state dir
+	// and SQLite entry while client is still connected. Then Disconnect
+	// releases in-memory resources.
 	defer func() {
+		if err := r.client.DeleteSession(context.Background(), session.SessionID); err != nil {
+			slog.Debug("review session delete failed", "sessionID", session.SessionID, "error", err)
+		}
 		done := make(chan struct{})
 		go func() { session.Disconnect(); close(done) }()
 		select {
@@ -347,7 +351,15 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	if err := client.Start(ctx); err != nil {
 		return nil, fmt.Errorf("starting reviewer client for %s: %w", model, err)
 	}
+	var panelSessionID string
 	defer func() {
+		// Delete session state before stopping client (#62)
+		if panelSessionID != "" {
+			if err := client.DeleteSession(context.Background(), panelSessionID); err != nil {
+				slog.Debug("panel review session delete failed",
+					"sessionID", panelSessionID, "model", model, "error", err)
+			}
+		}
 		done := make(chan struct{})
 		go func() { client.Stop(); close(done) }()
 		select {
@@ -421,6 +433,7 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	if err != nil {
 		return nil, fmt.Errorf("creating review session for %s: %w", model, err)
 	}
+	panelSessionID = session.SessionID
 
 	slog.Debug("Sending review prompt", "model", model)
 	_, err = session.SendAndWait(ctx, copilot.MessageOptions{

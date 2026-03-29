@@ -22,7 +22,16 @@ client := copilot.NewClient(nil)
 if err := client.Start(ctx); err != nil {
 return "", fmt.Errorf("starting copilot client: %w", err)
 }
-defer client.Stop()
+var trendSessionID string
+defer func() {
+// Delete session state before stopping client (#62)
+if trendSessionID != "" {
+if err := client.DeleteSession(context.Background(), trendSessionID); err != nil {
+slog.Debug("trend analysis session delete failed", "sessionID", trendSessionID, "error", err)
+}
+}
+client.Stop()
+}()
 
 // Create isolated config directory to prevent user-level skills from
 // leaking into the analysis session (#21).
@@ -45,6 +54,7 @@ OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 if err != nil {
 return "", fmt.Errorf("creating analysis session: %w", err)
 }
+trendSessionID = session.SessionID
 defer session.Disconnect()
 
 // Capture assistant messages via event subscription

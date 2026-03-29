@@ -15,6 +15,7 @@ import (
 
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/hyoka/internal/checkenv"
+	"github.com/ronniegeraghty/hyoka/internal/clean"
 	"github.com/ronniegeraghty/hyoka/internal/config"
 	"github.com/ronniegeraghty/hyoka/internal/eval"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
@@ -75,6 +76,7 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(newPromptCmd())
 	root.AddCommand(serveCmd())
 	root.AddCommand(pluginsCmd())
+	root.AddCommand(cleanCmd())
 
 	return root
 }
@@ -1004,6 +1006,63 @@ func pluginsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&pluginsDir, "plugins-dir", "./plugins", "Directory containing plugin YAML files")
 
 	return cmd
+}
+
+func cleanCmd() *cobra.Command {
+	var dryRun bool
+	var keepLogs int
+	var all bool
+
+	cmd := &cobra.Command{
+		Use:   "clean",
+		Short: "Remove stale Copilot CLI session state from past eval runs",
+		Long: `Scans ~/.copilot/session-state/ for sessions created by hyoka and removes them.
+Also trims old process log files. Session state accumulates over many eval runs
+and can grow to gigabytes, so periodic cleanup is recommended.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, err := clean.Run(clean.Options{
+				DryRun:   dryRun,
+				KeepLogs: keepLogs,
+				All:      all,
+				Out:      cmd.OutOrStdout(),
+			})
+			if err != nil {
+				return err
+			}
+
+			if dryRun {
+				fmt.Fprintf(cmd.OutOrStdout(), "\nDry run: found %d session(s) to remove\n", result.SessionsFound)
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "\nCleaned %d session(s), %d log(s) — freed %s\n",
+					result.SessionsRemoved, result.LogsRemoved, humanSize(result.BytesFreed))
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be cleaned without deleting")
+	cmd.Flags().IntVar(&keepLogs, "keep-logs", 50, "Number of recent log files to keep")
+	cmd.Flags().BoolVar(&all, "all", false, "Clean all session-state, not just hyoka-created sessions")
+
+	return cmd
+}
+
+func humanSize(b int64) string {
+	const (
+		kb = 1024
+		mb = kb * 1024
+		gb = mb * 1024
+	)
+	switch {
+	case b >= gb:
+		return fmt.Sprintf("%.1fGB", float64(b)/float64(gb))
+	case b >= mb:
+		return fmt.Sprintf("%.1fMB", float64(b)/float64(mb))
+	case b >= kb:
+		return fmt.Sprintf("%.1fKB", float64(b)/float64(kb))
+	default:
+		return fmt.Sprintf("%dB", b)
+	}
 }
 
 // openInBrowser opens the given file path in the default browser.

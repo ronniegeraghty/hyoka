@@ -31,14 +31,14 @@ docs/               # Design docs and getting started guide
 ## Build & Test
 
 ```bash
-# Build (from repo root — uses go.work)
+# Build (from repo root — always output to bin/)
 cd /home/rgeraghty/projects/hyoka
-go build ./hyoka/...
+go build -o bin/hyoka ./hyoka
 
 # Run tests
 go test ./hyoka/...
 
-# Run the CLI
+# Run the CLI (build + run in one step)
 go run ./hyoka <command>
 
 # Common commands
@@ -47,6 +47,8 @@ go run ./hyoka run --all-configs
 go run ./hyoka validate
 go run ./hyoka check-env
 ```
+
+**Build output**: Always use `go build -o bin/hyoka ./hyoka` so the binary goes to `bin/`. The `bin/` directory is gitignored. Never place binaries in the project root.
 
 Go version: 1.24.5+ required. Module path: `github.com/ronniegeraghty/hyoka`.
 

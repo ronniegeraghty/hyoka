@@ -265,6 +265,16 @@ func TestPluginsCmdEmptyDir(t *testing.T) {
 	}
 }
 
+func TestCleanCmdHelp(t *testing.T) {
+	cmd := cleanCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--help"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("clean --help failed: %v", err)
+	}
+}
+
 func TestAllSubcommandsRegistered(t *testing.T) {
 	cmd := rootCmd()
 	names := make(map[string]bool)
@@ -272,7 +282,7 @@ func TestAllSubcommandsRegistered(t *testing.T) {
 		names[sub.Name()] = true
 	}
 
-	expected := []string{"run", "list", "validate", "check-env", "configs", "trends", "report", "serve", "plugins", "new-prompt", "version"}
+	expected := []string{"run", "list", "validate", "check-env", "configs", "trends", "report", "serve", "plugins", "new-prompt", "version", "clean"}
 	for _, name := range expected {
 		if !names[name] {
 			t.Errorf("expected subcommand %q to be registered", name)
