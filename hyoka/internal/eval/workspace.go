@@ -114,10 +114,10 @@ func listFiles(dir string) ([]string, error) {
 	return files, err
 }
 
-// filterExcludedDirs removes files whose path starts with any of the
-// excluded directory names (#63). Paths are checked using the first
-// segment of the relative path so "node_modules" matches
-// "node_modules/foo/bar.js".
+// filterExcludedDirs removes files whose path contains any of the
+// excluded directory names as a segment (#63). For example, excluding
+// "node_modules" matches "node_modules/foo/bar.js" AND
+// "project/node_modules/bar.js".
 func filterExcludedDirs(files []string, excludeDirs []string) []string {
 	if len(excludeDirs) == 0 {
 		return files
@@ -130,9 +130,8 @@ func filterExcludedDirs(files []string, excludeDirs []string) []string {
 	for _, f := range files {
 		excluded := false
 		parts := strings.Split(filepath.ToSlash(f), "/")
-		for i := range parts {
-			prefix := strings.Join(parts[:i+1], "/")
-			if excludeSet[prefix] {
+		for _, seg := range parts {
+			if excludeSet[seg] {
 				excluded = true
 				break
 			}
