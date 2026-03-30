@@ -61,7 +61,7 @@ func (s *StubEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cfg *con
 // EngineOptions configures the evaluation engine.
 type EngineOptions struct {
 	Workers         int
-	MaxSessions     int           // Maximum concurrent Copilot sessions (0 = workers × 3).
+	MaxSessions     int           // Maximum concurrent Copilot sessions (0 = workers × 2).
 	Timeout         time.Duration // Deprecated: use GenerateTimeout. Kept for backward compat.
 	GenerateTimeout time.Duration // Independent timeout for code generation phase.
 	BuildTimeout    time.Duration // Timeout for build verification phase (--verify-build).
@@ -115,7 +115,7 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 		opts.Workers = w
 	}
 	if opts.MaxSessions <= 0 {
-		opts.MaxSessions = opts.Workers * 3
+		opts.MaxSessions = opts.Workers * 2
 	}
 	// Backward compat: if only the legacy Timeout is set, use it as GenerateTimeout.
 	if opts.Timeout > 0 && opts.GenerateTimeout <= 0 {

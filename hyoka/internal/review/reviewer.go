@@ -240,11 +240,13 @@ func (p *PanelReviewer) Models() []string {
 	return p.models
 }
 
-// ReviewPanel runs all reviewer models in parallel and returns individual results
+// ReviewPanel runs all reviewer models sequentially and returns individual results
 // plus a consolidated result. The consolidated result is produced by the first model
 // in the list, which receives all other reviewers' outputs.
+// Reviews run one at a time so each Copilot session starts, completes, and stops
+// before the next begins, reducing peak memory usage.
 func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (panel []ReviewResult, consolidated *ReviewResult, err error) {
-	slog.Info("Starting panel review", "model_count", len(p.models), "models", p.models)
+	slog.Info("Starting sequential panel review", "model_count", len(p.models), "models", p.models)
 	if len(p.models) == 0 {
 		return nil, nil, fmt.Errorf("no reviewer models configured")
 	}
@@ -261,55 +263,19 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 
 	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles, evaluationCriteria)
 
-	// Run all reviewers in parallel
-	type reviewOutput struct {
-		index  int
-		model  string
-		result *ReviewResult
-		err    error
-	}
-
-	results := make(chan reviewOutput, len(p.models))
-	var wg sync.WaitGroup
-
+	// Run reviewers sequentially — one Copilot session at a time
 	for i, model := range p.models {
-		wg.Add(1)
-		go func(idx int, m string) {
-			defer wg.Done()
-			slog.Debug("Panel reviewer starting", "model", m, "index", idx)
-			result, reviewErr := p.runSingleReview(ctx, m, reviewPrompt, workDir)
-			if result != nil {
-				result.Model = m
-			}
-			if reviewErr != nil {
-				slog.Warn("Panel reviewer failed", "model", m, "error", reviewErr)
-			} else {
-				slog.Debug("Panel reviewer complete", "model", m, "overall_score", result.OverallScore, "max_score", result.MaxScore)
-			}
-			results <- reviewOutput{index: idx, model: m, result: result, err: reviewErr}
-		}(i, model)
-	}
-
-	// Close channel when all goroutines complete
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	// Collect results in order
-	ordered := make([]*ReviewResult, len(p.models))
-	for out := range results {
-		if out.err != nil {
-			slog.Warn("Reviewer model failed", "model", out.model, "error", out.err)
+		slog.Debug("Panel reviewer starting", "model", model, "index", i)
+		result, reviewErr := p.runSingleReview(ctx, model, reviewPrompt, workDir)
+		if result != nil {
+			result.Model = model
 		}
-		ordered[out.index] = out.result
-	}
-
-	// Build panel (non-nil results only)
-	for _, r := range ordered {
-		if r != nil {
-			panel = append(panel, *r)
+		if reviewErr != nil {
+			slog.Warn("Panel reviewer failed", "model", model, "error", reviewErr)
+			continue
 		}
+		slog.Debug("Panel reviewer complete", "model", model, "overall_score", result.OverallScore, "max_score", result.MaxScore)
+		panel = append(panel, *result)
 	}
 
 	if len(panel) == 0 {
