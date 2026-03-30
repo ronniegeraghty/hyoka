@@ -86,6 +86,8 @@ type EngineOptions struct {
 	MonitorResources bool
 	// Tiered criteria (#30)
 	CriteriaDir string // Directory containing attribute-matched criteria YAML files.
+	// Directory exclusion (#63)
+	ExcludeDirs []string // Directories to exclude from generated_files output.
 	// Output writer for user-facing messages (defaults to os.Stdout).
 	Stdout io.Writer
 }
@@ -264,6 +266,10 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		defer resMonitor.Stop()
 	}
 
+	// Wrap context with cancel so signal handler can trigger graceful shutdown (#67).
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// Ensure all tracked Copilot processes are cleaned up when Run exits.
 	defer func() {
 		if errs := DefaultTracker.TerminateAll(5 * time.Second); len(errs) > 0 {
@@ -283,6 +289,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 		for sig := range sigCh {
 			if first {
 				slog.Warn("Received signal — terminating tracked Copilot processes", "signal", sig.String())
+				cancel() // Cancel context to unwind in-flight goroutines
 				if errs := DefaultTracker.TerminateAll(5 * time.Second); len(errs) > 0 {
 					for _, err := range errs {
 						slog.Warn("Process cleanup error", "error", err)
@@ -290,7 +297,11 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 				}
 				first = false
 			} else {
+				// Second signal: cancel context, allow brief grace period for
+				// defers to run, then force exit (#67).
 				slog.Warn("Received second signal — forcing exit", "signal", sig.String())
+				cancel()
+				time.Sleep(2 * time.Second)
 				os.Exit(1)
 			}
 		}
@@ -663,6 +674,14 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	if len(generatedFiles) == 0 && result != nil && len(result.GeneratedFiles) > 0 {
 		generatedFiles = result.GeneratedFiles
 	}
+	// Apply directory exclusion filter (#63)
+	if len(e.opts.ExcludeDirs) > 0 {
+		before := len(generatedFiles)
+		generatedFiles = filterExcludedDirs(generatedFiles, e.opts.ExcludeDirs)
+		if excluded := before - len(generatedFiles); excluded > 0 {
+			lg.Debug("Excluded files by directory filter", "excluded", excluded, "remaining", len(generatedFiles))
+		}
+	}
 	evalReport.GeneratedFiles = generatedFiles
 
 	// Diagnostic: if 0 files generated, check if agent attempted file creation
@@ -825,6 +844,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		}
 
 		reviewCtx, reviewCancel := context.WithTimeout(ctx, e.opts.ReviewTimeout)
+		defer reviewCancel() // #66: prevent context leak on early return
 		referenceDir := ""
 		if task.Prompt.ReferenceAnswer != "" {
 			referenceDir = task.Prompt.ReferenceAnswer

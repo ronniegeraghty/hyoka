@@ -114,6 +114,36 @@ func listFiles(dir string) ([]string, error) {
 	return files, err
 }
 
+// filterExcludedDirs removes files whose path starts with any of the
+// excluded directory names (#63). Paths are checked using the first
+// segment of the relative path so "node_modules" matches
+// "node_modules/foo/bar.js".
+func filterExcludedDirs(files []string, excludeDirs []string) []string {
+	if len(excludeDirs) == 0 {
+		return files
+	}
+	excludeSet := make(map[string]bool, len(excludeDirs))
+	for _, d := range excludeDirs {
+		excludeSet[strings.TrimRight(d, "/")] = true
+	}
+	var filtered []string
+	for _, f := range files {
+		excluded := false
+		parts := strings.Split(filepath.ToSlash(f), "/")
+		for i := range parts {
+			prefix := strings.Join(parts[:i+1], "/")
+			if excludeSet[prefix] {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			filtered = append(filtered, f)
+		}
+	}
+	return filtered
+}
+
 // copyDir recursively copies src to dst, skipping symlinks to prevent escape.
 func copyDir(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {

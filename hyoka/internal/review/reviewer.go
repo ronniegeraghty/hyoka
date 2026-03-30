@@ -137,7 +137,9 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 	// and SQLite entry while client is still connected. Then Disconnect
 	// releases in-memory resources.
 	defer func() {
-		if err := r.client.DeleteSession(context.Background(), session.SessionID); err != nil {
+		deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer deleteCancel()
+		if err := r.client.DeleteSession(deleteCtx, session.SessionID); err != nil {
 			slog.Debug("review session delete failed", "sessionID", session.SessionID, "error", err)
 		}
 		done := make(chan struct{})
@@ -321,7 +323,9 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	defer func() {
 		// Delete session state before stopping client (#62)
 		if panelSessionID != "" {
-			if err := client.DeleteSession(context.Background(), panelSessionID); err != nil {
+			deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer deleteCancel()
+			if err := client.DeleteSession(deleteCtx, panelSessionID); err != nil {
 				slog.Debug("panel review session delete failed",
 					"sessionID", panelSessionID, "model", model, "error", err)
 			}

@@ -23,6 +23,7 @@ import (
 type CopilotSDKEvaluator struct {
 	clientOpts *copilot.ClientOptions
 	allowCloud bool
+	maxTurns   int
 	progressFn progress.ProgressFunc
 }
 
@@ -39,6 +40,9 @@ type CopilotEvalOptions struct {
 	CLIPath string
 	// AllowCloud permits generated code to provision real cloud resources (#36).
 	AllowCloud bool
+	// MaxTurns limits assistant turns during generation. When reached, the
+	// session context is cancelled to stop the run immediately (#69).
+	MaxTurns int
 }
 
 // NewCopilotSDKEvaluator creates a new evaluator backed by the Copilot SDK.
@@ -56,6 +60,7 @@ func NewCopilotSDKEvaluator(opts CopilotEvalOptions) *CopilotSDKEvaluator {
 	return &CopilotSDKEvaluator{
 		clientOpts: clientOpts,
 		allowCloud: opts.AllowCloud,
+		maxTurns:   opts.MaxTurns,
 	}
 }
 
@@ -99,7 +104,9 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	// session-store.db entry — unlike os.RemoveAll which misses the DB.
 	defer func() {
 		if sessionID != "" {
-			if err := client.DeleteSession(context.Background(), sessionID); err != nil {
+			deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer deleteCancel()
+			if err := client.DeleteSession(deleteCtx, sessionID); err != nil {
 				slog.Debug("session delete failed, session-state may remain",
 					"sessionID", sessionID, "error", err)
 			}
@@ -137,6 +144,12 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 
 	// Capture turn counter for expanded events
 	var turnCounter int
+
+	// Mid-generation turn limit (#69). Create a cancellable child context
+	// so the OnEvent callback can stop runaway sessions in real time.
+	genCtx, genCancel := context.WithCancel(ctx)
+	defer genCancel()
+	var turnLimitHit bool
 
 	sessionCfg.OnEvent = func(event copilot.SessionEvent) {
 		mu.Lock()
@@ -193,6 +206,13 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			turnCounter++
 			rec.TurnNumber = turnCounter
 			lg.Info("Turn started", "turn", turnCounter)
+			// Mid-generation turn limit (#69): cancel context to stop runaway sessions
+			if e.maxTurns > 0 && turnCounter > e.maxTurns && !turnLimitHit {
+				turnLimitHit = true
+				lg.Warn("Turn limit reached mid-generation, cancelling session",
+					"turn", turnCounter, "max_turns", e.maxTurns)
+				genCancel()
+			}
 		case copilot.SessionEventTypeAssistantTurnEnd:
 			rec.TurnNumber = turnCounter
 			if event.Data.Duration != nil {
@@ -424,7 +444,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		}
 	}
 
-	session, err := client.CreateSession(ctx, sessionCfg)
+	session, err := client.CreateSession(genCtx, sessionCfg)
 	if err != nil {
 		return &EvalResult{
 			Error:        fmt.Sprintf("session creation failed: %v", err),
@@ -442,7 +462,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		})
 	}
 	lg.Debug("Sending prompt", "chars", len(p.PromptText))
-	_, err = session.SendAndWait(ctx, copilot.MessageOptions{
+	_, err = session.SendAndWait(genCtx, copilot.MessageOptions{
 		Prompt: p.PromptText,
 	})
 	if err != nil {
@@ -452,6 +472,24 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		capturedEvts := make([]copilot.SessionEvent, len(events))
 		copy(capturedEvts, events)
 		mu.Unlock()
+
+		// Mid-generation turn limit (#69): return partial results so the
+		// post-generation guardrail in engine.go can mark the eval as failed
+		// with a proper reason instead of treating it as an SDK error.
+		if turnLimitHit {
+			generatedFiles, _ := listFiles(workDir)
+			lg.Warn("Returning partial results after turn-limit cancellation",
+				"turns", turnCounter, "files", len(generatedFiles))
+			return &EvalResult{
+				GeneratedFiles: generatedFiles,
+				EventCount:     len(captured),
+				ToolCalls:      extractToolCalls(capturedEvts),
+				SessionEvents:  captured,
+				Success:        true, // Let engine.go guardrail set the proper failure
+				StarterFiles:   starterFiles,
+			}, nil
+		}
+
 		return &EvalResult{
 			SessionEvents: captured,
 			EventCount:    len(captured),

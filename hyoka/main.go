@@ -162,6 +162,8 @@ type runFlags struct {
 	strictCleanup bool
 	// Tiered criteria (#30)
 	criteriaDir string
+	// Directory exclusion (#63)
+	excludeDirs string
 }
 
 func addFilterFlags(cmd *cobra.Command, f *runFlags) {
@@ -207,6 +209,8 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().BoolVar(&f.strictCleanup, "strict-cleanup", false, "Fail run with non-zero exit if orphaned Copilot processes remain after cleanup")
 	// Tiered criteria (#30)
 	cmd.Flags().StringVar(&f.criteriaDir, "criteria-dir", "", "Directory containing attribute-matched criteria YAML files (e.g., criteria/)")
+	// Directory exclusion (#63)
+	cmd.Flags().StringVar(&f.excludeDirs, "exclude-dirs", "", "Comma-separated directories to exclude from generated_files output (e.g., node_modules,target,dist)")
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
@@ -442,6 +446,7 @@ func runCmd() *cobra.Command {
 				// Try to create a real Copilot SDK evaluator
 				sdkEval := eval.NewCopilotSDKEvaluator(eval.CopilotEvalOptions{
 					AllowCloud: f.allowCloud,
+					MaxTurns:   f.maxTurns,
 				})
 				evaluator = sdkEval
 
@@ -453,7 +458,7 @@ func runCmd() *cobra.Command {
 					evaluator = &eval.StubEvaluator{}
 					reviewer = &review.StubReviewer{}
 				} else {
-					client.Stop()
+					defer client.Stop() // #65: ensure cleanup on any exit path
 					slog.Info("Using Copilot SDK evaluator")
 					fmt.Println("Using Copilot SDK evaluator")
 
@@ -518,6 +523,17 @@ func runCmd() *cobra.Command {
 			}
 
 			// Create and run engine
+			// Parse exclude-dirs (#63)
+			var excludeDirs []string
+			if f.excludeDirs != "" {
+				for _, d := range strings.Split(f.excludeDirs, ",") {
+					d = strings.TrimSpace(d)
+					if d != "" {
+						excludeDirs = append(excludeDirs, d)
+					}
+				}
+			}
+
 			engine := eval.NewEngineWithReviewer(evaluator, reviewer, eval.EngineOptions{
 				Workers:          f.workers,
 				MaxSessions:      f.maxSessions,
@@ -539,6 +555,7 @@ func runCmd() *cobra.Command {
 				MonitorResources: f.monitorResources,
 				StrictCleanup:    f.strictCleanup,
 				CriteriaDir:      f.criteriaDir,
+				ExcludeDirs:      excludeDirs,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)

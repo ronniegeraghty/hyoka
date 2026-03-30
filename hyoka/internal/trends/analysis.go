@@ -7,6 +7,7 @@ import (
 "os"
 "strings"
 "sync"
+"time"
 
 copilot "github.com/github/copilot-sdk/go"
 )
@@ -26,7 +27,9 @@ var trendSessionID string
 defer func() {
 // Delete session state before stopping client (#62)
 if trendSessionID != "" {
-if err := client.DeleteSession(context.Background(), trendSessionID); err != nil {
+deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer deleteCancel()
+if err := client.DeleteSession(deleteCtx, trendSessionID); err != nil {
 slog.Debug("trend analysis session delete failed", "sessionID", trendSessionID, "error", err)
 }
 }

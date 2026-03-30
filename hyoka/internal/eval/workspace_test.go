@@ -120,3 +120,64 @@ if _, err := os.Stat(filepath.Join(home, "Documents")); err != nil {
 t.Error("Documents should still exist in home")
 }
 }
+
+func TestFilterExcludedDirs_Empty(t *testing.T) {
+	files := []string{"main.go", "lib/utils.go"}
+	got := filterExcludedDirs(files, nil)
+	if len(got) != 2 {
+		t.Errorf("expected 2 files with nil excludes, got %d", len(got))
+	}
+	got = filterExcludedDirs(files, []string{})
+	if len(got) != 2 {
+		t.Errorf("expected 2 files with empty excludes, got %d", len(got))
+	}
+}
+
+func TestFilterExcludedDirs_ExcludesTopLevel(t *testing.T) {
+	files := []string{
+		"main.go",
+		"node_modules/express/index.js",
+		"node_modules/lodash/lodash.js",
+		"src/app.js",
+		"dist/bundle.js",
+	}
+	got := filterExcludedDirs(files, []string{"node_modules", "dist"})
+	if len(got) != 2 {
+		t.Errorf("expected 2 files, got %d: %v", len(got), got)
+	}
+	for _, f := range got {
+		if f == "node_modules/express/index.js" || f == "dist/bundle.js" {
+			t.Errorf("file %q should have been excluded", f)
+		}
+	}
+}
+
+func TestFilterExcludedDirs_KeepsNonMatching(t *testing.T) {
+	files := []string{"src/main.go", "src/utils.go", "README.md"}
+	got := filterExcludedDirs(files, []string{"node_modules", "target"})
+	if len(got) != 3 {
+		t.Errorf("expected 3 files (nothing excluded), got %d", len(got))
+	}
+}
+
+func TestFilterExcludedDirs_NestedMatch(t *testing.T) {
+	files := []string{
+		"project/target/classes/App.class",
+		"project/src/App.java",
+		"target/output.jar",
+	}
+	got := filterExcludedDirs(files, []string{"target"})
+	// Only top-level "target/output.jar" should be excluded;
+	// "project/target/..." has "target" as a nested segment, which IS matched.
+	if len(got) != 1 {
+		t.Errorf("expected 1 file, got %d: %v", len(got), got)
+	}
+}
+
+func TestFilterExcludedDirs_TrailingSlash(t *testing.T) {
+	files := []string{"dist/app.js", "src/main.ts"}
+	got := filterExcludedDirs(files, []string{"dist/"})
+	if len(got) != 1 {
+		t.Errorf("expected 1 file after trailing-slash exclude, got %d: %v", len(got), got)
+	}
+}
