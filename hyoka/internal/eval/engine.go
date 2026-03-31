@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/ronniegeraghty/hyoka/internal/build"
@@ -288,7 +287,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 
 	// Set up signal handler so SIGINT/SIGTERM terminates spawned processes.
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	notifyShutdownSignals(sigCh)
 	// Unregister signal handler before closing the channel to prevent
 	// a send-on-closed-channel panic (defers execute LIFO).
 	defer close(sigCh)

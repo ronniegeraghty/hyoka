@@ -419,7 +419,7 @@ func htmlFuncMap() template.FuncMap {
 			return strings.Contains(trimmed, "REVIEW:")
 		},
 		"highlightReviewLines": func(content string) template.HTML {
-			lines := strings.Split(content, "\n")
+			lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 			var b strings.Builder
 			for _, line := range lines {
 				trimmed := strings.TrimSpace(line)

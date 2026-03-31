@@ -554,7 +554,7 @@ func truncateStr(s string, maxLen int) string {
 // detectFileCreation checks if assistant content looks like file creation
 // and returns a summary like "key_vault_crud.py (89 lines)".
 func detectFileCreation(content string) string {
-	lines := strings.Split(content, "\n")
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	// Look for patterns like "```python", file path references, or create_file tool patterns
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
