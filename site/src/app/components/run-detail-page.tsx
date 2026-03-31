@@ -133,7 +133,7 @@ export function RunDetailPage() {
         <div className="mb-4 flex flex-wrap gap-2">
           <select
             value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value as any)}
+            onChange={e => setFilterStatus(e.target.value as "all" | "pass" | "fail")}
             className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-white/70"
             style={{ fontSize: 12 }}
           >

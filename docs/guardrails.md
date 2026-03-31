@@ -61,11 +61,12 @@ Use `--monitor-resources` to track CPU and memory usage of Copilot sessions:
 If Copilot processes persist after a run:
 
 ```bash
-# Find orphaned processes
-ps aux | grep 'copilot.*headless'
+# Use the built-in clean command (recommended)
+hyoka clean
 
-# Kill them
-pkill -f 'copilot.*headless'
+# Or find and kill manually by PID
+ps aux | grep 'copilot.*headless'
+kill <PID>
 ```
 
 Use `--strict-cleanup` in CI to detect this automatically.

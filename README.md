@@ -166,7 +166,7 @@ hyoka list --json
 | `--max-output-size` | `1MB` | Maximum total output size per evaluation (supports KB, MB suffixes) |
 | `--allow-cloud` | `false` | Allow generated code to provision real Azure resources |
 | `--sandbox` | `true` | Alias confirming safe/local-only mode (default behavior) |
-| `--criteria-dir` | `criteria` | Directory with tiered evaluation criteria YAML files |
+| `--criteria-dir` | (none) | Directory with attribute-matched criteria YAML files (e.g., `criteria/`) |
 | `--strict-cleanup` | `false` | Fail run if orphaned Copilot processes remain after cleanup |
 | `--monitor-resources` | `false` | Monitor CPU and memory usage of Copilot sessions during evaluation |
 | `--generate-timeout` | `600` | Generation phase timeout in seconds |
@@ -413,10 +413,10 @@ Every prompt uses YAML frontmatter:
 - **Phase 2:** ✅ Copilot SDK integration — live agent evaluation with code generation and criteria-based review panel
 - **Phase 3:** ✅ Tool matrix, MCP server attachment, skill loading, cross-config comparison
 - **Phase 4:** ✅ Guardrails, safety boundaries, smart concurrency, process lifecycle, prompt discovery
-- **Phase 5:** In progress — Evaluation quality (check-env, expected_tools, reviewer skills)
-- **Phase 6:** Planned — Polish (report re-rendering, embedded CLI, progress bars)
+- **Phase 5:** ✅ Evaluation quality (check-env, expected_tools, reviewer skills, report re-rendering)
+- **Phase 6:** Planned — Polish (embedded CLI, progress bars, web dashboard)
 
-See [`hyoka/README.md`](hyoka/README.md) for full CLI reference and configuration docs.
+See [CLI Reference](docs/cli-reference.md) and [Configuration Guide](docs/configuration.md) for detailed documentation.
 
 ## License
 

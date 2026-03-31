@@ -94,6 +94,7 @@ hyoka run --config baseline --dry-run
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--criteria-dir` | (none) | Directory with attribute-matched criteria YAML files |
+| `--exclude-dirs` | (none) | Comma-separated directories to exclude from generated_files output |
 
 ### `hyoka list`
 

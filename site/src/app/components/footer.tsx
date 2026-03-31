@@ -17,7 +17,7 @@ export function Footer() {
             Evaluate AI code generation quality for Azure SDKs.
           </p>
           <p className="text-white/30" style={{ fontSize: 12 }}>
-            © 2026 hyoka · MIT License
+            © {new Date().getFullYear()} hyoka · MIT License
           </p>
         </div>
       </div>

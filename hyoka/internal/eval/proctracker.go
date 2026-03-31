@@ -304,7 +304,8 @@ func (pt *ProcessTracker) TerminateAll(timeout time.Duration) []error {
 	for pid, proc := range pt.procs {
 		snapshot[pid] = proc
 	}
-	pt.procs = nil
+	pt.procs = make(map[int]*os.Process)
+	pt.pids = make(map[int]string)
 	pt.mu.Unlock()
 
 	if len(snapshot) == 0 {

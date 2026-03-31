@@ -383,11 +383,13 @@ func isHyokaSession(sessionPath string) bool {
 // dirSize returns the total size of all files in a directory tree.
 func dirSize(path string) int64 {
 	var size int64
-	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return nil
+	_ = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // skip inaccessible files but continue walk
 		}
-		size += info.Size()
+		if !info.IsDir() {
+			size += info.Size()
+		}
 		return nil
 	})
 	return size

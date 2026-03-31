@@ -289,8 +289,10 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	// Set up signal handler so SIGINT/SIGTERM terminates spawned processes.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(sigCh)
+	// Unregister signal handler before closing the channel to prevent
+	// a send-on-closed-channel panic (defers execute LIFO).
 	defer close(sigCh)
+	defer signal.Stop(sigCh)
 	go func() {
 		first := true
 		for sig := range sigCh {
@@ -912,7 +914,6 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			evalReport.ReviewedFiles = reviewedFiles
 			rlg.Debug("Captured reviewed files", "count", len(reviewedFiles))
 		}
-		reviewCancel()
 		evalReport.ReviewDuration = time.Since(reviewStart).Seconds()
 	}
 
