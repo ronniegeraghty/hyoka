@@ -5,13 +5,12 @@ package clean
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
-	"time"
+
+	"github.com/ronniegeraghty/hyoka/internal/pidfile"
 )
 
 // Options configures the clean operation.
@@ -97,7 +96,7 @@ func Run(opts Options) (*Result, error) {
 	return result, nil
 }
 
-// findHyokaProcessesFn scans /proc for processes tagged with HYOKA_SESSION.
+// findHyokaProcessesFn reads PID files to discover tracked Copilot processes.
 // Package-level variable so tests can override it.
 var findHyokaProcessesFn = findHyokaProcesses
 
@@ -108,53 +107,20 @@ type HyokaProcessInfo struct {
 	Config   string
 }
 
-// findHyokaProcesses is the default implementation that scans /proc/*/environ
-// for HYOKA_SESSION=true. It returns all matching processes across the system,
-// regardless of ancestry — orphaned processes from crashed parents are included.
+// findHyokaProcesses reads PID files written by the eval engine and returns
+// entries whose processes are still alive. This is cross-platform — it does
+// not depend on /proc or any OS-specific process introspection.
 func findHyokaProcesses() ([]HyokaProcessInfo, error) {
-	entries, err := os.ReadDir("/proc")
+	entries, err := pidfile.ReadAlive()
 	if err != nil {
-		return nil, fmt.Errorf("reading /proc: %w", err)
+		return nil, err
 	}
-
-	var procs []HyokaProcessInfo
-	myPID := os.Getpid()
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		pid := 0
-		for _, c := range entry.Name() {
-			if c < '0' || c > '9' {
-				pid = -1
-				break
-			}
-			pid = pid*10 + int(c-'0')
-		}
-		if pid <= 0 || pid == myPID {
-			continue
-		}
-
-		data, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "environ"))
-		if err != nil {
-			continue
-		}
-
-		var info HyokaProcessInfo
-		found := false
-		for _, envVar := range strings.Split(string(data), "\x00") {
-			switch {
-			case envVar == "HYOKA_SESSION=true":
-				found = true
-			case strings.HasPrefix(envVar, "HYOKA_PROMPT_ID="):
-				info.PromptID = envVar[len("HYOKA_PROMPT_ID="):]
-			case strings.HasPrefix(envVar, "HYOKA_CONFIG="):
-				info.Config = envVar[len("HYOKA_CONFIG="):]
-			}
-		}
-		if found {
-			info.PID = pid
-			procs = append(procs, info)
+	procs := make([]HyokaProcessInfo, len(entries))
+	for i, e := range entries {
+		procs[i] = HyokaProcessInfo{
+			PID:      e.PID,
+			PromptID: e.PromptID,
+			Config:   e.Config,
 		}
 	}
 	return procs, nil
@@ -202,46 +168,10 @@ func ScanHyokaProcesses(out io.Writer) ([]HyokaProcessInfo, error) {
 	return procs, nil
 }
 
-// KillHyokaProcesses sends SIGTERM (then SIGKILL after 5s) to each process.
-// Returns the number of processes successfully signaled.
-func KillHyokaProcesses(procs []HyokaProcessInfo, out io.Writer) int {
-	killed := 0
-	for _, p := range procs {
-		proc, findErr := os.FindProcess(p.PID)
-		if findErr != nil {
-			slog.Debug("process already gone", "pid", p.PID)
-			continue
-		}
-
-		if sigErr := proc.Signal(syscall.SIGTERM); sigErr != nil {
-			slog.Debug("SIGTERM failed (process may have exited)", "pid", p.PID, "error", sigErr)
-			continue
-		}
-
-		killed++
-		fmt.Fprintf(out, "  Terminated %s\n", formatProcessInfo(p))
-
-		go func(pr *os.Process, id int) {
-			deadline := time.After(5 * time.Second)
-			tick := time.NewTicker(200 * time.Millisecond)
-			defer tick.Stop()
-			for {
-				select {
-				case <-deadline:
-					slog.Warn("Orphan did not exit after SIGTERM, sending SIGKILL", "pid", id)
-					pr.Kill()
-					pr.Release()
-					return
-				case <-tick.C:
-					if err := pr.Signal(syscall.Signal(0)); err != nil {
-						return
-					}
-				}
-			}
-		}(proc, p.PID)
-	}
-	return killed
-}
+// KillHyokaProcesses terminates each process in procs.
+// On Unix it sends SIGTERM then SIGKILL after 5 s; on Windows it calls
+// TerminateProcess immediately. Returns the number of processes successfully
+// signaled. The implementation is in kill_unix.go / kill_windows.go.
 
 // formatProcessInfo returns a human-readable description of a process.
 func formatProcessInfo(p HyokaProcessInfo) string {

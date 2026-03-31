@@ -137,7 +137,7 @@ func suggestFix(name string) string {
 		if dir == "." {
 			return fixed
 		}
-		return filepath.Join(dir, fixed)
+		return filepath.ToSlash(filepath.Join(dir, fixed))
 	}
 
 	// *.prompt.txt or *.prompt.* → *.prompt.md
@@ -146,7 +146,7 @@ func suggestFix(name string) string {
 		if dir == "." {
 			return fixed
 		}
-		return filepath.Join(dir, fixed)
+		return filepath.ToSlash(filepath.Join(dir, fixed))
 	}
 
 	return ""

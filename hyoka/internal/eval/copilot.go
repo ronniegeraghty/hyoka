@@ -14,6 +14,7 @@ import (
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/hyoka/internal/config"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
+	"github.com/ronniegeraghty/hyoka/internal/pidfile"
 	"github.com/ronniegeraghty/hyoka/internal/progress"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
 	"github.com/ronniegeraghty/hyoka/internal/report"
@@ -94,11 +95,18 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			ErrorDetails: err.Error(),
 		}, fmt.Errorf("starting copilot client: %w", err)
 	}
-	// NOTE: ProcessTracker.Register/Deregister cannot be wired here because the
-	// Copilot SDK's Client struct does not expose the underlying process PID (the
-	// osProcess field is unexported). The SDK manages its own process lifecycle
-	// via client.Stop()/ForceStop(). DefaultTracker.TerminateAll is still called
-	// from the signal handler in engine.go for any future tracked processes.
+	// The SDK does not expose the child PID, so we discover it by
+	// scanning for direct child processes whose name contains "copilot".
+	// The PID is written to a file so the clean command can find orphaned
+	// processes even if hyoka crashes.
+	var trackedPIDs []int
+	for _, cpid := range findChildCopilotPIDs() {
+		if err := pidfile.Write(pidfile.Info{PID: cpid, PromptID: p.ID, Config: cfg.Name}); err != nil {
+			slog.Debug("failed to write PID file", "pid", cpid, "error", err)
+		} else {
+			trackedPIDs = append(trackedPIDs, cpid)
+		}
+	}
 
 	// Track session ID for cleanup — set after CreateSession.
 	var sessionID string
@@ -121,6 +129,10 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		case <-done:
 		case <-time.After(10 * time.Second):
 			client.ForceStop()
+		}
+		// Remove PID files for processes we tracked.
+		for _, cpid := range trackedPIDs {
+			pidfile.Remove(cpid)
 		}
 	}()
 
@@ -571,8 +583,6 @@ func detectFileCreation(content string) string {
 	return ""
 }
 
-
-
 // Client returns a new Copilot client for the given working directory.
 // Exported for use by the review package.
 func (e *CopilotSDKEvaluator) Client(ctx context.Context, workDir string) (*copilot.Client, error) {
@@ -677,7 +687,7 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 				return &copilot.PostToolUseHookOutput{}, nil
 			},
 		},
-		SkillDirectories:    skillDirs,
+		SkillDirectories: skillDirs,
 	}
 
 	// Only set AvailableTools/ExcludedTools when non-empty.

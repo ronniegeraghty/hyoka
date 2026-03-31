@@ -2,6 +2,7 @@ package eval
 
 import (
 	"os"
+	"runtime"
 	"testing"
 )
 
@@ -27,6 +28,9 @@ func TestProcessTrackerRegisterDeregister(t *testing.T) {
 }
 
 func TestProcessTrackerScanOrphansEmpty(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ScanOrphans depends on /proc, not available on Windows")
+	}
 	pt := &ProcessTracker{}
 	// With nothing tracked, ScanOrphans should not panic
 	orphans := pt.ScanOrphans()
@@ -36,6 +40,9 @@ func TestProcessTrackerScanOrphansEmpty(t *testing.T) {
 }
 
 func TestProcessTrackerTerminateOrphansNoOp(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ScanOrphans depends on /proc, not available on Windows")
+	}
 	pt := &ProcessTracker{}
 	// Only verify ScanOrphans works without panic. We do NOT call
 	// TerminateOrphans because it sends SIGTERM to any copilot process
@@ -46,6 +53,9 @@ func TestProcessTrackerTerminateOrphansNoOp(t *testing.T) {
 }
 
 func TestFindCopilotProcesses(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("FindCopilotProcesses uses /proc, not available on Windows")
+	}
 	// Verify FindCopilotProcesses does not return an error on Linux
 	pids, err := FindCopilotProcesses()
 	if err != nil {
