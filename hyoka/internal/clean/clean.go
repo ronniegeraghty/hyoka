@@ -5,10 +5,13 @@ package clean
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
+	"time"
 )
 
 // Options configures the clean operation.
@@ -19,6 +22,9 @@ type Options struct {
 	KeepLogs int
 	// All cleans all session-state, not just Hyoka-created sessions.
 	All bool
+	// KillOrphans terminates running processes tagged with HYOKA_SESSION.
+	// When false, processes are listed by ScanHyokaProcesses but not killed.
+	KillOrphans bool
 	// Out is the writer for user-facing output.
 	Out io.Writer
 }
@@ -29,6 +35,9 @@ type Result struct {
 	SessionsRemoved int
 	LogsRemoved     int
 	BytesFreed      int64
+	// Process cleanup stats.
+	ProcessesFound  int
+	ProcessesKilled int
 }
 
 // copilotStateDirFn returns the Copilot CLI state directory.
@@ -63,19 +72,184 @@ func Run(opts Options) (*Result, error) {
 
 	result := &Result{}
 
-	// Phase 1: Clean session-state directories
+	// Phase 1: Kill orphaned hyoka-tagged processes (#70)
+	if opts.KillOrphans {
+		if err := cleanProcesses(opts, result); err != nil {
+			fmt.Fprintf(opts.Out, "Warning: process cleanup: %v\n", err)
+		}
+	}
+
+	// Phase 2: Clean session-state directories
 	sessDir := filepath.Join(stateDir, "session-state")
 	if err := cleanSessions(sessDir, opts, result); err != nil {
 		fmt.Fprintf(opts.Out, "Warning: session cleanup: %v\n", err)
 	}
 
-	// Phase 2: Clean old log files
+	// Phase 3: Clean old log files
 	logsDir := filepath.Join(stateDir, "logs")
 	if err := cleanLogs(logsDir, opts, result); err != nil {
 		fmt.Fprintf(opts.Out, "Warning: log cleanup: %v\n", err)
 	}
 
 	return result, nil
+}
+
+// findHyokaProcessesFn scans /proc for processes tagged with HYOKA_SESSION.
+// Package-level variable so tests can override it.
+var findHyokaProcessesFn = findHyokaProcesses
+
+// HyokaProcessInfo describes a running process tagged with HYOKA_SESSION.
+type HyokaProcessInfo struct {
+	PID      int
+	PromptID string
+	Config   string
+}
+
+// findHyokaProcesses is the default implementation that scans /proc/*/environ
+// for HYOKA_SESSION=true. It returns all matching processes across the system,
+// regardless of ancestry — orphaned processes from crashed parents are included.
+func findHyokaProcesses() ([]HyokaProcessInfo, error) {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil, fmt.Errorf("reading /proc: %w", err)
+	}
+
+	var procs []HyokaProcessInfo
+	myPID := os.Getpid()
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		pid := 0
+		for _, c := range entry.Name() {
+			if c < '0' || c > '9' {
+				pid = -1
+				break
+			}
+			pid = pid*10 + int(c-'0')
+		}
+		if pid <= 0 || pid == myPID {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "environ"))
+		if err != nil {
+			continue
+		}
+
+		var info HyokaProcessInfo
+		found := false
+		for _, envVar := range strings.Split(string(data), "\x00") {
+			switch {
+			case envVar == "HYOKA_SESSION=true":
+				found = true
+			case strings.HasPrefix(envVar, "HYOKA_PROMPT_ID="):
+				info.PromptID = envVar[len("HYOKA_PROMPT_ID="):]
+			case strings.HasPrefix(envVar, "HYOKA_CONFIG="):
+				info.Config = envVar[len("HYOKA_CONFIG="):]
+			}
+		}
+		if found {
+			info.PID = pid
+			procs = append(procs, info)
+		}
+	}
+	return procs, nil
+}
+
+// cleanProcesses finds and terminates orphaned hyoka-tagged copilot processes.
+func cleanProcesses(opts Options, result *Result) error {
+	procs, err := ScanHyokaProcesses(opts.Out)
+	if err != nil {
+		return err
+	}
+
+	result.ProcessesFound = len(procs)
+	if len(procs) == 0 {
+		return nil
+	}
+
+	if opts.DryRun {
+		for _, p := range procs {
+			fmt.Fprintf(opts.Out, "  [dry-run] would kill %s\n", formatProcessInfo(p))
+		}
+		return nil
+	}
+
+	killed := KillHyokaProcesses(procs, opts.Out)
+	result.ProcessesKilled = killed
+	return nil
+}
+
+// ScanHyokaProcesses finds all running processes tagged with HYOKA_SESSION.
+// It prints a summary to out and returns the list of found processes.
+func ScanHyokaProcesses(out io.Writer) ([]HyokaProcessInfo, error) {
+	procs, err := findHyokaProcessesFn()
+	if err != nil {
+		return nil, err
+	}
+	if len(procs) == 0 {
+		fmt.Fprintln(out, "No orphaned hyoka processes found.")
+		return nil, nil
+	}
+	fmt.Fprintf(out, "Found %d hyoka-tagged process(es):\n", len(procs))
+	for _, p := range procs {
+		fmt.Fprintf(out, "  • %s\n", formatProcessInfo(p))
+	}
+	return procs, nil
+}
+
+// KillHyokaProcesses sends SIGTERM (then SIGKILL after 5s) to each process.
+// Returns the number of processes successfully signaled.
+func KillHyokaProcesses(procs []HyokaProcessInfo, out io.Writer) int {
+	killed := 0
+	for _, p := range procs {
+		proc, findErr := os.FindProcess(p.PID)
+		if findErr != nil {
+			slog.Debug("process already gone", "pid", p.PID)
+			continue
+		}
+
+		if sigErr := proc.Signal(syscall.SIGTERM); sigErr != nil {
+			slog.Debug("SIGTERM failed (process may have exited)", "pid", p.PID, "error", sigErr)
+			continue
+		}
+
+		killed++
+		fmt.Fprintf(out, "  Terminated %s\n", formatProcessInfo(p))
+
+		go func(pr *os.Process, id int) {
+			deadline := time.After(5 * time.Second)
+			tick := time.NewTicker(200 * time.Millisecond)
+			defer tick.Stop()
+			for {
+				select {
+				case <-deadline:
+					slog.Warn("Orphan did not exit after SIGTERM, sending SIGKILL", "pid", id)
+					pr.Kill()
+					pr.Release()
+					return
+				case <-tick.C:
+					if err := pr.Signal(syscall.Signal(0)); err != nil {
+						return
+					}
+				}
+			}
+		}(proc, p.PID)
+	}
+	return killed
+}
+
+// formatProcessInfo returns a human-readable description of a process.
+func formatProcessInfo(p HyokaProcessInfo) string {
+	desc := fmt.Sprintf("PID %d", p.PID)
+	if p.PromptID != "" {
+		desc += fmt.Sprintf("  prompt=%s", p.PromptID)
+	}
+	if p.Config != "" {
+		desc += fmt.Sprintf("  config=%s", p.Config)
+	}
+	return desc
 }
 
 // cleanSessions removes stale session-state directories.

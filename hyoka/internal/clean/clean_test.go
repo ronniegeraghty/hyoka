@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -200,5 +201,105 @@ func TestHumanBytes(t *testing.T) {
 		if got != tc.expect {
 			t.Errorf("humanBytes(%d) = %q, want %q", tc.input, got, tc.expect)
 		}
+	}
+}
+
+func TestScanHyokaProcessesNoneFound(t *testing.T) {
+	origFn := findHyokaProcessesFn
+	findHyokaProcessesFn = func() ([]HyokaProcessInfo, error) {
+		return nil, nil
+	}
+	defer func() { findHyokaProcessesFn = origFn }()
+
+	var buf bytes.Buffer
+	procs, err := ScanHyokaProcesses(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(procs) != 0 {
+		t.Errorf("expected 0 processes, got %d", len(procs))
+	}
+	if !strings.Contains(buf.String(), "No orphaned hyoka processes found") {
+		t.Errorf("expected 'no processes' message, got %q", buf.String())
+	}
+}
+
+func TestScanHyokaProcessesListsProcesses(t *testing.T) {
+	origFn := findHyokaProcessesFn
+	findHyokaProcessesFn = func() ([]HyokaProcessInfo, error) {
+		return []HyokaProcessInfo{
+			{PID: 1234, PromptID: "azure-sdk-go", Config: "gpt-4o"},
+			{PID: 5678, PromptID: "", Config: ""},
+		}, nil
+	}
+	defer func() { findHyokaProcessesFn = origFn }()
+
+	var buf bytes.Buffer
+	procs, err := ScanHyokaProcesses(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(procs) != 2 {
+		t.Errorf("expected 2 processes, got %d", len(procs))
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Found 2 hyoka-tagged process(es)") {
+		t.Errorf("expected summary header, got %q", out)
+	}
+	if !strings.Contains(out, "PID 1234") {
+		t.Errorf("expected PID 1234 listed, got %q", out)
+	}
+	if !strings.Contains(out, "prompt=azure-sdk-go") {
+		t.Errorf("expected prompt metadata, got %q", out)
+	}
+	if !strings.Contains(out, "PID 5678") {
+		t.Errorf("expected PID 5678 listed, got %q", out)
+	}
+}
+
+func TestCleanProcessesDryRun(t *testing.T) {
+	origFn := findHyokaProcessesFn
+	findHyokaProcessesFn = func() ([]HyokaProcessInfo, error) {
+		return []HyokaProcessInfo{
+			{PID: 9999, PromptID: "test-prompt", Config: "test-config"},
+		}, nil
+	}
+	defer func() { findHyokaProcessesFn = origFn }()
+
+	var buf bytes.Buffer
+	result := &Result{}
+	err := cleanProcesses(Options{DryRun: true, Out: &buf}, result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ProcessesFound != 1 {
+		t.Errorf("expected 1 found, got %d", result.ProcessesFound)
+	}
+	if result.ProcessesKilled != 0 {
+		t.Errorf("expected 0 killed in dry-run, got %d", result.ProcessesKilled)
+	}
+	if !strings.Contains(buf.String(), "[dry-run] would kill") {
+		t.Errorf("expected dry-run message, got %q", buf.String())
+	}
+}
+
+func TestFormatProcessInfo(t *testing.T) {
+	tests := []struct {
+		name   string
+		info   HyokaProcessInfo
+		expect string
+	}{
+		{"pid only", HyokaProcessInfo{PID: 42}, "PID 42"},
+		{"with prompt", HyokaProcessInfo{PID: 42, PromptID: "p1"}, "PID 42  prompt=p1"},
+		{"with config", HyokaProcessInfo{PID: 42, Config: "c1"}, "PID 42  config=c1"},
+		{"full", HyokaProcessInfo{PID: 42, PromptID: "p1", Config: "c1"}, "PID 42  prompt=p1  config=c1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatProcessInfo(tc.info)
+			if got != tc.expect {
+				t.Errorf("got %q, want %q", got, tc.expect)
+			}
+		})
 	}
 }

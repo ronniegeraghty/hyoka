@@ -160,6 +160,70 @@ func FindCopilotProcesses() ([]int, error) {
 	return pids, nil
 }
 
+// HyokaProcessInfo describes a running process tagged with HYOKA_SESSION.
+type HyokaProcessInfo struct {
+	PID      int
+	PromptID string
+	Config   string
+}
+
+// FindHyokaProcesses scans /proc for any running process whose environment
+// contains HYOKA_SESSION=true, regardless of ancestry. This identifies all
+// SDK-spawned copilot processes belonging to hyoka, even those orphaned by a
+// crashed parent. Unlike FindCopilotProcesses (which requires descendant
+// relationship), this works across process trees.
+func FindHyokaProcesses() ([]HyokaProcessInfo, error) {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil, fmt.Errorf("reading /proc: %w", err)
+	}
+
+	var procs []HyokaProcessInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			continue
+		}
+		if pid == os.Getpid() {
+			continue
+		}
+		info, ok := readHyokaEnv(pid)
+		if !ok {
+			continue
+		}
+		info.PID = pid
+		procs = append(procs, info)
+	}
+	return procs, nil
+}
+
+// readHyokaEnv reads /proc/<pid>/environ and checks for HYOKA_SESSION=true.
+// Returns process info and true if the marker is found.
+func readHyokaEnv(pid int) (HyokaProcessInfo, bool) {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", pid))
+	if err != nil {
+		return HyokaProcessInfo{}, false
+	}
+
+	var info HyokaProcessInfo
+	found := false
+	// environ uses null bytes as separators
+	for _, envVar := range strings.Split(string(data), "\x00") {
+		switch {
+		case envVar == EnvHyokaSession+"=true":
+			found = true
+		case strings.HasPrefix(envVar, EnvHyokaPromptID+"="):
+			info.PromptID = envVar[len(EnvHyokaPromptID)+1:]
+		case strings.HasPrefix(envVar, EnvHyokaConfig+"="):
+			info.Config = envVar[len(EnvHyokaConfig)+1:]
+		}
+	}
+	return info, found
+}
+
 // ScanOrphans finds copilot processes not tracked by this ProcessTracker.
 func (pt *ProcessTracker) ScanOrphans() []int {
 	allCopilot, err := FindCopilotProcesses()

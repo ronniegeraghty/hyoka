@@ -57,6 +57,8 @@ func NewCopilotSDKEvaluator(opts CopilotEvalOptions) *CopilotSDKEvaluator {
 	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 		clientOpts.LogLevel = "debug"
 	}
+	// Tag SDK-spawned processes with HYOKA_SESSION env var (#70).
+	clientOpts.Env = HyokaBaseEnv()
 	return &CopilotSDKEvaluator{
 		clientOpts: clientOpts,
 		allowCloud: opts.AllowCloud,
@@ -82,6 +84,8 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	// Create Copilot client
 	opts := *e.clientOpts
 	opts.Cwd = workDir
+	// Enrich env with prompt/config metadata for this specific eval (#70).
+	opts.Env = HyokaEvalEnv(p.ID, cfg.Name)
 	client := copilot.NewClient(&opts)
 
 	if err := client.Start(ctx); err != nil {
