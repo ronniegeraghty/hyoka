@@ -124,7 +124,7 @@ func TestCleanLogsTrimming(t *testing.T) {
 	defer func() { copilotStateDirFn = origFn }()
 
 	var buf bytes.Buffer
-	result, err := Run(Options{KeepLogs: 2, Out: &buf})
+	result, err := Run(Options{KeepLogs: 2, All: true, Out: &buf})
 	if err != nil {
 		t.Fatal(err)
 	}

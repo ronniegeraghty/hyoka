@@ -1041,7 +1041,10 @@ func cleanCmd() *cobra.Command {
 		Long: `Scans for orphaned hyoka-spawned Copilot processes (tagged with HYOKA_SESSION)
 and stale ~/.copilot/session-state/ directories. Lists any found processes and
 asks for confirmation before killing them. Session state accumulates over many
-eval runs and can grow to gigabytes, so periodic cleanup is recommended.`,
+eval runs and can grow to gigabytes, so periodic cleanup is recommended.
+
+By default only cleans hyoka-created sessions and processes. Use --all to also
+clean Copilot CLI log files and non-hyoka session state.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 
@@ -1089,16 +1092,20 @@ eval runs and can grow to gigabytes, so periodic cleanup is recommended.`,
 				}
 				fmt.Fprintln(out)
 			} else {
-				fmt.Fprintf(out, "\nCleaned %d session(s), %d log(s) — freed %s\n",
-					result.SessionsRemoved, result.LogsRemoved, humanSize(result.BytesFreed))
+				parts := []string{fmt.Sprintf("%d session(s)", result.SessionsRemoved)}
+				if result.LogsRemoved > 0 {
+					parts = append(parts, fmt.Sprintf("%d log(s)", result.LogsRemoved))
+				}
+				fmt.Fprintf(out, "\nCleaned %s — freed %s\n",
+					strings.Join(parts, ", "), humanSize(result.BytesFreed))
 			}
 			return nil
 		},
 	}
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be cleaned without deleting or killing")
-	cmd.Flags().IntVar(&keepLogs, "keep-logs", 50, "Number of recent log files to keep")
-	cmd.Flags().BoolVar(&all, "all", false, "Clean all session-state, not just hyoka-created sessions")
+	cmd.Flags().IntVar(&keepLogs, "keep-logs", 50, "Number of recent log files to keep (only with --all)")
+	cmd.Flags().BoolVar(&all, "all", false, "Also clean Copilot CLI logs and non-hyoka session state")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt and kill orphaned processes automatically")
 
 	return cmd

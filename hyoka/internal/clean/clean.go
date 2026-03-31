@@ -85,10 +85,13 @@ func Run(opts Options) (*Result, error) {
 		fmt.Fprintf(opts.Out, "Warning: session cleanup: %v\n", err)
 	}
 
-	// Phase 3: Clean old log files
-	logsDir := filepath.Join(stateDir, "logs")
-	if err := cleanLogs(logsDir, opts, result); err != nil {
-		fmt.Fprintf(opts.Out, "Warning: log cleanup: %v\n", err)
+	// Phase 3: Clean old log files (only with --all since we can't
+	// distinguish hyoka-spawned logs from Copilot CLI logs).
+	if opts.All {
+		logsDir := filepath.Join(stateDir, "logs")
+		if err := cleanLogs(logsDir, opts, result); err != nil {
+			fmt.Fprintf(opts.Out, "Warning: log cleanup: %v\n", err)
+		}
 	}
 
 	return result, nil
