@@ -1,5 +1,7 @@
 package eval
 
+import "os"
+
 // Environment variable names injected into SDK-spawned Copilot processes
 // so hyoka can identify and clean up its own child processes (#70).
 const (
@@ -11,14 +13,15 @@ const (
 	EnvHyokaConfig = "HYOKA_CONFIG"
 )
 
-// HyokaBaseEnv returns the baseline environment entries that tag a process
-// as hyoka-managed. Callers can append prompt/config-specific entries.
+// HyokaBaseEnv returns the current process environment with the hyoka
+// session marker appended. The full environment is inherited so spawned
+// processes retain PATH and other required variables.
 func HyokaBaseEnv() []string {
-	return []string{EnvHyokaSession + "=true"}
+	return append(os.Environ(), EnvHyokaSession+"=true")
 }
 
-// HyokaEvalEnv returns environment entries that tag a process with
-// the session marker plus prompt and config metadata.
+// HyokaEvalEnv returns the current process environment with the session
+// marker plus prompt and config metadata appended.
 func HyokaEvalEnv(promptID, configName string) []string {
 	env := HyokaBaseEnv()
 	if promptID != "" {
