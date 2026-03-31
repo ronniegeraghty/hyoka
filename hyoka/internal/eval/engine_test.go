@@ -23,9 +23,11 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// quietOpts returns EngineOptions with stdout suppressed for clean test output.
+// quietOpts returns EngineOptions with stdout suppressed and an isolated
+// ProcessTracker so tests never scan/kill real Copilot CLI processes.
 func quietOpts(opts EngineOptions) EngineOptions {
 	opts.Stdout = io.Discard
+	opts.Tracker = &ProcessTracker{}
 	return opts
 }
 

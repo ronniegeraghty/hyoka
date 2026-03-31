@@ -90,6 +90,9 @@ type EngineOptions struct {
 	ExcludeDirs []string // Directories to exclude from generated_files output.
 	// Output writer for user-facing messages (defaults to os.Stdout).
 	Stdout io.Writer
+	// Tracker overrides the default process tracker (used in tests to avoid
+	// killing real Copilot CLI processes during orphan scans).
+	Tracker *ProcessTracker
 }
 
 // Engine orchestrates evaluation runs.
@@ -154,11 +157,15 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 	if opts.Stdout == nil {
 		opts.Stdout = os.Stdout
 	}
+	tracker := opts.Tracker
+	if tracker == nil {
+		tracker = DefaultTracker
+	}
 	return &Engine{
 		evaluator: evaluator,
 		reviewer:  reviewer,
 		opts:      opts,
-		tracker:   DefaultTracker,
+		tracker:   tracker,
 	}
 }
 
