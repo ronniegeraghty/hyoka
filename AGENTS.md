@@ -11,16 +11,25 @@ hyoka/              # Go source (module: github.com/ronniegeraghty/hyoka)
   main.go           # CLI entry point (cobra)
   internal/         # All packages
     build/          # Language-specific build verification
+    checkenv/       # Environment prerequisite validation
+    clean/          # Session state & orphan process cleanup (#62, #70)
     config/         # Config loading & parsing
+    criteria/       # Tiered evaluation criteria system (#30)
     eval/           # Evaluation engine (generation + review orchestration)
-    logging/        # Logging utilities
-    progress/       # Progress display
+    history/        # Run history tracking
+    logging/        # Structured slog logging utilities
+    manifest/       # Dependency manifest
+    plugin/         # Composable plugin system (#50)
+    progress/       # Progress display (live, log, off)
     prompt/         # Prompt loading, filtering, validation
+    rerender/       # Report re-rendering from JSON
     report/         # Report generation (JSON, HTML, Markdown)
     review/         # Multi-model review panel + rubric
+    serve/          # Local web server for report browsing (#20)
     skills/         # Skill fetching (local + remote)
-    verify/         # Copilot-based code verification
     trends/         # Cross-run trend analysis
+    utils/          # Shared utility functions
+    validate/       # Prompt schema validation
 configs/            # Evaluation config YAML files
 prompts/            # Prompt library (organized by language/service)
 skills/             # Copilot skills (generator/ and reviewer/)
@@ -31,14 +40,14 @@ docs/               # Design docs and getting started guide
 ## Build & Test
 
 ```bash
-# Build (from repo root — always output to bin/)
+# Build (from repo root — uses go.work)
 cd /home/rgeraghty/projects/hyoka
-go build -o bin/hyoka ./hyoka
+go build ./hyoka/...
 
 # Run tests
 go test ./hyoka/...
 
-# Run the CLI (build + run in one step)
+# Run the CLI
 go run ./hyoka <command>
 
 # Common commands
@@ -46,9 +55,8 @@ go run ./hyoka list
 go run ./hyoka run --all-configs
 go run ./hyoka validate
 go run ./hyoka check-env
+go run ./hyoka clean
 ```
-
-**Build output**: Always use `go build -o bin/hyoka ./hyoka` so the binary goes to `bin/`. The `bin/` directory is gitignored. Never place binaries in the project root.
 
 Go version: 1.24.5+ required. Module path: `github.com/ronniegeraghty/hyoka`.
 

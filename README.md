@@ -79,7 +79,7 @@ When a run would execute **more than 10 evaluations**, hyoka shows a summary and
 
 ### Process Lifecycle
 
-hyoka tracks all spawned Copilot processes and terminates them on completion or interrupt (Ctrl+C). The cleanup sequence sends SIGTERM, waits up to 5 seconds, then SIGKILL — no more orphaned processes consuming resources after a run.
+hyoka tracks all spawned Copilot processes and terminates them on completion or interrupt (Ctrl+C). The cleanup sequence sends SIGTERM, waits up to 5 seconds, then SIGKILL — no more orphaned processes consuming resources after a run. All SDK-spawned processes are tagged with `HYOKA_SESSION=true` in their environment, enabling `hyoka clean` to find and kill orphans even from crashed runs.
 
 ### Smart Concurrency
 
@@ -111,6 +111,7 @@ Did you mean one of these?
 | `hyoka new-prompt` | | Scaffold a new prompt file interactively |
 | `hyoka serve` | | Launch local web UI for browsing reports |
 | `hyoka plugins` | | List registered plugins |
+| `hyoka clean` | | Remove stale session state and orphaned SDK processes |
 | `hyoka version` | | Print version |
 
 ### Filtering
@@ -167,6 +168,11 @@ hyoka list --json
 | `--sandbox` | `true` | Alias confirming safe/local-only mode (default behavior) |
 | `--criteria-dir` | `criteria` | Directory with tiered evaluation criteria YAML files |
 | `--strict-cleanup` | `false` | Fail run if orphaned Copilot processes remain after cleanup |
+| `--monitor-resources` | `false` | Monitor CPU and memory usage of Copilot sessions during evaluation |
+| `--generate-timeout` | `600` | Generation phase timeout in seconds |
+| `--build-timeout` | `300` | Build verification timeout in seconds |
+| `--review-timeout` | `300` | Review phase timeout in seconds |
+| `--exclude-dirs` | | Comma-separated directories to exclude from generated_files output |
 
 ### Run Command Examples
 
@@ -344,17 +350,27 @@ hyoka/
 ├── hyoka/                              # Go eval tool (hyoka)
 │   ├── cmd/hyoka/main.go
 │   ├── go.mod / go.sum
-│   └── internal/                      # config, prompt, eval, build, report,
-│       │                              #   validate, trends, review
-│       ├── config/
-│       ├── prompt/
-│       ├── eval/
-│       ├── build/
-│       ├── report/
-│       ├── trends/
-│       ├── review/
-│       │   └── rubric.md              # Criteria-based scoring rubric (embedded)
-│       └── validate/
+│   └── internal/                      # All internal packages
+│       ├── build/                     # Language-specific build verification
+│       ├── checkenv/                  # Environment prerequisite validation
+│       ├── clean/                     # Session state & orphan process cleanup
+│       ├── config/                    # Config loading & parsing
+│       ├── criteria/                  # Tiered evaluation criteria system
+│       ├── eval/                      # Evaluation engine (generation + orchestration)
+│       ├── history/                   # Run history tracking
+│       ├── logging/                   # Structured slog logging utilities
+│       ├── manifest/                  # Dependency manifest
+│       ├── plugin/                    # Composable plugin system
+│       ├── progress/                  # Progress display (live, log, off)
+│       ├── prompt/                    # Prompt loading, filtering, validation
+│       ├── rerender/                  # Report re-rendering from JSON
+│       ├── report/                    # Report generation (JSON, HTML, Markdown)
+│       ├── review/                    # Multi-model review panel + rubric
+│       ├── serve/                     # Local web server for report browsing
+│       ├── skills/                    # Skill fetching (local + remote)
+│       ├── trends/                    # Cross-run trend analysis
+│       ├── utils/                     # Shared utility functions
+│       └── validate/                  # Prompt schema validation
 ├── reports/                           # Evaluation output
 │   └── <run-id>/
 │       ├── summary.{json,html,md}
@@ -362,7 +378,12 @@ hyoka/
 │           └── report.{json,html,md}
 ├── docs/                              # Documentation
 │   ├── getting-started.md
-│   └── cleanup-plan.md
+│   ├── architecture.md
+│   ├── cli-reference.md
+│   ├── configuration.md
+│   ├── prompt-authoring.md
+│   ├── guardrails.md
+│   └── contributing.md
 └── templates/
     └── prompt-template.prompt.md
 ```
