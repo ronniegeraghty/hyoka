@@ -37,11 +37,12 @@ func TestProcessTrackerScanOrphansEmpty(t *testing.T) {
 
 func TestProcessTrackerTerminateOrphansNoOp(t *testing.T) {
 	pt := &ProcessTracker{}
-	// With no orphans, TerminateOrphans returns 0
-	count := pt.TerminateOrphans()
-	// We can't guarantee 0 if system has copilot processes running,
-	// but the call should not panic.
-	_ = count
+	// Only verify ScanOrphans works without panic. We do NOT call
+	// TerminateOrphans because it sends SIGTERM to any copilot process
+	// not tracked by this (empty) tracker — which would kill the
+	// Copilot CLI process running interactive sessions.
+	orphans := pt.ScanOrphans()
+	_ = orphans
 }
 
 func TestFindCopilotProcesses(t *testing.T) {

@@ -61,16 +61,49 @@ func (pt *ProcessTracker) TrackedPIDs() map[int]string {
 	return out
 }
 
+// ancestorPIDs returns the set of PIDs in the current process's ancestor
+// chain (self, parent, grandparent, …) by walking /proc/<pid>/stat.
+func ancestorPIDs() map[int]bool {
+	ancestors := make(map[int]bool)
+	pid := os.Getpid()
+	for pid > 1 {
+		ancestors[pid] = true
+		stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+		if err != nil {
+			break
+		}
+		// /proc/<pid>/stat format: <pid> (comm) <state> <ppid> ...
+		// Find the closing ')' of comm, then parse ppid as the next field.
+		closeParen := strings.LastIndex(string(stat), ")")
+		if closeParen < 0 {
+			break
+		}
+		fields := strings.Fields(string(stat)[closeParen+1:])
+		if len(fields) < 2 {
+			break
+		}
+		ppid, err := strconv.Atoi(fields[1])
+		if err != nil || ppid <= 1 {
+			break
+		}
+		pid = ppid
+	}
+	return ancestors
+}
+
 // FindCopilotProcesses scans /proc for running processes with "copilot" or
 // "github-copilot" in their command line. Returns PIDs of matching processes.
+// Ancestor processes (parent, grandparent, etc.) are excluded so that hyoka
+// never kills a Copilot CLI session that launched it.
 func FindCopilotProcesses() ([]int, error) {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil, fmt.Errorf("reading /proc: %w", err)
 	}
 
+	skip := ancestorPIDs()
+
 	var pids []int
-	myPID := os.Getpid()
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -79,7 +112,7 @@ func FindCopilotProcesses() ([]int, error) {
 		if err != nil {
 			continue // not a PID directory
 		}
-		if pid == myPID {
+		if skip[pid] {
 			continue
 		}
 		cmdline, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "cmdline"))
