@@ -81,6 +81,33 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		mu.Lock()
 		defer mu.Unlock()
 
+		// Log review events at debug level for visibility during runs.
+		switch event.Type {
+		case copilot.SessionEventTypeAssistantTurnStart:
+			slog.Debug("Review turn started", "model", r.model)
+		case copilot.SessionEventTypeAssistantTurnEnd:
+			slog.Debug("Review turn ended", "model", r.model)
+		case copilot.SessionEventTypeAssistantMessage:
+			if event.Data.Content != nil {
+				slog.Debug("Review assistant message", "model", r.model,
+					"content_len", len(*event.Data.Content))
+			}
+		case copilot.SessionEventTypeToolExecutionStart:
+			toolName := ""
+			if event.Data.ToolName != nil {
+				toolName = *event.Data.ToolName
+			}
+			slog.Debug("Review tool start", "model", r.model, "tool", toolName)
+		case copilot.SessionEventTypeToolExecutionComplete:
+			toolName := ""
+			if event.Data.ToolName != nil {
+				toolName = *event.Data.ToolName
+			}
+			slog.Debug("Review tool complete", "model", r.model, "tool", toolName)
+		case copilot.SessionEventTypeAssistantUsage:
+			slog.Debug("Review token usage", "model", r.model)
+		}
+
 		if event.Type == copilot.SessionEventTypeAssistantMessage && event.Data.Content != nil {
 			assistantContent.WriteString(*event.Data.Content)
 		}
@@ -353,6 +380,34 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	eventHandler := func(event copilot.SessionEvent) {
 		mu.Lock()
 		defer mu.Unlock()
+
+		// Log review events at debug level for visibility during runs.
+		switch event.Type {
+		case copilot.SessionEventTypeAssistantTurnStart:
+			slog.Debug("Review turn started", "model", model)
+		case copilot.SessionEventTypeAssistantTurnEnd:
+			slog.Debug("Review turn ended", "model", model)
+		case copilot.SessionEventTypeAssistantMessage:
+			if event.Data.Content != nil {
+				slog.Debug("Review assistant message", "model", model,
+					"content_len", len(*event.Data.Content))
+			}
+		case copilot.SessionEventTypeToolExecutionStart:
+			toolName := ""
+			if event.Data.ToolName != nil {
+				toolName = *event.Data.ToolName
+			}
+			slog.Debug("Review tool start", "model", model, "tool", toolName)
+		case copilot.SessionEventTypeToolExecutionComplete:
+			toolName := ""
+			if event.Data.ToolName != nil {
+				toolName = *event.Data.ToolName
+			}
+			slog.Debug("Review tool complete", "model", model, "tool", toolName)
+		case copilot.SessionEventTypeAssistantUsage:
+			slog.Debug("Review token usage", "model", model)
+		}
+
 		if event.Type == copilot.SessionEventTypeAssistantMessage && event.Data.Content != nil {
 			assistantContent.WriteString(*event.Data.Content)
 		}

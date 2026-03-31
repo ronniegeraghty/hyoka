@@ -61,47 +61,76 @@ func (pt *ProcessTracker) TrackedPIDs() map[int]string {
 	return out
 }
 
-// ancestorPIDs returns the set of PIDs in the current process's ancestor
-// chain (self, parent, grandparent, …) by walking /proc/<pid>/stat.
-func ancestorPIDs() map[int]bool {
-	ancestors := make(map[int]bool)
-	pid := os.Getpid()
-	for pid > 1 {
-		ancestors[pid] = true
-		stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
-		if err != nil {
-			break
+// descendantPIDs returns the set of all descendant PIDs of the given root PID
+// by scanning /proc/*/stat for processes whose PPID is in the set. This builds
+// the full process tree rooted at root.
+func descendantPIDs(root int) map[int]bool {
+	descendants := make(map[int]bool)
+	descendants[root] = true
+
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return descendants
+	}
+
+	// Build parent→children map
+	type procInfo struct {
+		pid  int
+		ppid int
+	}
+	var procs []procInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
 		}
-		// /proc/<pid>/stat format: <pid> (comm) <state> <ppid> ...
-		// Find the closing ')' of comm, then parse ppid as the next field.
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			continue
+		}
+		stat, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "stat"))
+		if err != nil {
+			continue
+		}
 		closeParen := strings.LastIndex(string(stat), ")")
 		if closeParen < 0 {
-			break
+			continue
 		}
 		fields := strings.Fields(string(stat)[closeParen+1:])
 		if len(fields) < 2 {
-			break
+			continue
 		}
 		ppid, err := strconv.Atoi(fields[1])
-		if err != nil || ppid <= 1 {
-			break
+		if err != nil {
+			continue
 		}
-		pid = ppid
+		procs = append(procs, procInfo{pid: pid, ppid: ppid})
 	}
-	return ancestors
+
+	// BFS to find all descendants
+	changed := true
+	for changed {
+		changed = false
+		for _, p := range procs {
+			if descendants[p.ppid] && !descendants[p.pid] {
+				descendants[p.pid] = true
+				changed = true
+			}
+		}
+	}
+	return descendants
 }
 
 // FindCopilotProcesses scans /proc for running processes with "copilot" or
-// "github-copilot" in their command line. Returns PIDs of matching processes.
-// Ancestor processes (parent, grandparent, etc.) are excluded so that hyoka
-// never kills a Copilot CLI session that launched it.
+// "github-copilot" in their command line that are descendants of the current
+// process. This ensures hyoka only finds copilot processes it spawned, not
+// unrelated Copilot CLI sessions (e.g., interactive sessions in other terminals).
 func FindCopilotProcesses() ([]int, error) {
+	myDescendants := descendantPIDs(os.Getpid())
+
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil, fmt.Errorf("reading /proc: %w", err)
 	}
-
-	skip := ancestorPIDs()
 
 	var pids []int
 	for _, entry := range entries {
@@ -112,8 +141,11 @@ func FindCopilotProcesses() ([]int, error) {
 		if err != nil {
 			continue // not a PID directory
 		}
-		if skip[pid] {
+		if pid == os.Getpid() {
 			continue
+		}
+		if !myDescendants[pid] {
+			continue // not a descendant — skip
 		}
 		cmdline, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "cmdline"))
 		if err != nil {
