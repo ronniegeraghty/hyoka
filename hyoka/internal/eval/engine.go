@@ -268,7 +268,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	// Resource monitor (#45) — opt-in via --monitor-resources.
 	var resMonitor *ResourceMonitor
 	if e.opts.MonitorResources {
-		resMonitor = NewResourceMonitor(DefaultTracker, 5*time.Second)
+		resMonitor = NewResourceMonitor(e.tracker, 5*time.Second)
 		resMonitor.Start()
 		defer resMonitor.Stop()
 	}
@@ -279,7 +279,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 
 	// Ensure all tracked Copilot processes are cleaned up when Run exits.
 	defer func() {
-		if errs := DefaultTracker.TerminateAll(5 * time.Second); len(errs) > 0 {
+		if errs := e.tracker.TerminateAll(5 * time.Second); len(errs) > 0 {
 			for _, err := range errs {
 				slog.Warn("Process cleanup error", "error", err)
 			}
@@ -297,7 +297,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 			if first {
 				slog.Warn("Received signal — terminating tracked Copilot processes", "signal", sig.String())
 				cancel() // Cancel context to unwind in-flight goroutines
-				if errs := DefaultTracker.TerminateAll(5 * time.Second); len(errs) > 0 {
+				if errs := e.tracker.TerminateAll(5 * time.Second); len(errs) > 0 {
 					for _, err := range errs {
 						slog.Warn("Process cleanup error", "error", err)
 					}
@@ -445,10 +445,15 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	display.Done()
 
 	// Post-run orphan scan — terminate any leaked copilot processes (#46)
-	if orphans := e.tracker.TerminateOrphans(); orphans > 0 {
-		slog.Warn("Terminated orphaned copilot processes", "count", orphans)
-		if e.opts.StrictCleanup {
-			return summary, fmt.Errorf("strict-cleanup: %d orphaned copilot processes detected and terminated", orphans)
+	// Only scan when using the DefaultTracker (production). Test-injected
+	// trackers have no registrations, so every real copilot process looks
+	// like an orphan — which would kill the user's Copilot CLI.
+	if e.tracker == DefaultTracker {
+		if orphans := e.tracker.TerminateOrphans(); orphans > 0 {
+			slog.Warn("Terminated orphaned copilot processes", "count", orphans)
+			if e.opts.StrictCleanup {
+				return summary, fmt.Errorf("strict-cleanup: %d orphaned copilot processes detected and terminated", orphans)
+			}
 		}
 	}
 
