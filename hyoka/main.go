@@ -528,6 +528,23 @@ func runCmd() *cobra.Command {
 				}
 			}
 
+			// Build merged ignore list: defaults + user-specified excludes (#75)
+			reviewIgnoreDirs := make(map[string]bool, len(eval.DefaultIgnoreDirs)+len(excludeDirs))
+			for k, v := range eval.DefaultIgnoreDirs {
+				reviewIgnoreDirs[k] = v
+			}
+			for _, d := range excludeDirs {
+				reviewIgnoreDirs[strings.TrimRight(d, "/")] = true
+			}
+			if panelReviewer != nil {
+				panelReviewer.SetIgnoreDirs(reviewIgnoreDirs)
+			}
+			if reviewer != nil {
+				if cr, ok := reviewer.(*review.CopilotReviewer); ok {
+					cr.SetIgnoreDirs(reviewIgnoreDirs)
+				}
+			}
+
 			engine := eval.NewEngineWithReviewer(evaluator, reviewer, eval.EngineOptions{
 				Workers:           f.workers,
 				MaxSessions:       f.maxSessions,

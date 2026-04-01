@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/ronniegeraghty/hyoka/internal/eval"
 )
 
 // BuildResult holds the outcome of a build verification.
@@ -113,6 +115,9 @@ func buildCommands(lc *LanguageConfig, workDir string) []buildStep {
 			if d.Type()&os.ModeSymlink != 0 {
 				return nil
 			}
+			if d.IsDir() && eval.DefaultIgnoreDirs[d.Name()] {
+				return filepath.SkipDir
+			}
 			if !d.IsDir() && strings.HasSuffix(path, ".py") {
 				pyFiles = append(pyFiles, path)
 			}
@@ -132,6 +137,9 @@ func buildCommands(lc *LanguageConfig, workDir string) []buildStep {
 			}
 			if d.Type()&os.ModeSymlink != 0 {
 				return nil
+			}
+			if d.IsDir() && eval.DefaultIgnoreDirs[d.Name()] {
+				return filepath.SkipDir
 			}
 			if !d.IsDir() && (strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".mjs")) {
 				jsFiles = append(jsFiles, path)

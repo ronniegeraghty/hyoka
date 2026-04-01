@@ -237,21 +237,46 @@ var codeFileExts = map[string]bool{
 	".cfg": true, ".ini": true, ".env": true, ".dockerfile": true,
 }
 
-// junkDirs lists directory names that are build/runtime artifacts and should
-// be deleted rather than recovered into the workspace.
-var junkDirs = map[string]bool{
+// DefaultIgnoreDirs is the centralized list of directory names that contain
+// build artifacts, installed dependencies, or runtime caches. These directories
+// should be excluded from review prompts (to avoid context overflow) and
+// deleted when recovering misplaced files. Covers all supported languages.
+var DefaultIgnoreDirs = map[string]bool{
+	// JavaScript / TypeScript
+	"node_modules":    true,
+	"bower_components": true,
+	".next":           true,
+	".nuxt":           true,
+	// Python
 	"__pycache__":  true,
-	"node_modules": true,
 	"venv":         true,
 	".venv":        true,
 	"env":          true,
 	".tox":         true,
-	"dist":         true,
-	"build":        true,
-	"target":       true,
-	"bin":          true,
-	"obj":          true,
+	".eggs":        true,
+	"site-packages": true,
+	// Rust
+	"target": true,
+	// Go
+	"vendor": true,
+	// Java / Kotlin
+	".gradle": true,
+	".m2":     true,
+	// C# / .NET
+	"bin":      true,
+	"obj":      true,
+	"packages": true,
+	// General build artifacts
+	"dist":   true,
+	"build":  true,
+	".cache": true,
+	"tmp":    true,
+	".tmp":   true,
 }
+
+// junkDirs is an alias for DefaultIgnoreDirs, used by recoverMisplacedFiles
+// to decide which directories to delete rather than recover.
+var junkDirs = DefaultIgnoreDirs
 
 // snapshotDir returns a set of non-hidden entry names (files AND directories) in
 // a directory (non-recursive). Capturing directories lets recoverMisplacedFiles

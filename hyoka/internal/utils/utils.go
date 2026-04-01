@@ -2,6 +2,7 @@
 package utils
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,15 @@ import (
 // ReadDirFiles reads all files in a directory (non-recursive, skipping hidden/binary).
 // Returns a map of relative path -> content.
 func ReadDirFiles(dir string) (map[string]string, error) {
+	return ReadDirFilesFiltered(dir, nil)
+}
+
+// ReadDirFilesFiltered reads all files in a directory, skipping hidden files,
+// binary/large files (>1MB), and any directories whose name appears in skipDirs.
+// Pass nil for skipDirs to skip no directories (same behavior as ReadDirFiles).
+func ReadDirFilesFiltered(dir string, skipDirs map[string]bool) (map[string]string, error) {
 	files := make(map[string]string)
+	skipped := 0
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip unreadable
@@ -18,6 +27,10 @@ func ReadDirFiles(dir string) (map[string]string, error) {
 		if info.IsDir() {
 			name := info.Name()
 			if strings.HasPrefix(name, ".") && path != dir {
+				return filepath.SkipDir
+			}
+			if len(skipDirs) > 0 && skipDirs[name] && path != dir {
+				skipped++
 				return filepath.SkipDir
 			}
 			return nil
@@ -40,6 +53,9 @@ func ReadDirFiles(dir string) (map[string]string, error) {
 		files[rel] = string(data)
 		return nil
 	})
+	if skipped > 0 {
+		slog.Debug("ReadDirFilesFiltered skipped directories", "dir", dir, "skipped_dirs", skipped)
+	}
 	return files, err
 }
 

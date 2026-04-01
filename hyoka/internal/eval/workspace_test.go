@@ -181,3 +181,43 @@ func TestFilterExcludedDirs_TrailingSlash(t *testing.T) {
 		t.Errorf("expected 1 file after trailing-slash exclude, got %d: %v", len(got), got)
 	}
 }
+
+func TestDefaultIgnoreDirs_CoversAllLanguages(t *testing.T) {
+	// Verify that key dependency directories for all supported languages are present.
+	expected := []string{
+		// JS/TS
+		"node_modules", "bower_components",
+		// Python
+		"__pycache__", "venv", ".venv", "site-packages",
+		// Rust
+		"target",
+		// Go
+		"vendor",
+		// Java
+		".gradle",
+		// C#/.NET
+		"bin", "obj",
+		// General
+		"dist", "build",
+	}
+	for _, dir := range expected {
+		if !DefaultIgnoreDirs[dir] {
+			t.Errorf("DefaultIgnoreDirs missing expected entry: %q", dir)
+		}
+	}
+}
+
+func TestJunkDirsIsDefaultIgnoreDirs(t *testing.T) {
+	// Ensure junkDirs is the same reference as DefaultIgnoreDirs
+	// so recoverMisplacedFiles benefits from the expanded list.
+	for k := range DefaultIgnoreDirs {
+		if !junkDirs[k] {
+			t.Errorf("junkDirs missing key %q from DefaultIgnoreDirs", k)
+		}
+	}
+	for k := range junkDirs {
+		if !DefaultIgnoreDirs[k] {
+			t.Errorf("DefaultIgnoreDirs missing key %q from junkDirs", k)
+		}
+	}
+}

@@ -29,6 +29,7 @@ type CopilotReviewer struct {
 	model             string
 	maxSessionActions int
 	skillDirectories  []string
+	ignoreDirs        map[string]bool
 }
 
 // NewCopilotReviewer creates a reviewer backed by the given Copilot client.
@@ -44,21 +45,27 @@ func (r *CopilotReviewer) SetSkillDirectories(dirs []string) {
 	r.skillDirectories = dirs
 }
 
+// SetIgnoreDirs configures directories to exclude when reading files for the
+// review prompt. Files remain on disk in the workspace for build skills to use.
+func (r *CopilotReviewer) SetIgnoreDirs(dirs map[string]bool) {
+	r.ignoreDirs = dirs
+}
+
 // Review creates a separate Copilot session, sends the review prompt, and parses results.
 func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (*ReviewResult, error) {
 	slog.Debug("Reading generated files for review", "workDir", workDir)
-	generatedFiles, err := utils.ReadDirFiles(workDir)
+	generatedFiles, err := utils.ReadDirFilesFiltered(workDir, r.ignoreDirs)
 	if err != nil {
 		return nil, fmt.Errorf("reading generated files: %w", err)
 	}
 	if len(generatedFiles) == 0 {
 		return nil, fmt.Errorf("no generated files found in %s", workDir)
 	}
-	slog.Debug("Generated files loaded", "file_count", len(generatedFiles))
+	slog.Debug("Generated files loaded for review prompt", "file_count", len(generatedFiles))
 
 	var referenceFiles map[string]string
 	if referenceDir != "" {
-		referenceFiles, err = utils.ReadDirFiles(referenceDir)
+		referenceFiles, err = utils.ReadDirFilesFiltered(referenceDir, r.ignoreDirs)
 		if err != nil {
 			// Non-fatal: proceed without reference
 			slog.Warn("Could not read reference files, proceeding without", "referenceDir", referenceDir, "error", err)
@@ -273,6 +280,7 @@ type PanelReviewer struct {
 	models            []string // first model is the consolidator
 	maxSessionActions int
 	skillDirectories  []string
+	ignoreDirs        map[string]bool
 }
 
 // NewPanelReviewer creates a panel reviewer that runs multiple models concurrently.
@@ -288,6 +296,12 @@ func NewPanelReviewer(clientOpts *copilot.ClientOptions, models []string, maxSes
 // SetSkillDirectories configures skill directories for all review sessions.
 func (p *PanelReviewer) SetSkillDirectories(dirs []string) {
 	p.skillDirectories = dirs
+}
+
+// SetIgnoreDirs configures directories to exclude when reading files for the
+// review prompt. Files remain on disk in the workspace for build skills to use.
+func (p *PanelReviewer) SetIgnoreDirs(dirs map[string]bool) {
+	p.ignoreDirs = dirs
 }
 
 // Models returns the list of reviewer models.
@@ -306,14 +320,15 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 		return nil, nil, fmt.Errorf("no reviewer models configured")
 	}
 
-	generatedFiles, err := utils.ReadDirFiles(workDir)
+	generatedFiles, err := utils.ReadDirFilesFiltered(workDir, p.ignoreDirs)
 	if err != nil || len(generatedFiles) == 0 {
 		return nil, nil, fmt.Errorf("no generated files to review in %s", workDir)
 	}
+	slog.Debug("Generated files loaded for panel review prompt", "file_count", len(generatedFiles))
 
 	var referenceFiles map[string]string
 	if referenceDir != "" {
-		referenceFiles, _ = utils.ReadDirFiles(referenceDir)
+		referenceFiles, _ = utils.ReadDirFilesFiltered(referenceDir, p.ignoreDirs)
 	}
 
 	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles, evaluationCriteria)
