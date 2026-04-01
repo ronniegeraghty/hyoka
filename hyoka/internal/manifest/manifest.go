@@ -3,6 +3,7 @@ package manifest
 
 import (
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"sort"
 	"time"
@@ -41,6 +42,7 @@ type Manifest struct {
 // Generate scans promptsDir for .prompt.md files and returns a Manifest.
 // repoRoot is used to compute relative paths (typically the parent of promptsDir).
 func Generate(promptsDir string) (*Manifest, error) {
+	slog.Debug("Generating manifest")
 	prompts, err := prompt.LoadPrompts(promptsDir)
 	if err != nil {
 		return nil, fmt.Errorf("loading prompts: %w", err)
@@ -89,14 +91,16 @@ func Generate(promptsDir string) (*Manifest, error) {
 		return entries[i].ID < entries[j].ID
 	})
 
-	return &Manifest{
+	m := &Manifest{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		PromptCount: len(entries),
 		Services:    sortedKeys(serviceSet),
 		Languages:   sortedKeys(languageSet),
 		Categories:  sortedKeys(categorySet),
 		Prompts:     entries,
-	}, nil
+	}
+	slog.Info("Manifest generated")
+	return m, nil
 }
 
 // Marshal serializes the manifest to YAML bytes.

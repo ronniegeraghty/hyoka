@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ronniegeraghty/hyoka/internal/build"
 	"github.com/ronniegeraghty/hyoka/internal/review"
 )
 
@@ -22,12 +21,6 @@ func TestWriteHTMLReport(t *testing.T) {
 		PromptMeta: map[string]any{"service": "storage", "language": "dotnet"},
 		ConfigUsed: map[string]any{"name": "baseline", "model": "gpt-4"},
 		GeneratedFiles: []string{"Program.cs"},
-		Build: &build.BuildResult{
-			Language: "dotnet",
-			Command:  "dotnet build",
-			ExitCode: 0,
-			Success:  true,
-		},
 		Review: &review.ReviewResult{
 			Scores: review.ReviewScores{
 				Criteria: []review.CriterionResult{
@@ -75,7 +68,6 @@ func TestWriteHTMLReport(t *testing.T) {
 		"Code Builds",
 		"Good implementation",
 		"Program.cs",
-		"dotnet build",
 		"Generation Timeline",
 		"Write a dotnet storage auth sample",
 		"I need to create an auth sample",
@@ -151,27 +143,23 @@ func TestWriteSummaryHTML(t *testing.T) {
 				PromptID:   "prompt-a",
 				ConfigName: "baseline",
 				Success:    true,
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 4, MaxScore: 5},
 			},
 			{
 				PromptID:   "prompt-a",
 				ConfigName: "azure-mcp",
 				Success:    true,
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 5, MaxScore: 5},
 			},
 			{
 				PromptID:   "prompt-b",
 				ConfigName: "baseline",
 				Success:    false,
-				Build:      &build.BuildResult{Success: false},
 			},
 			{
 				PromptID:   "prompt-b",
 				ConfigName: "azure-mcp",
 				Success:    true,
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 3, MaxScore: 5},
 			},
 		},
@@ -260,8 +248,8 @@ func TestWriteSummaryHTMLNoBuild(t *testing.T) {
 func TestBuildMatrix(t *testing.T) {
 	s := &RunSummary{
 		Results: []*EvalReport{
-			{PromptID: "p1", ConfigName: "c1", Success: true, Build: &build.BuildResult{Success: true}, Review: &review.ReviewResult{OverallScore: 4, MaxScore: 5}},
-			{PromptID: "p1", ConfigName: "c2", Success: false, Build: &build.BuildResult{Success: false}},
+			{PromptID: "p1", ConfigName: "c1", Success: true, Review: &review.ReviewResult{OverallScore: 4, MaxScore: 5}},
+			{PromptID: "p1", ConfigName: "c2", Success: false},
 			{PromptID: "p2", ConfigName: "c1", Error: "timeout"},
 		},
 	}
@@ -281,9 +269,6 @@ func TestBuildMatrix(t *testing.T) {
 	}
 	if cell.Score != 4 {
 		t.Errorf("expected score 4, got %d", cell.Score)
-	}
-	if !cell.BuildPass {
-		t.Error("expected build pass")
 	}
 	if !cell.Success {
 		t.Error("expected Success=true for p1/c1")
@@ -393,7 +378,6 @@ func TestWriteHTMLReportPhaseTimings(t *testing.T) {
 		Timestamp:          "2024-01-15T10:00:00Z",
 		Duration:           45.3,
 		GenerationDuration: 20.1,
-		BuildDuration:      5.5,
 		ReviewDuration:     15.2,
 		PromptMeta:         map[string]any{"service": "storage", "language": "go"},
 		ConfigUsed:         map[string]any{"name": "baseline", "model": "gpt-4"},
@@ -417,10 +401,8 @@ func TestWriteHTMLReportPhaseTimings(t *testing.T) {
 	content := string(data)
 	for _, want := range []string{
 		"Generation Duration",
-		"Build Duration",
 		"Review Duration",
 		"20.1s",
-		"5.5s",
 		"15.2s",
 	} {
 		if !strings.Contains(content, want) {
@@ -439,7 +421,6 @@ func TestWriteSummaryHTMLAvgPhaseTimings(t *testing.T) {
 		Passed:                2,
 		Duration:              90.0,
 		AvgGenerationDuration: 18.5,
-		AvgBuildDuration:      4.2,
 		AvgReviewDuration:     12.8,
 		Results: []*EvalReport{
 			{PromptID: "p1", ConfigName: "c1", Success: true, Duration: 45.0},
@@ -460,10 +441,8 @@ func TestWriteSummaryHTMLAvgPhaseTimings(t *testing.T) {
 	content := string(data)
 	for _, want := range []string{
 		"Avg Generation",
-		"Avg Build",
 		"Avg Review",
 		"18.5s",
-		"4.2s",
 		"12.8s",
 	} {
 		if !strings.Contains(content, want) {

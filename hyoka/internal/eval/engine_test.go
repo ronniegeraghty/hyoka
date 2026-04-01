@@ -96,7 +96,6 @@ func TestEngineRun(t *testing.T) {
 outputDir := t.TempDir()
 engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 Workers:   1,
-Timeout:   30 * time.Second,
 OutputDir: outputDir,
 }))
 
@@ -123,7 +122,6 @@ func TestEngineRunCapturesGeneratedFiles(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:   1,
-		Timeout:   30 * time.Second,
 		OutputDir: outputDir,
 	}))
 
@@ -153,7 +151,6 @@ func TestEngineRunTimeoutError(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(slowEval, quietOpts(EngineOptions{
 		Workers:   1,
-		Timeout:   100 * time.Millisecond,
 		OutputDir: outputDir,
 	}))
 
@@ -164,7 +161,11 @@ func TestEngineRunTimeoutError(t *testing.T) {
 		{Name: "baseline", Model: "gpt-4"},
 	}
 
-	summary, err := engine.Run(context.Background(), prompts, configs)
+	// Use a short-lived context to simulate cancellation
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	summary, err := engine.Run(ctx, prompts, configs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -173,10 +174,7 @@ func TestEngineRunTimeoutError(t *testing.T) {
 	}
 	r := summary.Results[0]
 	if r.Error == "" {
-		t.Fatal("expected error in report for timed-out eval")
-	}
-	if !strings.Contains(r.Error, "timed out") {
-		t.Errorf("expected timeout message in error, got %q", r.Error)
+		t.Fatal("expected error in report for cancelled eval")
 	}
 }
 
@@ -295,7 +293,6 @@ func TestGuardrailMaxFiles(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(&manyFilesEvaluator{fileCount: 10}, quietOpts(EngineOptions{
 		Workers:   1,
-		Timeout:   30 * time.Second,
 		OutputDir: outputDir,
 		SkipReview: true,
 		MaxFiles:  5,
@@ -328,10 +325,9 @@ func TestGuardrailMaxTurns(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(&manyTurnsEvaluator{turnCount: 30}, quietOpts(EngineOptions{
 		Workers:   1,
-		Timeout:   30 * time.Second,
 		OutputDir: outputDir,
 		SkipReview: true,
-		MaxTurns:  5,
+		MaxSessionActions:  5,
 	}))
 
 	prompts := []*prompt.Prompt{
@@ -352,8 +348,8 @@ func TestGuardrailMaxTurns(t *testing.T) {
 	if r.Success {
 		t.Error("expected guardrail to fail the eval")
 	}
-	if !strings.Contains(r.GuardrailAbortReason, "turn count") {
-		t.Errorf("expected guardrail abort reason about turn count, got %q", r.GuardrailAbortReason)
+	if !strings.Contains(r.GuardrailAbortReason, "action count") {
+		t.Errorf("expected guardrail abort reason about action count, got %q", r.GuardrailAbortReason)
 	}
 }
 
@@ -363,7 +359,6 @@ func TestGuardrailMaxOutputSize(t *testing.T) {
 	largeEval := &manyFilesEvaluator{fileCount: 1}
 	engine := NewEngine(largeEval, quietOpts(EngineOptions{
 		Workers:       1,
-		Timeout:       30 * time.Second,
 		OutputDir:     outputDir,
 		SkipReview:    true,
 		MaxOutputSize: 10, // 10 bytes
@@ -395,8 +390,8 @@ func TestGuardrailMaxOutputSize(t *testing.T) {
 
 func TestGuardrailDefaultValues(t *testing.T) {
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{}))
-	if engine.opts.MaxTurns != 25 {
-		t.Errorf("default MaxTurns: expected 25, got %d", engine.opts.MaxTurns)
+	if engine.opts.MaxSessionActions != 50 {
+		t.Errorf("default MaxSessionActions: expected 50, got %d", engine.opts.MaxSessionActions)
 	}
 	if engine.opts.MaxFiles != 50 {
 		t.Errorf("default MaxFiles: expected 50, got %d", engine.opts.MaxFiles)
@@ -411,7 +406,6 @@ func TestStubEvalLifecycle(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:    1,
-		Timeout:    30 * time.Second,
 		OutputDir:  outputDir,
 		SkipReview: true,
 	}))
@@ -464,8 +458,8 @@ func TestStubEvalLifecycle(t *testing.T) {
 	}
 
 	// Verify guardrail limits are recorded
-	if r.GuardrailMaxTurns != 25 {
-		t.Errorf("expected GuardrailMaxTurns 25, got %d", r.GuardrailMaxTurns)
+	if r.GuardrailMaxTurns != 50 {
+		t.Errorf("expected GuardrailMaxTurns 50, got %d", r.GuardrailMaxTurns)
 	}
 	if r.GuardrailMaxFiles != 50 {
 		t.Errorf("expected GuardrailMaxFiles 50, got %d", r.GuardrailMaxFiles)
@@ -483,7 +477,6 @@ func TestMultiPromptMultiConfigFanOut(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:    2,
-		Timeout:    30 * time.Second,
 		OutputDir:  outputDir,
 		SkipReview: true,
 	}))
@@ -540,7 +533,6 @@ func TestPhaseDurationTracking(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:    1,
-		Timeout:    30 * time.Second,
 		OutputDir:  outputDir,
 		SkipReview: true,
 	}))
@@ -573,7 +565,6 @@ func TestLargeRunAutoConfirmBypass(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:          1,
-		Timeout:          30 * time.Second,
 		OutputDir:        outputDir,
 		SkipReview:       true,
 		ConfirmLargeRuns: true,
@@ -609,7 +600,6 @@ func TestLargeRunConfirmAbort(t *testing.T) {
 	outputDir := t.TempDir()
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:          1,
-		Timeout:          30 * time.Second,
 		OutputDir:        outputDir,
 		SkipReview:       true,
 		ConfirmLargeRuns: true,
@@ -672,7 +662,6 @@ criteria:
 	reviewer := &capturingReviewer{}
 	engine := NewEngineWithReviewer(&StubEvaluator{}, reviewer, quietOpts(EngineOptions{
 		Workers:     1,
-		Timeout:     30 * time.Second,
 		OutputDir:   t.TempDir(),
 		CriteriaDir: criteriaDir,
 	}))
@@ -703,7 +692,6 @@ func TestCriteriaDirNotExist(t *testing.T) {
 	// Non-existent criteria dir should not cause an error
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:     1,
-		Timeout:     30 * time.Second,
 		OutputDir:   t.TempDir(),
 		CriteriaDir: "/nonexistent/path",
 		SkipReview:  true,
@@ -725,7 +713,6 @@ func TestCriteriaDirEmpty(t *testing.T) {
 	reviewer := &capturingReviewer{}
 	engine := NewEngineWithReviewer(&StubEvaluator{}, reviewer, quietOpts(EngineOptions{
 		Workers:     1,
-		Timeout:     30 * time.Second,
 		OutputDir:   t.TempDir(),
 		CriteriaDir: t.TempDir(), // empty dir
 	}))
@@ -754,7 +741,6 @@ func TestStrictCleanupOptionWired(t *testing.T) {
 	// Verify StrictCleanup option flows through to the engine.
 	engine := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:       1,
-		Timeout:       30 * time.Second,
 		OutputDir:     t.TempDir(),
 		SkipReview:    true,
 		StrictCleanup: true,
@@ -767,7 +753,6 @@ func TestStrictCleanupOptionWired(t *testing.T) {
 	// Verify it defaults to false
 	engine2 := NewEngine(&StubEvaluator{}, quietOpts(EngineOptions{
 		Workers:  1,
-		Timeout:  30 * time.Second,
 		OutputDir: t.TempDir(),
 	}))
 

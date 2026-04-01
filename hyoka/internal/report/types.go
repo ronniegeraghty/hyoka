@@ -2,7 +2,6 @@
 package report
 
 import (
-	"github.com/ronniegeraghty/hyoka/internal/build"
 	"github.com/ronniegeraghty/hyoka/internal/review"
 )
 
@@ -82,13 +81,11 @@ type EvalReport struct {
 	Duration               float64               `json:"duration_seconds"`
 	GenerationDuration     float64               `json:"generation_duration_seconds,omitempty"`
 	ReviewDuration         float64               `json:"review_duration_seconds,omitempty"`
-	BuildDuration          float64               `json:"build_duration_seconds,omitempty"`
 	PromptMeta     map[string]any        `json:"prompt_metadata"`
 	ConfigUsed     map[string]any        `json:"config_used"`
 	GeneratedFiles []string              `json:"generated_files"`
 	StarterFiles   []string              `json:"starter_files,omitempty"`
 	ReviewedFiles  []ReviewedFile        `json:"reviewed_files,omitempty"`
-	Build          *build.BuildResult    `json:"build,omitempty"`
 	Review         *review.ReviewResult  `json:"review,omitempty"`
 	ReviewPanel    []review.ReviewResult `json:"review_panel,omitempty"`
 	ToolUsage      *ToolUsageResult      `json:"tool_usage,omitempty"`
@@ -131,7 +128,6 @@ type RunSummary struct {
 	Duration              float64       `json:"duration_seconds"`
 	AvgGenerationDuration float64       `json:"avg_generation_duration_seconds,omitempty"`
 	AvgReviewDuration     float64       `json:"avg_review_duration_seconds,omitempty"`
-	AvgBuildDuration      float64       `json:"avg_build_duration_seconds,omitempty"`
 	Reports      []string      `json:"report_paths"`
 	Results      []*EvalReport `json:"results,omitempty"`
 	Analysis     string        `json:"analysis,omitempty"`

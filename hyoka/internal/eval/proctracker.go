@@ -10,6 +10,9 @@ import (
 // spawned Copilot processes and ensure cleanup on shutdown.
 var DefaultTracker = &ProcessTracker{}
 
+// procWarnOnce gates the /proc unavailability warning to fire at most once.
+var procWarnOnce sync.Once
+
 // ProcessTracker keeps a registry of spawned process PIDs and provides
 // bulk termination with graceful-then-forced shutdown semantics.
 type ProcessTracker struct {

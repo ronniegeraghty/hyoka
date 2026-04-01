@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// resMonWarnOnce gates the "no process data" warning to fire at most once.
+var resMonWarnOnce sync.Once
+
 // ResourceStats holds per-eval peak resource utilization.
 type ResourceStats struct {
 	PeakCPUPercent float64 `json:"peak_cpu_percent"`
@@ -149,6 +152,12 @@ func (rm *ResourceMonitor) sample() {
 				"memory_mb", fmt.Sprintf("%.0f", memMB),
 				"threshold_mb", fmt.Sprintf("%.0f", rm.memWarnMB))
 		}
+	}
+
+	if totalCPU == 0 && totalMemMB == 0 && len(pids) > 0 {
+		resMonWarnOnce.Do(func() {
+			slog.Warn("Resource monitor: no process data available")
+		})
 	}
 
 	rm.mu.Lock()

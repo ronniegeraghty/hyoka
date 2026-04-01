@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -15,6 +16,7 @@ import (
 // if it has not exited. Returns the number of processes successfully signaled.
 func KillHyokaProcesses(procs []HyokaProcessInfo, out io.Writer) int {
 	killed := 0
+	var wg sync.WaitGroup
 	for _, p := range procs {
 		proc, findErr := os.FindProcess(p.PID)
 		if findErr != nil {
@@ -30,9 +32,11 @@ func KillHyokaProcesses(procs []HyokaProcessInfo, out io.Writer) int {
 		killed++
 		fmt.Fprintf(out, "  Terminated %s\n", formatProcessInfo(p))
 
+		wg.Add(1)
 		go func(pr *os.Process, id int) {
+			defer wg.Done()
 			deadline := time.After(5 * time.Second)
-			tick := time.NewTicker(200 * time.Millisecond)
+			tick := time.NewTicker(1 * time.Second)
 			defer tick.Stop()
 			for {
 				select {
@@ -49,5 +53,6 @@ func KillHyokaProcesses(procs []HyokaProcessInfo, out io.Writer) int {
 			}
 		}(proc, p.PID)
 	}
+	wg.Wait()
 	return killed
 }

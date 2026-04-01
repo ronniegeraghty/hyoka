@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -22,6 +23,9 @@ func descendantPIDs(root int) map[int]bool {
 
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
+		procWarnOnce.Do(func() {
+			slog.Warn("Cannot scan /proc, process tracking degraded")
+		})
 		return descendants
 	}
 
@@ -57,15 +61,16 @@ func descendantPIDs(root int) map[int]bool {
 		procs = append(procs, procInfo{pid: pid, ppid: ppid})
 	}
 
-	changed := true
-	for changed {
-		changed = false
-		for _, p := range procs {
-			if descendants[p.ppid] && !descendants[p.pid] {
-				descendants[p.pid] = true
-				changed = true
-			}
-		}
+	children := make(map[int][]int)
+	for _, p := range procs {
+		children[p.ppid] = append(children[p.ppid], p.pid)
+	}
+	queue := []int{root}
+	for len(queue) > 0 {
+		pid := queue[0]
+		queue = queue[1:]
+		descendants[pid] = true
+		queue = append(queue, children[pid]...)
 	}
 	return descendants
 }
@@ -169,6 +174,7 @@ func (pt *ProcessTracker) TerminateOrphans() int {
 	}
 
 	terminated := 0
+	var wg sync.WaitGroup
 	for _, pid := range orphans {
 		slog.Warn("Terminating orphaned copilot process", "pid", pid)
 		proc, err := os.FindProcess(pid)
@@ -180,9 +186,11 @@ func (pt *ProcessTracker) TerminateOrphans() int {
 		}
 		terminated++
 
+		wg.Add(1)
 		go func(p *os.Process, id int) {
+			defer wg.Done()
 			deadline := time.After(5 * time.Second)
-			tick := time.NewTicker(200 * time.Millisecond)
+			tick := time.NewTicker(1 * time.Second)
 			defer tick.Stop()
 			for {
 				select {
@@ -200,6 +208,7 @@ func (pt *ProcessTracker) TerminateOrphans() int {
 		}(proc, pid)
 	}
 
+	wg.Wait()
 	slog.Info("Post-run cleanup", "orphans_found", len(orphans), "orphans_terminated", terminated)
 	return len(orphans)
 }
@@ -231,7 +240,7 @@ func (pt *ProcessTracker) TerminateAll(timeout time.Duration) []error {
 	}
 
 	deadline := time.After(timeout)
-	tick := time.NewTicker(100 * time.Millisecond)
+	tick := time.NewTicker(500 * time.Millisecond)
 	defer tick.Stop()
 
 waitLoop:

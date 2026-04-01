@@ -134,25 +134,20 @@ type runFlags struct {
 	configDir    string
 	workers         int
 	maxSessions     int
-	timeout         int
-	generateTimeout int
-	buildTimeout    int
-	reviewTimeout   int
 	model           string
 	output       string
 	progressMode string
 	skipTests    bool
 	skipReview   bool
 	skipTrends   bool
-	verifyBuild  bool
 	dryRun       bool
 	useStub      bool
 	// Fan-out visibility (#34)
 	autoConfirm bool
 	allConfigs  bool
 	// Generator guardrails (#35)
-	maxTurns      int
-	maxFiles      int
+	maxSessionActions int
+	maxFiles          int
 	maxOutputSize string
 	// Generator safety (#36)
 	allowCloud bool
@@ -179,15 +174,10 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.configDir, "config-dir", "./configs", "Directory containing configuration YAML files")
 	cmd.Flags().IntVar(&f.workers, "workers", 0, "Parallel evaluation workers (default: number of CPUs, max 8)")
 	cmd.Flags().IntVar(&f.maxSessions, "max-sessions", 0, "Maximum concurrent Copilot sessions (default: workers × 3)")
-	cmd.Flags().IntVar(&f.timeout, "timeout", 600, "Per-prompt generation timeout in seconds (deprecated: use --generate-timeout)")
-	cmd.Flags().IntVar(&f.generateTimeout, "generate-timeout", 0, "Generation phase timeout in seconds (default: --timeout value or 600)")
-	cmd.Flags().IntVar(&f.buildTimeout, "build-timeout", 300, "Build verification timeout in seconds")
-	cmd.Flags().IntVar(&f.reviewTimeout, "review-timeout", 300, "Review phase timeout in seconds")
 	cmd.Flags().StringVar(&f.model, "model", "", "Override model for all configs")
 	cmd.Flags().StringVar(&f.output, "output", "./reports", "Report output directory")
 	cmd.Flags().BoolVar(&f.skipTests, "skip-tests", false, "Skip test generation")
 	cmd.Flags().BoolVar(&f.skipReview, "skip-review", false, "Skip code review")
-	cmd.Flags().BoolVar(&f.verifyBuild, "verify-build", false, "Run build verification on generated code")
 	cmd.Flags().StringVar(&f.progressMode, "progress", "auto", "Progress display mode: auto, live, log, off")
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "List matching prompts without running")
 	cmd.Flags().BoolVar(&f.useStub, "stub", false, "Use stub evaluator (no Copilot SDK)")
@@ -196,7 +186,7 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().BoolVarP(&f.autoConfirm, "yes", "y", false, "Skip confirmation prompt for large runs (>10 evaluations)")
 	cmd.Flags().BoolVar(&f.allConfigs, "all-configs", false, "Run all configs when no --config filter is specified (required for multi-config runs)")
 	// Generator guardrails (#35)
-	cmd.Flags().IntVar(&f.maxTurns, "max-turns", 25, "Maximum assistant turns per generation before aborting")
+	cmd.Flags().IntVar(&f.maxSessionActions, "max-session-actions", 50, "Maximum actions per Copilot session (reasoning, response, or tool call each count as 1)")
 	cmd.Flags().IntVar(&f.maxFiles, "max-files", 50, "Maximum generated files per evaluation before aborting")
 	cmd.Flags().StringVar(&f.maxOutputSize, "max-output-size", "1MB", "Maximum total output size per evaluation (e.g., 1MB, 512KB)")
 	// Generator safety (#36)
@@ -445,8 +435,8 @@ func runCmd() *cobra.Command {
 			} else {
 				// Try to create a real Copilot SDK evaluator
 				sdkEval := eval.NewCopilotSDKEvaluator(eval.CopilotEvalOptions{
-					AllowCloud: f.allowCloud,
-					MaxTurns:   f.maxTurns,
+					AllowCloud:        f.allowCloud,
+					MaxSessionActions: f.maxSessionActions,
 				})
 				evaluator = sdkEval
 
@@ -485,7 +475,7 @@ func runCmd() *cobra.Command {
 
 					if len(reviewerModels) > 1 {
 						// Multi-model panel
-						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels)
+						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
 						if len(reviewerSkillsDirs) > 0 {
 							panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}
@@ -502,7 +492,7 @@ func runCmd() *cobra.Command {
 							if len(reviewerModels) == 1 {
 								reviewerModel = reviewerModels[0]
 							}
-							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel)
+							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions)
 							if len(reviewerSkillsDirs) > 0 {
 								copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
 							}
@@ -539,27 +529,22 @@ func runCmd() *cobra.Command {
 			}
 
 			engine := eval.NewEngineWithReviewer(evaluator, reviewer, eval.EngineOptions{
-				Workers:          f.workers,
-				MaxSessions:      f.maxSessions,
-				Timeout:          time.Duration(f.timeout) * time.Second,
-				GenerateTimeout:  time.Duration(f.generateTimeout) * time.Second,
-				BuildTimeout:     time.Duration(f.buildTimeout) * time.Second,
-				ReviewTimeout:    time.Duration(f.reviewTimeout) * time.Second,
-				OutputDir:        f.output,
-				SkipTests:        f.skipTests,
-				SkipReview:       f.skipReview,
-				VerifyBuild:      f.verifyBuild,
-				DryRun:           f.dryRun,
-				ProgressMode:     f.progressMode,
-				ConfirmLargeRuns: true,
-				AutoConfirm:      f.autoConfirm,
-				MaxTurns:         f.maxTurns,
-				MaxFiles:         f.maxFiles,
-				MaxOutputSize:    maxOutputSize,
-				MonitorResources: f.monitorResources,
-				StrictCleanup:    f.strictCleanup,
-				CriteriaDir:      f.criteriaDir,
-				ExcludeDirs:      excludeDirs,
+				Workers:           f.workers,
+				MaxSessions:       f.maxSessions,
+				OutputDir:         f.output,
+				SkipTests:         f.skipTests,
+				SkipReview:        f.skipReview,
+				DryRun:            f.dryRun,
+				ProgressMode:      f.progressMode,
+				ConfirmLargeRuns:  true,
+				AutoConfirm:       f.autoConfirm,
+				MaxSessionActions: f.maxSessionActions,
+				MaxFiles:          f.maxFiles,
+				MaxOutputSize:     maxOutputSize,
+				MonitorResources:  f.monitorResources,
+				StrictCleanup:     f.strictCleanup,
+				CriteriaDir:       f.criteriaDir,
+				ExcludeDirs:       excludeDirs,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)

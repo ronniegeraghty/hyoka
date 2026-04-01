@@ -3,6 +3,7 @@ package rerender
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,6 +40,7 @@ func rerenderRun(reportsDir, runID string) error {
 	var reportFiles []string
 	if err := filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			slog.Warn("Error walking directory during re-render", "path", path, "error", err)
 			return nil
 		}
 		if info.Name() == "report.json" && !info.IsDir() {

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ronniegeraghty/hyoka/internal/build"
 	"github.com/ronniegeraghty/hyoka/internal/review"
 )
 
@@ -24,13 +23,6 @@ func TestWriteMarkdownReport(t *testing.T) {
 		PromptMeta:         map[string]any{"service": "storage", "language": "dotnet"},
 		ConfigUsed:         map[string]any{"name": "baseline", "model": "gpt-4"},
 		GeneratedFiles:     []string{"Program.cs"},
-		Build: &build.BuildResult{
-			Language: "dotnet",
-			Command:  "dotnet build",
-			ExitCode: 0,
-			Success:  true,
-			Stdout:   "Build succeeded.",
-		},
 		Review: &review.ReviewResult{
 			Scores: review.ReviewScores{
 				Criteria: []review.CriterionResult{
@@ -78,7 +70,6 @@ func TestWriteMarkdownReport(t *testing.T) {
 		"Code Builds",
 		"Good implementation",
 		"Program.cs",
-		"dotnet build",
 		"Write a dotnet storage auth sample",
 		"I need to create an auth sample",
 		"Code Review",
@@ -160,7 +151,6 @@ func TestWriteSummaryMarkdown(t *testing.T) {
 				Success:    true,
 				Duration:   10.0,
 				PromptMeta: map[string]any{"service": "storage", "plane": "data-plane", "language": "dotnet", "category": "auth"},
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 4, MaxScore: 5},
 			},
 			{
@@ -169,7 +159,6 @@ func TestWriteSummaryMarkdown(t *testing.T) {
 				Success:    true,
 				Duration:   15.0,
 				PromptMeta: map[string]any{"service": "storage", "plane": "data-plane", "language": "dotnet", "category": "auth"},
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 5, MaxScore: 5},
 			},
 			{
@@ -178,7 +167,6 @@ func TestWriteSummaryMarkdown(t *testing.T) {
 				Success:    false,
 				Duration:   5.0,
 				PromptMeta: map[string]any{},
-				Build:      &build.BuildResult{Success: false},
 			},
 			{
 				PromptID:   "prompt-b",
@@ -186,7 +174,6 @@ func TestWriteSummaryMarkdown(t *testing.T) {
 				Success:    true,
 				Duration:   12.0,
 				PromptMeta: map[string]any{},
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 3, MaxScore: 5},
 			},
 		},

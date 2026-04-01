@@ -239,6 +239,10 @@ func Parse(data []byte) (*ConfigFile, error) {
 	// Normalize all configs (migrate legacy fields → sub-structs)
 	for i := range cfg.Configs {
 		cfg.Configs[i].Normalize()
+		slog.Debug("Config normalized", "name", cfg.Configs[i].Name)
+	}
+	for _, c := range cfg.Configs {
+		slog.Info("Config loaded", "name", c.Name, "model", c.EffectiveModel())
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err

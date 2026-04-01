@@ -28,14 +28,10 @@ func TestRunCmdFlagDefaults(t *testing.T) {
 		{"config-dir", "./configs"},
 		{"workers", "0"},
 		{"max-sessions", "0"},
-		{"timeout", "600"},
-		{"generate-timeout", "0"},
-		{"build-timeout", "300"},
-		{"review-timeout", "300"},
 		{"model", ""},
 		{"output", "./reports"},
 		{"progress", "auto"},
-		{"max-turns", "25"},
+		{"max-session-actions", "50"},
 		{"max-files", "50"},
 		{"max-output-size", "1MB"},
 		{"criteria-dir", ""},
@@ -64,7 +60,6 @@ func TestRunCmdBoolFlagDefaults(t *testing.T) {
 		"skip-tests",
 		"skip-review",
 		"skip-trends",
-		"verify-build",
 		"dry-run",
 		"stub",
 		"yes",
@@ -91,13 +86,12 @@ func TestRunCmdFlagOverride(t *testing.T) {
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 	args := []string{
-		"--max-turns", "10",
+		"--max-session-actions", "10",
 		"--max-files", "20",
 		"--max-output-size", "512KB",
 		"--workers", "4",
 		"--monitor-resources",
 		"--strict-cleanup",
-		"--verify-build",
 		"--skip-review",
 	}
 	if err := cmd.ParseFlags(args); err != nil {
@@ -108,7 +102,7 @@ func TestRunCmdFlagOverride(t *testing.T) {
 		flag     string
 		expected string
 	}{
-		{"max-turns", "10"},
+		{"max-session-actions", "10"},
 		{"max-files", "20"},
 		{"max-output-size", "512KB"},
 		{"workers", "4"},
@@ -137,7 +131,6 @@ func TestRunCmdFlagOverride(t *testing.T) {
 	}{
 		{"monitor-resources", true},
 		{"strict-cleanup", true},
-		{"verify-build", true},
 		{"skip-review", true},
 	}
 	for _, tt := range boolTests {

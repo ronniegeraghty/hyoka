@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ronniegeraghty/hyoka/internal/build"
 	"github.com/ronniegeraghty/hyoka/internal/config"
 	"github.com/ronniegeraghty/hyoka/internal/criteria"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
@@ -61,14 +60,9 @@ func (s *StubEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cfg *con
 type EngineOptions struct {
 	Workers         int
 	MaxSessions     int           // Maximum concurrent Copilot sessions (0 = workers × 2).
-	Timeout         time.Duration // Deprecated: use GenerateTimeout. Kept for backward compat.
-	GenerateTimeout time.Duration // Independent timeout for code generation phase.
-	BuildTimeout    time.Duration // Timeout for build verification phase (--verify-build).
-	ReviewTimeout   time.Duration // Independent timeout for review phase.
 	OutputDir       string
 	SkipTests       bool
 	SkipReview      bool
-	VerifyBuild     bool
 	DryRun          bool
 	ProgressMode    string // "auto", "live", "log", "off"
 
@@ -76,9 +70,9 @@ type EngineOptions struct {
 	ConfirmLargeRuns bool
 	AutoConfirm      bool
 	// Generator guardrails (#35)
-	MaxTurns      int
-	MaxFiles      int
-	MaxOutputSize int64
+	MaxSessionActions int
+	MaxFiles          int
+	MaxOutputSize     int64
 	// Process lifecycle (#46)
 	StrictCleanup bool // Fail run if orphaned processes detected after cleanup.
 	// Resource monitoring (#45)
@@ -121,25 +115,12 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 	if opts.MaxSessions <= 0 {
 		opts.MaxSessions = opts.Workers * 2
 	}
-	// Backward compat: if only the legacy Timeout is set, use it as GenerateTimeout.
-	if opts.Timeout > 0 && opts.GenerateTimeout <= 0 {
-		opts.GenerateTimeout = opts.Timeout
-	}
-	if opts.GenerateTimeout <= 0 {
-		opts.GenerateTimeout = 10 * time.Minute
-	}
-	if opts.BuildTimeout <= 0 {
-		opts.BuildTimeout = 5 * time.Minute
-	}
-	if opts.ReviewTimeout <= 0 {
-		opts.ReviewTimeout = 5 * time.Minute
-	}
 	if opts.OutputDir == "" {
 		opts.OutputDir = "./reports"
 	}
 	// Generator guardrail defaults (#35)
-	if opts.MaxTurns <= 0 {
-		opts.MaxTurns = 25
+	if opts.MaxSessionActions <= 0 {
+		opts.MaxSessionActions = 50
 	}
 	if opts.MaxFiles <= 0 {
 		opts.MaxFiles = 50
@@ -461,16 +442,12 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	summary.Duration = time.Since(start).Seconds()
 
 	// Calculate per-phase average durations across all reports (#44)
-	var genSum, buildSum, reviewSum float64
-	var genCount, buildCount, reviewCount int
+	var genSum, reviewSum float64
+	var genCount, reviewCount int
 	for _, r := range summary.Results {
 		if r.GenerationDuration > 0 {
 			genSum += r.GenerationDuration
 			genCount++
-		}
-		if r.BuildDuration > 0 {
-			buildSum += r.BuildDuration
-			buildCount++
 		}
 		if r.ReviewDuration > 0 {
 			reviewSum += r.ReviewDuration
@@ -479,9 +456,6 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 	}
 	if genCount > 0 {
 		summary.AvgGenerationDuration = genSum / float64(genCount)
-	}
-	if buildCount > 0 {
-		summary.AvgBuildDuration = buildSum / float64(buildCount)
 	}
 	if reviewCount > 0 {
 		summary.AvgReviewDuration = reviewSum / float64(reviewCount)
@@ -519,7 +493,7 @@ func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []co
 func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string, sendPhase func(progress.Phase), sendEvent func(progress.EventType, string)) *report.EvalReport {
 	// Each phase gets its own independent timeout so a slow generation
 	// doesn't starve build or review (fixes issue #3).
-	genCtx, genCancel := context.WithTimeout(ctx, e.opts.GenerateTimeout)
+	genCtx, genCancel := context.WithCancel(ctx)
 	defer genCancel()
 
 	debugPrefix := task.Prompt.ID + "/" + task.Config.Name
@@ -545,7 +519,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			"model": task.Config.Model,
 		},
 		// Guardrail limits recorded for report transparency (#35)
-		GuardrailMaxTurns:      e.opts.MaxTurns,
+		GuardrailMaxTurns:      e.opts.MaxSessionActions,
 		GuardrailMaxFiles:      e.opts.MaxFiles,
 		GuardrailMaxOutputSize: e.opts.MaxOutputSize,
 	}
@@ -601,33 +575,17 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	// Run evaluation (generation phase — uses its own timeout)
 	sendPhase(progress.PhaseGenerating)
 
-	// Snapshot copilot PIDs before starting the SDK client (#46)
-	beforePIDs, _ := FindCopilotProcesses()
-	beforeSet := make(map[int]bool, len(beforePIDs))
-	for _, p := range beforePIDs {
-		beforeSet[p] = true
-	}
-
 	genStart := time.Now()
 	result, err := e.evaluator.Evaluate(genCtx, task.Prompt, &task.Config, genDir)
-	genCancel() // release generation timeout immediately
-
-	// Register any new copilot PIDs spawned during evaluation (#46)
-	afterPIDs, _ := FindCopilotProcesses()
-	for _, p := range afterPIDs {
-		if !beforeSet[p] {
-			desc := fmt.Sprintf("%s/%s", task.Prompt.ID, task.Config.Name)
-			e.tracker.Register(p, desc)
-		}
-	}
+	genCancel() // release generation context immediately
 	evalReport.GenerationDuration = time.Since(genStart).Seconds()
 	evalFailed := err != nil
 	if evalFailed {
-		if genCtx.Err() == context.DeadlineExceeded {
-			evalReport.Error = fmt.Sprintf("generation timed out after %s", e.opts.GenerateTimeout)
-			evalReport.ErrorDetails = fmt.Sprintf("context deadline exceeded — consider increasing --generate-timeout (currently %s)", e.opts.GenerateTimeout)
+		if genCtx.Err() == context.Canceled {
+			evalReport.Error = "generation cancelled (action limit reached)"
+			evalReport.ErrorDetails = "context cancelled — the session exceeded the --max-session-actions limit"
 			evalReport.ErrorCategory = "timeout"
-			evalReport.FailureReason = fmt.Sprintf("Generation phase timed out after %s", e.opts.GenerateTimeout)
+			evalReport.FailureReason = "Generation cancelled due to action limit"
 		} else {
 			evalReport.Error = fmt.Sprintf("evaluation failed: %v", err)
 			evalReport.ErrorDetails = err.Error()
@@ -770,19 +728,19 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Generator guardrail checks (#35)
 	if !evalFailed {
-		// Check turn count (count assistant turn-end events as turns)
-		turnCount := 0
+		// Check action count (count reasoning, message, and tool_execution_start events as actions)
+		actionCount := 0
 		for _, ev := range evalReport.SessionEvents {
-			if ev.Type == "assistant.turn_end" || ev.Type == "assistant.message" {
-				turnCount++
+			if ev.Type == "assistant.reasoning" || ev.Type == "assistant.message" || ev.Type == "tool.execution_start" {
+				actionCount++
 			}
 		}
-		if turnCount > e.opts.MaxTurns {
-			reason := fmt.Sprintf("guardrail: turn count %d exceeded limit of %d", turnCount, e.opts.MaxTurns)
+		if actionCount > e.opts.MaxSessionActions {
+			reason := fmt.Sprintf("guardrail: action count %d exceeded limit of %d", actionCount, e.opts.MaxSessionActions)
 			evalReport.GuardrailAbortReason = reason
 			evalReport.Error = reason
 			evalReport.Success = false
-			lg.Warn("Guardrail triggered", "reason", reason, "turns", turnCount, "max_turns", e.opts.MaxTurns)
+			lg.Warn("Guardrail triggered", "reason", reason, "actions", actionCount, "max_session_actions", e.opts.MaxSessionActions)
 		}
 
 		// Check file count
@@ -814,30 +772,6 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		}
 	}
 
-	// Optional build verification (--verify-build flag)
-	if e.opts.VerifyBuild && len(generatedFiles) > 0 {
-		buildStart := time.Now()
-		buildCtx, buildCancel := context.WithTimeout(ctx, e.opts.BuildTimeout)
-		buildResult, err := build.Verify(buildCtx, task.Prompt.Language, ws.Dir)
-		buildCancel()
-		evalReport.BuildDuration = time.Since(buildStart).Seconds()
-		if err != nil {
-			lg.Error("Build verification error", "error", err)
-			if evalReport.Error == "" {
-				evalReport.Error = fmt.Sprintf("build verification error: %v", err)
-				evalReport.ErrorDetails = err.Error()
-				evalReport.ErrorCategory = "review_failure"
-				evalReport.FailureReason = fmt.Sprintf("Build verification failed: %v", err)
-			}
-			evalReport.Success = false
-		} else {
-			evalReport.Build = buildResult
-			if !buildResult.Success {
-				evalReport.Success = false
-			}
-		}
-	}
-
 	// Code review — use panel reviewer if available, otherwise single reviewer
 	// Uses its own independent timeout context (fixes issue #3).
 	if !e.opts.SkipReview && len(generatedFiles) > 0 {
@@ -856,8 +790,6 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			defer os.RemoveAll(reviewWorkDir)
 		}
 
-		reviewCtx, reviewCancel := context.WithTimeout(ctx, e.opts.ReviewTimeout)
-		defer reviewCancel() // #66: prevent context leak on early return
 		referenceDir := ""
 		if task.Prompt.ReferenceAnswer != "" {
 			referenceDir = task.Prompt.ReferenceAnswer
@@ -870,7 +802,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			models := e.panelReviewer.Models()
 			rlg.Debug("Starting review panel")
 			sendEvent(progress.EventToolStart, fmt.Sprintf("Review panel: %v", models))
-			panel, consolidated, err := e.panelReviewer.ReviewPanel(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
+			panel, consolidated, err := e.panelReviewer.ReviewPanel(ctx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
 			if err != nil {
 				rlg.Error("Review panel failed", "error", err)
 				sendEvent(progress.EventReasoning, fmt.Sprintf("Review panel failed: %v", err))
@@ -890,7 +822,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		} else if e.reviewer != nil {
 			rlg.Debug("Starting single review session")
 			sendEvent(progress.EventToolStart, "Single model review")
-			reviewResult, err := e.reviewer.Review(reviewCtx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
+			reviewResult, err := e.reviewer.Review(ctx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
 			if err != nil {
 				rlg.Error("Code review failed", "error", err)
 				sendEvent(progress.EventReasoning, fmt.Sprintf("Review failed: %v", err))
@@ -981,23 +913,12 @@ func buildRerunCommand(promptID, configName string, opts EngineOptions) string {
 	if opts.SkipReview {
 		parts = append(parts, "--skip-review")
 	}
-	if opts.VerifyBuild {
-		parts = append(parts, "--verify-build")
-	}
 	if opts.MonitorResources {
 		parts = append(parts, "--monitor-resources")
 	}
 
-	// Include non-default timeouts.
-	// Default generate timeout is 10m (600s), build and review are 5m (300s).
-	if opts.GenerateTimeout != 10*time.Minute {
-		parts = append(parts, fmt.Sprintf("--generate-timeout=%d", int(opts.GenerateTimeout.Seconds())))
-	}
-	if opts.BuildTimeout != 5*time.Minute {
-		parts = append(parts, fmt.Sprintf("--build-timeout=%d", int(opts.BuildTimeout.Seconds())))
-	}
-	if opts.ReviewTimeout != 5*time.Minute {
-		parts = append(parts, fmt.Sprintf("--review-timeout=%d", int(opts.ReviewTimeout.Seconds())))
+	if opts.MaxSessionActions != 50 {
+		parts = append(parts, fmt.Sprintf("--max-session-actions=%d", opts.MaxSessionActions))
 	}
 
 	return strings.Join(parts, " ")

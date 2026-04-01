@@ -107,7 +107,6 @@ type MatrixCell struct {
 	Success    bool
 	Score      int
 	MaxScore   int
-	BuildPass  bool
 	HasReview  bool
 	Duration   float64
 	Error      string
@@ -144,9 +143,6 @@ func buildMatrix(s *RunSummary) *MatrixData {
 			Error:     r.Error,
 			FileCount: len(r.GeneratedFiles),
 			ToolCalls: r.ToolCalls,
-		}
-		if r.Build != nil {
-			cell.BuildPass = r.Build.Success
 		}
 		if r.Review != nil {
 			cell.Score = r.Review.OverallScore
@@ -727,7 +723,6 @@ const reportTemplate = `<!DOCTYPE html>
     {{if .Environment.TurnCount}}<tr><td>Turn Count</td><td>{{.Environment.TurnCount}}</td></tr>{{end}}
     {{if .Environment.ContextTruncated}}<tr><td>Context Truncated</td><td>⚠️ Yes</td></tr>{{end}}
     {{if .GenerationDuration}}<tr><td>Generation Duration</td><td>{{fmtDuration .GenerationDuration}}</td></tr>{{end}}
-    {{if .BuildDuration}}<tr><td>Build Duration</td><td>{{fmtDuration .BuildDuration}}</td></tr>{{end}}
     {{if .ReviewDuration}}<tr><td>Review Duration</td><td>{{fmtDuration .ReviewDuration}}</td></tr>{{end}}
   </table>
   </div>
@@ -980,21 +975,6 @@ const reportTemplate = `<!DOCTYPE html>
 </div>
 {{end}}
 
-<!-- ━━ Build Verification (optional) ━━ -->
-{{if .Build}}
-<div class="section">
-  <div class="section-header"><span class="icon">🔨</span><h2>Build Verification</h2><span style="margin-left:auto">{{if .Build.Success}}<span class="badge badge-pass">PASS</span>{{else}}<span class="badge badge-fail">FAIL</span>{{end}}</span></div>
-  <div class="section-body">
-    <table class="meta-table">
-      <tr><td>Language</td><td>{{.Build.Language}}</td></tr>
-      <tr><td>Command</td><td><code>{{.Build.Command}}</code></td></tr>
-      <tr><td>Exit Code</td><td>{{.Build.ExitCode}}</td></tr>
-    </table>
-    {{if .Build.Stdout}}<details><summary>Stdout</summary><pre>{{.Build.Stdout}}</pre></details>{{end}}
-    {{if .Build.Stderr}}<details><summary>Stderr</summary><pre>{{.Build.Stderr}}</pre></details>{{end}}
-  </div>
-</div>
-{{end}}
 
 <!-- ━━ Re-run Command ━━ -->
 {{if .RerunCommand}}
@@ -1065,7 +1045,6 @@ const summaryTemplate = `<!DOCTYPE html>
   <div class="stat"><div class="stat-value" style="color:#f97316">{{.Summary.Errors}}</div><div class="stat-label">Errors</div></div>
   <div class="stat"><div class="stat-value">{{fmtDuration .Summary.Duration}}</div><div class="stat-label">Duration</div></div>
   {{if .Summary.AvgGenerationDuration}}<div class="stat"><div class="stat-value">{{fmtDuration .Summary.AvgGenerationDuration}}</div><div class="stat-label">Avg Generation</div></div>{{end}}
-  {{if .Summary.AvgBuildDuration}}<div class="stat"><div class="stat-value">{{fmtDuration .Summary.AvgBuildDuration}}</div><div class="stat-label">Avg Build</div></div>{{end}}
   {{if .Summary.AvgReviewDuration}}<div class="stat"><div class="stat-value">{{fmtDuration .Summary.AvgReviewDuration}}</div><div class="stat-label">Avg Review</div></div>{{end}}
 </div>
 

@@ -24,7 +24,7 @@ import (
 type CopilotSDKEvaluator struct {
 	clientOpts *copilot.ClientOptions
 	allowCloud bool
-	maxTurns   int
+	maxSessionActions int
 	progressFn progress.ProgressFunc
 }
 
@@ -41,9 +41,10 @@ type CopilotEvalOptions struct {
 	CLIPath string
 	// AllowCloud permits generated code to provision real cloud resources (#36).
 	AllowCloud bool
-	// MaxTurns limits assistant turns during generation. When reached, the
-	// session context is cancelled to stop the run immediately (#69).
-	MaxTurns int
+	// MaxSessionActions limits the total number of actions (reasoning, message,
+	// tool execution start) during generation. When reached, the session context
+	// is cancelled to stop the run immediately.
+	MaxSessionActions int
 }
 
 // NewCopilotSDKEvaluator creates a new evaluator backed by the Copilot SDK.
@@ -63,7 +64,7 @@ func NewCopilotSDKEvaluator(opts CopilotEvalOptions) *CopilotSDKEvaluator {
 	return &CopilotSDKEvaluator{
 		clientOpts: clientOpts,
 		allowCloud: opts.AllowCloud,
-		maxTurns:   opts.MaxTurns,
+		maxSessionActions: opts.MaxSessionActions,
 	}
 }
 
@@ -160,12 +161,13 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 
 	// Capture turn counter for expanded events
 	var turnCounter int
+	var actionCounter int
 
-	// Mid-generation turn limit (#69). Create a cancellable child context
+	// Mid-generation action limit. Create a cancellable child context
 	// so the OnEvent callback can stop runaway sessions in real time.
 	genCtx, genCancel := context.WithCancel(ctx)
 	defer genCancel()
-	var turnLimitHit bool
+	var actionLimitHit bool
 
 	sessionCfg.OnEvent = func(event copilot.SessionEvent) {
 		mu.Lock()
@@ -222,19 +224,18 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			turnCounter++
 			rec.TurnNumber = turnCounter
 			lg.Info("Turn started", "turn", turnCounter)
-			// Mid-generation turn limit (#69): cancel context to stop runaway sessions
-			if e.maxTurns > 0 && turnCounter > e.maxTurns && !turnLimitHit {
-				turnLimitHit = true
-				lg.Warn("Turn limit reached mid-generation, cancelling session",
-					"turn", turnCounter, "max_turns", e.maxTurns)
-				genCancel()
-			}
 		case copilot.SessionEventTypeAssistantTurnEnd:
 			rec.TurnNumber = turnCounter
 			if event.Data.Duration != nil {
 				lg.Info("Turn ended", "turn", turnCounter, "duration_ms", *event.Data.Duration)
 			}
 		case copilot.SessionEventTypeAssistantReasoning:
+			actionCounter++
+			if e.maxSessionActions > 0 && actionCounter > e.maxSessionActions && !actionLimitHit {
+				actionLimitHit = true
+				lg.Warn("Action limit reached, cancelling session", "actions", actionCounter, "max_session_actions", e.maxSessionActions)
+				genCancel()
+			}
 			// Content already captured above
 		case copilot.SessionEventTypeAssistantIntent:
 			if event.Data.Intent != nil {
@@ -395,6 +396,12 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		// Debug logging — all event types (slog.Debug is a no-op at higher levels)
 		switch event.Type {
 		case copilot.SessionEventTypeToolExecutionStart:
+			actionCounter++
+			if e.maxSessionActions > 0 && actionCounter > e.maxSessionActions && !actionLimitHit {
+				actionLimitHit = true
+				lg.Warn("Action limit reached, cancelling session", "actions", actionCounter, "max_session_actions", e.maxSessionActions)
+				genCancel()
+			}
 			toolName := ""
 			if event.Data.ToolName != nil {
 				toolName = *event.Data.ToolName
@@ -411,6 +418,12 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			}
 			lg.Debug("Tool done", "tool", toolName, "result", content)
 		case copilot.SessionEventTypeAssistantMessage:
+			actionCounter++
+			if e.maxSessionActions > 0 && actionCounter > e.maxSessionActions && !actionLimitHit {
+				actionLimitHit = true
+				lg.Warn("Action limit reached, cancelling session", "actions", actionCounter, "max_session_actions", e.maxSessionActions)
+				genCancel()
+			}
 			content := ""
 			if event.Data.Content != nil {
 				content = *event.Data.Content
@@ -460,6 +473,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		}
 	}
 
+	slog.Info("Creating Copilot session", "model", cfg.EffectiveModel(), "skills", len(sessionCfg.SkillDirectories), "work_dir", workDir)
 	session, err := client.CreateSession(genCtx, sessionCfg)
 	if err != nil {
 		return &EvalResult{
@@ -489,13 +503,13 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		copy(capturedEvts, events)
 		mu.Unlock()
 
-		// Mid-generation turn limit (#69): return partial results so the
+		// Mid-generation action limit: return partial results so the
 		// post-generation guardrail in engine.go can mark the eval as failed
 		// with a proper reason instead of treating it as an SDK error.
-		if turnLimitHit {
+		if actionLimitHit {
 			generatedFiles, _ := listFiles(workDir)
-			lg.Warn("Returning partial results after turn-limit cancellation",
-				"turns", turnCounter, "files", len(generatedFiles))
+			lg.Warn("Returning partial results after action-limit cancellation",
+				"actions", actionCounter, "files", len(generatedFiles))
 			return &EvalResult{
 				GeneratedFiles: generatedFiles,
 				EventCount:     len(captured),

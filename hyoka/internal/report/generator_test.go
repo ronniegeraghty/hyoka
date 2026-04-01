@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ronniegeraghty/hyoka/internal/build"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
 )
 
@@ -21,12 +20,6 @@ func TestWriteReport(t *testing.T) {
 		PromptMeta:     map[string]any{"service": "storage", "language": "dotnet"},
 		ConfigUsed:     map[string]any{"name": "baseline", "model": "gpt-4"},
 		GeneratedFiles: []string{"Program.cs", "Storage.csproj"},
-		Build: &build.BuildResult{
-			Language: "dotnet",
-			Command:  "dotnet build",
-			ExitCode: 0,
-			Success:  true,
-		},
 		EventCount: 15,
 		ToolCalls:  []string{"create_file", "edit_file"},
 		Success:    true,
