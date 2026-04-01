@@ -2,6 +2,7 @@
 package config
 
 import (
+"bytes"
 "fmt"
 "log/slog"
 "os"
@@ -233,7 +234,9 @@ return merged, nil
 // Parse parses configuration from YAML bytes.
 func Parse(data []byte) (*ConfigFile, error) {
 	var cfg ConfigFile
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("parsing config YAML: %w", err)
 	}
 	// Normalize all configs (migrate legacy fields → sub-structs)

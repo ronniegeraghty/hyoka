@@ -5,6 +5,7 @@
 package plugin
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"os"
@@ -97,7 +98,9 @@ func loadPlugin(path string) (*Plugin, error) {
 		return nil, err
 	}
 	var p Plugin
-	if err := yaml.Unmarshal(data, &p); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&p); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
 	if p.Name == "" {

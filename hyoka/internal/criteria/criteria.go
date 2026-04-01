@@ -7,6 +7,7 @@
 package criteria
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"os"
@@ -106,7 +107,9 @@ func loadFile(path string) (*CriteriaSet, error) {
 		return nil, err
 	}
 	var cs CriteriaSet
-	if err := yaml.Unmarshal(data, &cs); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&cs); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
 	if len(cs.Criteria) == 0 {

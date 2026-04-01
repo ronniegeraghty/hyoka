@@ -1,6 +1,7 @@
 package prompt
 
 import (
+"bytes"
 "fmt"
 "regexp"
 "strings"
@@ -26,7 +27,9 @@ frontmatter := strings.TrimSpace(parts[0])
 body := parts[1]
 
 var p Prompt
-if err := yaml.Unmarshal([]byte(frontmatter), &p); err != nil {
+dec := yaml.NewDecoder(bytes.NewReader([]byte(frontmatter)))
+dec.KnownFields(true)
+if err := dec.Decode(&p); err != nil {
 return nil, fmt.Errorf("parsing frontmatter in %s: %w", filePath, err)
 }
 
