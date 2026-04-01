@@ -165,7 +165,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 
 	// Mid-generation action limit. Create a cancellable child context
 	// so the OnEvent callback can stop runaway sessions in real time.
-	genCtx, genCancel := context.WithCancel(ctx)
+	genCtx, genCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer genCancel()
 	var actionLimitHit bool
 

@@ -90,7 +90,7 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 
 	var actionCounter int
 	var actionLimitHit bool
-	reviewCtx, reviewCancel := context.WithCancel(ctx)
+	reviewCtx, reviewCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer reviewCancel()
 
 	eventHandler := func(event copilot.SessionEvent) {
@@ -427,7 +427,7 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 
 	var actionCounter int
 	var actionLimitHit bool
-	reviewCtx, reviewCancel := context.WithCancel(ctx)
+	reviewCtx, reviewCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer reviewCancel()
 
 	eventHandler := func(event copilot.SessionEvent) {
