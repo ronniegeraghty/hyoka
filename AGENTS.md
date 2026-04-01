@@ -11,16 +11,25 @@ hyoka/              # Go source (module: github.com/ronniegeraghty/hyoka)
   main.go           # CLI entry point (cobra)
   internal/         # All packages
     build/          # Language-specific build verification
+    checkenv/       # Environment prerequisite validation
+    clean/          # Session state & orphan process cleanup (#62, #70)
     config/         # Config loading & parsing
+    criteria/       # Tiered evaluation criteria system (#30)
     eval/           # Evaluation engine (generation + review orchestration)
-    logging/        # Logging utilities
-    progress/       # Progress display
+    history/        # Run history tracking
+    logging/        # Structured slog logging utilities
+    manifest/       # Dependency manifest
+    plugin/         # Composable plugin system (#50)
+    progress/       # Progress display (live, log, off)
     prompt/         # Prompt loading, filtering, validation
+    rerender/       # Report re-rendering from JSON
     report/         # Report generation (JSON, HTML, Markdown)
     review/         # Multi-model review panel + rubric
+    serve/          # Local web server for report browsing (#20)
     skills/         # Skill fetching (local + remote)
-    verify/         # Copilot-based code verification
     trends/         # Cross-run trend analysis
+    utils/          # Shared utility functions
+    validate/       # Prompt schema validation
 configs/            # Evaluation config YAML files
 prompts/            # Prompt library (organized by language/service)
 skills/             # Copilot skills (generator/ and reviewer/)
@@ -46,6 +55,7 @@ go run ./hyoka list
 go run ./hyoka run --all-configs
 go run ./hyoka validate
 go run ./hyoka check-env
+go run ./hyoka clean
 ```
 
 Go version: 1.24.5+ required. Module path: `github.com/ronniegeraghty/hyoka`.

@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -22,17 +25,18 @@ type Reviewer interface {
 
 // CopilotReviewer uses a Copilot session to perform code reviews.
 type CopilotReviewer struct {
-	client           *copilot.Client
-	model            string
-	skillDirectories []string
+	client            *copilot.Client
+	model             string
+	maxSessionActions int
+	skillDirectories  []string
 }
 
 // NewCopilotReviewer creates a reviewer backed by the given Copilot client.
-func NewCopilotReviewer(client *copilot.Client, model string) *CopilotReviewer {
+func NewCopilotReviewer(client *copilot.Client, model string, maxSessionActions int) *CopilotReviewer {
 	if model == "" {
 		model = "claude-sonnet-4.5"
 	}
-	return &CopilotReviewer{client: client, model: model}
+	return &CopilotReviewer{client: client, model: model, maxSessionActions: maxSessionActions}
 }
 
 // SetSkillDirectories configures skill directories for the review session.
@@ -77,9 +81,55 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 	var reviewEvents []ReviewEvent
 	var mu sync.Mutex
 
+	var actionCounter int
+	var actionLimitHit bool
+	reviewCtx, reviewCancel := context.WithCancel(ctx)
+	defer reviewCancel()
+
 	eventHandler := func(event copilot.SessionEvent) {
 		mu.Lock()
 		defer mu.Unlock()
+
+		// Count actions and enforce limit
+		switch event.Type {
+		case copilot.SessionEventTypeAssistantReasoning,
+			copilot.SessionEventTypeAssistantMessage,
+			copilot.SessionEventTypeToolExecutionStart:
+			actionCounter++
+			if r.maxSessionActions > 0 && actionCounter > r.maxSessionActions && !actionLimitHit {
+				actionLimitHit = true
+				slog.Warn("Review action limit reached, cancelling session",
+					"model", r.model, "actions", actionCounter, "max_session_actions", r.maxSessionActions)
+				reviewCancel()
+			}
+		}
+
+		// Log review events at debug level for visibility during runs.
+		switch event.Type {
+		case copilot.SessionEventTypeAssistantTurnStart:
+			slog.Debug("Review turn started", "model", r.model)
+		case copilot.SessionEventTypeAssistantTurnEnd:
+			slog.Debug("Review turn ended", "model", r.model)
+		case copilot.SessionEventTypeAssistantMessage:
+			if event.Data.Content != nil {
+				slog.Debug("Review assistant message", "model", r.model,
+					"content_len", len(*event.Data.Content))
+			}
+		case copilot.SessionEventTypeToolExecutionStart:
+			toolName := ""
+			if event.Data.ToolName != nil {
+				toolName = *event.Data.ToolName
+			}
+			slog.Debug("Review tool start", "model", r.model, "tool", toolName)
+		case copilot.SessionEventTypeToolExecutionComplete:
+			toolName := ""
+			if event.Data.ToolName != nil {
+				toolName = *event.Data.ToolName
+			}
+			slog.Debug("Review tool complete", "model", r.model, "tool", toolName)
+		case copilot.SessionEventTypeAssistantUsage:
+			slog.Debug("Review token usage", "model", r.model)
+		}
 
 		if event.Type == copilot.SessionEventTypeAssistantMessage && event.Data.Content != nil {
 			assistantContent.WriteString(*event.Data.Content)
@@ -116,8 +166,9 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		reviewEvents = append(reviewEvents, evt)
 	}
 
+	slog.Info("Starting review session", "model", r.model, "skills", len(r.skillDirectories), "work_dir", workDir)
 	slog.Debug("Creating review session", "model", r.model)
-	session, err := r.client.CreateSession(ctx, &copilot.SessionConfig{
+	session, err := r.client.CreateSession(reviewCtx, &copilot.SessionConfig{
 		Model: r.model,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "append",
@@ -133,9 +184,15 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		slog.Error("Failed to create review session", "model", r.model, "error", err)
 		return nil, fmt.Errorf("creating review session: %w", err)
 	}
-	// SDK's Disconnect() can block if the CLI subprocess is stuck.
-	// Timeout and let the owning client's Stop handle final cleanup.
+	// Clean up session state (#62). DeleteSession removes session-state dir
+	// and SQLite entry while client is still connected. Then Disconnect
+	// releases in-memory resources.
 	defer func() {
+		deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer deleteCancel()
+		if err := r.client.DeleteSession(deleteCtx, session.SessionID); err != nil {
+			slog.Debug("review session delete failed", "sessionID", session.SessionID, "error", err)
+		}
 		done := make(chan struct{})
 		go func() { session.Disconnect(); close(done) }()
 		select {
@@ -145,7 +202,7 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 	}()
 
 	slog.Debug("Sending review prompt", "model", r.model)
-	_, err = session.SendAndWait(ctx, copilot.MessageOptions{
+	_, err = session.SendAndWait(reviewCtx, copilot.MessageOptions{
 		Prompt: reviewPrompt,
 	})
 	if err != nil {
@@ -212,17 +269,19 @@ func parseReviewResponse(text string) (*ReviewResult, error) {
 
 // PanelReviewer runs multiple reviewers in parallel and consolidates results.
 type PanelReviewer struct {
-	clientOpts       *copilot.ClientOptions
-	models           []string // first model is the consolidator
-	skillDirectories []string
+	clientOpts        *copilot.ClientOptions
+	models            []string // first model is the consolidator
+	maxSessionActions int
+	skillDirectories  []string
 }
 
 // NewPanelReviewer creates a panel reviewer that runs multiple models concurrently.
 // The first model in the list is used as the consolidator.
-func NewPanelReviewer(clientOpts *copilot.ClientOptions, models []string) *PanelReviewer {
+func NewPanelReviewer(clientOpts *copilot.ClientOptions, models []string, maxSessionActions int) *PanelReviewer {
 	return &PanelReviewer{
-		clientOpts: clientOpts,
-		models:     models,
+		clientOpts:        clientOpts,
+		models:            models,
+		maxSessionActions: maxSessionActions,
 	}
 }
 
@@ -236,11 +295,13 @@ func (p *PanelReviewer) Models() []string {
 	return p.models
 }
 
-// ReviewPanel runs all reviewer models in parallel and returns individual results
+// ReviewPanel runs all reviewer models sequentially and returns individual results
 // plus a consolidated result. The consolidated result is produced by the first model
 // in the list, which receives all other reviewers' outputs.
+// Reviews run one at a time so each Copilot session starts, completes, and stops
+// before the next begins, reducing peak memory usage.
 func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, workDir string, referenceDir string, evaluationCriteria string) (panel []ReviewResult, consolidated *ReviewResult, err error) {
-	slog.Info("Starting panel review", "model_count", len(p.models), "models", p.models)
+	slog.Info("Starting sequential panel review", "model_count", len(p.models), "models", p.models)
 	if len(p.models) == 0 {
 		return nil, nil, fmt.Errorf("no reviewer models configured")
 	}
@@ -257,55 +318,26 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 
 	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles, evaluationCriteria)
 
-	// Run all reviewers in parallel
-	type reviewOutput struct {
-		index  int
-		model  string
-		result *ReviewResult
-		err    error
-	}
-
-	results := make(chan reviewOutput, len(p.models))
-	var wg sync.WaitGroup
-
+	// Run reviewers sequentially — one Copilot session at a time
 	for i, model := range p.models {
-		wg.Add(1)
-		go func(idx int, m string) {
-			defer wg.Done()
-			slog.Debug("Panel reviewer starting", "model", m, "index", idx)
-			result, reviewErr := p.runSingleReview(ctx, m, reviewPrompt, workDir)
-			if result != nil {
-				result.Model = m
-			}
-			if reviewErr != nil {
-				slog.Warn("Panel reviewer failed", "model", m, "error", reviewErr)
-			} else {
-				slog.Debug("Panel reviewer complete", "model", m, "overall_score", result.OverallScore, "max_score", result.MaxScore)
-			}
-			results <- reviewOutput{index: idx, model: m, result: result, err: reviewErr}
-		}(i, model)
-	}
-
-	// Close channel when all goroutines complete
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	// Collect results in order
-	ordered := make([]*ReviewResult, len(p.models))
-	for out := range results {
-		if out.err != nil {
-			slog.Warn("Reviewer model failed", "model", out.model, "error", out.err)
+		slog.Debug("Panel reviewer starting", "model", model, "index", i)
+		modelWorkDir, copyErr := copyDirToTemp(workDir, fmt.Sprintf("hyoka-review-%s-*", model))
+		if copyErr != nil {
+			slog.Warn("Failed to create workspace copy for reviewer", "model", model, "error", copyErr)
+			modelWorkDir = workDir
+		} else {
+			defer os.RemoveAll(modelWorkDir)
 		}
-		ordered[out.index] = out.result
-	}
-
-	// Build panel (non-nil results only)
-	for _, r := range ordered {
-		if r != nil {
-			panel = append(panel, *r)
+		result, reviewErr := p.runSingleReview(ctx, model, reviewPrompt, modelWorkDir)
+		if result != nil {
+			result.Model = model
 		}
+		if reviewErr != nil {
+			slog.Warn("Panel reviewer failed", "model", model, "error", reviewErr)
+			continue
+		}
+		slog.Debug("Panel reviewer complete", "model", model, "overall_score", result.OverallScore, "max_score", result.MaxScore)
+		panel = append(panel, *result)
 	}
 
 	if len(panel) == 0 {
@@ -347,7 +379,17 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	if err := client.Start(ctx); err != nil {
 		return nil, fmt.Errorf("starting reviewer client for %s: %w", model, err)
 	}
+	var panelSessionID string
 	defer func() {
+		// Delete session state before stopping client (#62)
+		if panelSessionID != "" {
+			deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer deleteCancel()
+			if err := client.DeleteSession(deleteCtx, panelSessionID); err != nil {
+				slog.Debug("panel review session delete failed",
+					"sessionID", panelSessionID, "model", model, "error", err)
+			}
+		}
 		done := make(chan struct{})
 		go func() { client.Stop(); close(done) }()
 		select {
@@ -368,9 +410,56 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	var reviewEvents []ReviewEvent
 	var mu sync.Mutex
 
+	var actionCounter int
+	var actionLimitHit bool
+	reviewCtx, reviewCancel := context.WithCancel(ctx)
+	defer reviewCancel()
+
 	eventHandler := func(event copilot.SessionEvent) {
 		mu.Lock()
 		defer mu.Unlock()
+
+		// Count actions and enforce limit
+		switch event.Type {
+		case copilot.SessionEventTypeAssistantReasoning,
+			copilot.SessionEventTypeAssistantMessage,
+			copilot.SessionEventTypeToolExecutionStart:
+			actionCounter++
+			if p.maxSessionActions > 0 && actionCounter > p.maxSessionActions && !actionLimitHit {
+				actionLimitHit = true
+				slog.Warn("Review action limit reached, cancelling session",
+					"model", model, "actions", actionCounter, "max_session_actions", p.maxSessionActions)
+				reviewCancel()
+			}
+		}
+
+		// Log review events at debug level for visibility during runs.
+		switch event.Type {
+		case copilot.SessionEventTypeAssistantTurnStart:
+			slog.Debug("Review turn started", "model", model)
+		case copilot.SessionEventTypeAssistantTurnEnd:
+			slog.Debug("Review turn ended", "model", model)
+		case copilot.SessionEventTypeAssistantMessage:
+			if event.Data.Content != nil {
+				slog.Debug("Review assistant message", "model", model,
+					"content_len", len(*event.Data.Content))
+			}
+		case copilot.SessionEventTypeToolExecutionStart:
+			toolName := ""
+			if event.Data.ToolName != nil {
+				toolName = *event.Data.ToolName
+			}
+			slog.Debug("Review tool start", "model", model, "tool", toolName)
+		case copilot.SessionEventTypeToolExecutionComplete:
+			toolName := ""
+			if event.Data.ToolName != nil {
+				toolName = *event.Data.ToolName
+			}
+			slog.Debug("Review tool complete", "model", model, "tool", toolName)
+		case copilot.SessionEventTypeAssistantUsage:
+			slog.Debug("Review token usage", "model", model)
+		}
+
 		if event.Type == copilot.SessionEventTypeAssistantMessage && event.Data.Content != nil {
 			assistantContent.WriteString(*event.Data.Content)
 		}
@@ -405,8 +494,9 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 		reviewEvents = append(reviewEvents, evt)
 	}
 
+	slog.Info("Starting review session", "model", model, "skills", len(p.skillDirectories), "work_dir", workDir)
 	slog.Debug("Creating review session", "model", model)
-	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
+	session, err := client.CreateSession(reviewCtx, &copilot.SessionConfig{
 		Model: model,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "append",
@@ -421,9 +511,10 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	if err != nil {
 		return nil, fmt.Errorf("creating review session for %s: %w", model, err)
 	}
+	panelSessionID = session.SessionID
 
 	slog.Debug("Sending review prompt", "model", model)
-	_, err = session.SendAndWait(ctx, copilot.MessageOptions{
+	_, err = session.SendAndWait(reviewCtx, copilot.MessageOptions{
 		Prompt: reviewPrompt,
 	})
 	if err != nil {
@@ -561,4 +652,41 @@ func averageReview(panel []ReviewResult) *ReviewResult {
 		Issues:       issues,
 		Strengths:    strengths,
 	}
+}
+
+func copyDirToTemp(src string, pattern string) (string, error) {
+	dst, err := os.MkdirTemp("", pattern)
+	if err != nil {
+		return "", fmt.Errorf("creating temp dir: %w", err)
+	}
+	err = filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0755)
+		}
+		srcFile, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer srcFile.Close()
+		dstFile, err := os.Create(target)
+		if err != nil {
+			return err
+		}
+		defer dstFile.Close()
+		_, err = io.Copy(dstFile, srcFile)
+		return err
+	})
+	if err != nil {
+		os.RemoveAll(dst)
+		return "", err
+	}
+	return dst, nil
 }

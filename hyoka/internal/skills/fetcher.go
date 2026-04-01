@@ -56,6 +56,7 @@ func resolveLocal(path, baseDir string) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid glob pattern %q: %w", path, err)
 		}
+		slog.Debug("Skills glob expansion", "pattern", path, "matches", len(matches))
 		// Filter to directories only
 		var dirs []string
 		for _, m := range matches {

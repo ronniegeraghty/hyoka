@@ -30,6 +30,8 @@ reports/
 
 # Logs
 logs/
+*.log
+*-debug.log
 
 # Agent workspace
 .agents/

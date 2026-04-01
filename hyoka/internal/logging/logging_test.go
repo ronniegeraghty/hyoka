@@ -1,9 +1,24 @@
 package logging
 
 import (
+	"bytes"
+	"io"
 	"log/slog"
+	"os"
+	"strings"
 	"testing"
 )
+
+// silentLogger returns a logger that discards all output, for use as a
+// restore point after tests that mutate the global slog default.
+func silentLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError + 1}))
+}
+
+func TestMain(m *testing.M) {
+	slog.SetDefault(silentLogger())
+	os.Exit(m.Run())
+}
 
 func TestResolveLevel(t *testing.T) {
 	tests := []struct {
@@ -49,4 +64,69 @@ func TestEvalLogger(t *testing.T) {
 	}
 	// Smoke test — should not panic
 	l.Info("eval started")
+}
+
+func TestEvalLoggerStructuredFields(t *testing.T) {
+	var buf bytes.Buffer
+	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
+
+	l := EvalLogger("cosmos-crud", "baseline-opus", "generation", 3)
+	l.Info("phase started")
+
+	out := buf.String()
+	for _, want := range []string{"prompt=cosmos-crud", "config=baseline-opus", "phase=generation", "worker=3"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("log output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
+func TestWithPhaseReplacesPhase(t *testing.T) {
+	var buf bytes.Buffer
+	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
+
+	l := EvalLogger("p1", "c1", "generation", 0)
+	l2 := WithPhase(l, "review")
+	l2.Info("reviewing")
+
+	out := buf.String()
+	if !strings.Contains(out, "phase=review") {
+		t.Errorf("expected phase=review in output, got: %s", out)
+	}
+}
+
+func TestWithTurnAddsTurnField(t *testing.T) {
+	var buf bytes.Buffer
+	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
+
+	l := EvalLogger("p1", "c1", "generation", 0)
+	l2 := WithTurn(l, 5)
+	l2.Info("turn started")
+
+	out := buf.String()
+	if !strings.Contains(out, "turn=5") {
+		t.Errorf("expected turn=5 in output, got: %s", out)
+	}
+}
+
+func TestSetupLogFile(t *testing.T) {
+	tmp := t.TempDir()
+	logFile := tmp + "/test.log"
+
+	closer, err := Setup(Options{Level: "info", FilePath: logFile})
+	if err != nil {
+		t.Fatalf("Setup() error: %v", err)
+	}
+
+	slog.Info("file log test message")
+	closer()
+
+	// Restore silent logger
+	slog.SetDefault(silentLogger())
 }

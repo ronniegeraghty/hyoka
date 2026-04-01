@@ -176,3 +176,101 @@ func TestLoadPromptsNonexistentDir(t *testing.T) {
 		t.Fatal("expected error for nonexistent directory")
 	}
 }
+
+func TestScanNearMissesHyphenated(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "auth-prompt.md"), []byte("---\nid: x\n---\n"), 0644)
+	misses := ScanNearMisses(dir)
+	if len(misses) != 1 {
+		t.Fatalf("expected 1 near miss, got %d", len(misses))
+	}
+	if misses[0] != "auth-prompt.md" {
+		t.Errorf("expected 'auth-prompt.md', got %q", misses[0])
+	}
+}
+
+func TestScanNearMissesWrongExtension(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "auth.prompt.txt"), []byte("content"), 0644)
+	misses := ScanNearMisses(dir)
+	if len(misses) != 1 {
+		t.Fatalf("expected 1 near miss, got %d", len(misses))
+	}
+}
+
+func TestScanNearMissesMdWithFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("---\nid: x\n---\ncontent"), 0644)
+	misses := ScanNearMisses(dir)
+	if len(misses) != 1 {
+		t.Fatalf("expected 1 near miss, got %d", len(misses))
+	}
+}
+
+func TestScanNearMissesIgnoresCorrectFiles(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "auth.prompt.md"), []byte("---\nid: x\n---\n"), 0644)
+	misses := ScanNearMisses(dir)
+	if len(misses) != 0 {
+		t.Errorf("expected 0 near misses for correct file, got %d", len(misses))
+	}
+}
+
+func TestScanNearMissesEmpty(t *testing.T) {
+	dir := t.TempDir()
+	misses := ScanNearMisses(dir)
+	if len(misses) != 0 {
+		t.Errorf("expected 0 near misses for empty dir, got %d", len(misses))
+	}
+}
+
+func TestSuggestFix(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"auth-prompt.md", "auth.prompt.md"},
+		{"auth.prompt.txt", "auth.prompt.md"},
+		{"sub/auth-prompt.md", "sub/auth.prompt.md"},
+		{"readme.md", ""},
+	}
+	for _, tt := range tests {
+		got := suggestFix(tt.input)
+		if got != tt.expected {
+			t.Errorf("suggestFix(%q): expected %q, got %q", tt.input, tt.expected, got)
+		}
+	}
+}
+
+func TestLoadPromptsZeroPromptsWithNearMisses(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "auth-prompt.md"), []byte("---\nid: x\n---\n## Prompt\nhello\n"), 0644)
+	_, err := LoadPrompts(dir)
+	if err == nil {
+		t.Fatal("expected error for zero prompts")
+	}
+	errMsg := err.Error()
+	if !filepath.IsAbs(dir) {
+		t.Skip()
+	}
+	if len(errMsg) == 0 {
+		t.Fatal("expected non-empty error message")
+	}
+	// Should contain near-miss suggestions
+	if !contains(errMsg, "Did you mean") {
+		t.Errorf("expected near-miss suggestion in error, got %q", errMsg)
+	}
+}
+
+func contains(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsSubstring(s, sub))
+}
+
+func containsSubstring(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}

@@ -14,6 +14,7 @@ import (
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/hyoka/internal/config"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
+	"github.com/ronniegeraghty/hyoka/internal/pidfile"
 	"github.com/ronniegeraghty/hyoka/internal/progress"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
 	"github.com/ronniegeraghty/hyoka/internal/report"
@@ -23,6 +24,7 @@ import (
 type CopilotSDKEvaluator struct {
 	clientOpts *copilot.ClientOptions
 	allowCloud bool
+	maxSessionActions int
 	progressFn progress.ProgressFunc
 }
 
@@ -39,6 +41,10 @@ type CopilotEvalOptions struct {
 	CLIPath string
 	// AllowCloud permits generated code to provision real cloud resources (#36).
 	AllowCloud bool
+	// MaxSessionActions limits the total number of actions (reasoning, message,
+	// tool execution start) during generation. When reached, the session context
+	// is cancelled to stop the run immediately.
+	MaxSessionActions int
 }
 
 // NewCopilotSDKEvaluator creates a new evaluator backed by the Copilot SDK.
@@ -53,9 +59,12 @@ func NewCopilotSDKEvaluator(opts CopilotEvalOptions) *CopilotSDKEvaluator {
 	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 		clientOpts.LogLevel = "debug"
 	}
+	// Tag SDK-spawned processes with HYOKA_SESSION env var (#70).
+	clientOpts.Env = HyokaBaseEnv()
 	return &CopilotSDKEvaluator{
 		clientOpts: clientOpts,
 		allowCloud: opts.AllowCloud,
+		maxSessionActions: opts.MaxSessionActions,
 	}
 }
 
@@ -77,6 +86,8 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	// Create Copilot client
 	opts := *e.clientOpts
 	opts.Cwd = workDir
+	// Enrich env with prompt/config metadata for this specific eval (#70).
+	opts.Env = HyokaEvalEnv(p.ID, cfg.Name)
 	client := copilot.NewClient(&opts)
 
 	if err := client.Start(ctx); err != nil {
@@ -85,21 +96,44 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			ErrorDetails: err.Error(),
 		}, fmt.Errorf("starting copilot client: %w", err)
 	}
-	// NOTE: ProcessTracker.Register/Deregister cannot be wired here because the
-	// Copilot SDK's Client struct does not expose the underlying process PID (the
-	// osProcess field is unexported). The SDK manages its own process lifecycle
-	// via client.Stop()/ForceStop(). DefaultTracker.TerminateAll is still called
-	// from the signal handler in engine.go for any future tracked processes.
-	// Defer client cleanup. We use client.Stop() which sends session.destroy
-	// for a graceful shutdown. The generated files are in the report tree
-	// (not a temp dir), so session.destroy won't delete them.
+	// The SDK does not expose the child PID, so we discover it by
+	// scanning for direct child processes whose name contains "copilot".
+	// The PID is written to a file so the clean command can find orphaned
+	// processes even if hyoka crashes.
+	var trackedPIDs []int
+	for _, cpid := range findChildCopilotPIDs() {
+		if err := pidfile.Write(pidfile.Info{PID: cpid, PromptID: p.ID, Config: cfg.Name}); err != nil {
+			slog.Debug("failed to write PID file", "pid", cpid, "error", err)
+		} else {
+			trackedPIDs = append(trackedPIDs, cpid)
+		}
+	}
+
+	// Track session ID for cleanup — set after CreateSession.
+	var sessionID string
+	// Defer client cleanup (#62). Delete session state first (requires
+	// connected client), then stop the client. DeleteSession sends
+	// session.delete RPC which removes session-state dir AND the SQLite
+	// session-store.db entry — unlike os.RemoveAll which misses the DB.
 	defer func() {
+		if sessionID != "" {
+			deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer deleteCancel()
+			if err := client.DeleteSession(deleteCtx, sessionID); err != nil {
+				slog.Debug("session delete failed, session-state may remain",
+					"sessionID", sessionID, "error", err)
+			}
+		}
 		done := make(chan struct{})
 		go func() { client.Stop(); close(done) }()
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
 			client.ForceStop()
+		}
+		// Remove PID files for processes we tracked.
+		for _, cpid := range trackedPIDs {
+			pidfile.Remove(cpid)
 		}
 	}()
 
@@ -127,6 +161,13 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 
 	// Capture turn counter for expanded events
 	var turnCounter int
+	var actionCounter int
+
+	// Mid-generation action limit. Create a cancellable child context
+	// so the OnEvent callback can stop runaway sessions in real time.
+	genCtx, genCancel := context.WithCancel(ctx)
+	defer genCancel()
+	var actionLimitHit bool
 
 	sessionCfg.OnEvent = func(event copilot.SessionEvent) {
 		mu.Lock()
@@ -189,6 +230,12 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 				lg.Info("Turn ended", "turn", turnCounter, "duration_ms", *event.Data.Duration)
 			}
 		case copilot.SessionEventTypeAssistantReasoning:
+			actionCounter++
+			if e.maxSessionActions > 0 && actionCounter > e.maxSessionActions && !actionLimitHit {
+				actionLimitHit = true
+				lg.Warn("Action limit reached, cancelling session", "actions", actionCounter, "max_session_actions", e.maxSessionActions)
+				genCancel()
+			}
 			// Content already captured above
 		case copilot.SessionEventTypeAssistantIntent:
 			if event.Data.Intent != nil {
@@ -349,6 +396,12 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		// Debug logging — all event types (slog.Debug is a no-op at higher levels)
 		switch event.Type {
 		case copilot.SessionEventTypeToolExecutionStart:
+			actionCounter++
+			if e.maxSessionActions > 0 && actionCounter > e.maxSessionActions && !actionLimitHit {
+				actionLimitHit = true
+				lg.Warn("Action limit reached, cancelling session", "actions", actionCounter, "max_session_actions", e.maxSessionActions)
+				genCancel()
+			}
 			toolName := ""
 			if event.Data.ToolName != nil {
 				toolName = *event.Data.ToolName
@@ -365,6 +418,12 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			}
 			lg.Debug("Tool done", "tool", toolName, "result", content)
 		case copilot.SessionEventTypeAssistantMessage:
+			actionCounter++
+			if e.maxSessionActions > 0 && actionCounter > e.maxSessionActions && !actionLimitHit {
+				actionLimitHit = true
+				lg.Warn("Action limit reached, cancelling session", "actions", actionCounter, "max_session_actions", e.maxSessionActions)
+				genCancel()
+			}
 			content := ""
 			if event.Data.Content != nil {
 				content = *event.Data.Content
@@ -414,16 +473,15 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		}
 	}
 
-	session, err := client.CreateSession(ctx, sessionCfg)
+	slog.Info("Creating Copilot session", "model", cfg.EffectiveModel(), "skills", len(sessionCfg.SkillDirectories), "work_dir", workDir)
+	session, err := client.CreateSession(genCtx, sessionCfg)
 	if err != nil {
 		return &EvalResult{
 			Error:        fmt.Sprintf("session creation failed: %v", err),
 			ErrorDetails: err.Error(),
 		}, fmt.Errorf("creating session: %w", err)
 	}
-	// No session.Disconnect() — that sends session.destroy which causes the
-	// CLI to delete generated files from WorkingDirectory. ForceStop above
-	// handles process cleanup without file deletion.
+	sessionID = session.SessionID
 
 	// Send the prompt
 	if e.progressFn != nil {
@@ -434,7 +492,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		})
 	}
 	lg.Debug("Sending prompt", "chars", len(p.PromptText))
-	_, err = session.SendAndWait(ctx, copilot.MessageOptions{
+	_, err = session.SendAndWait(genCtx, copilot.MessageOptions{
 		Prompt: p.PromptText,
 	})
 	if err != nil {
@@ -444,6 +502,24 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		capturedEvts := make([]copilot.SessionEvent, len(events))
 		copy(capturedEvts, events)
 		mu.Unlock()
+
+		// Mid-generation action limit: return partial results so the
+		// post-generation guardrail in engine.go can mark the eval as failed
+		// with a proper reason instead of treating it as an SDK error.
+		if actionLimitHit {
+			generatedFiles, _ := listFiles(workDir)
+			lg.Warn("Returning partial results after action-limit cancellation",
+				"actions", actionCounter, "files", len(generatedFiles))
+			return &EvalResult{
+				GeneratedFiles: generatedFiles,
+				EventCount:     len(captured),
+				ToolCalls:      extractToolCalls(capturedEvts),
+				SessionEvents:  captured,
+				Success:        true, // Let engine.go guardrail set the proper failure
+				StarterFiles:   starterFiles,
+			}, nil
+		}
+
 		return &EvalResult{
 			SessionEvents: captured,
 			EventCount:    len(captured),
@@ -492,7 +568,7 @@ func truncateStr(s string, maxLen int) string {
 // detectFileCreation checks if assistant content looks like file creation
 // and returns a summary like "key_vault_crud.py (89 lines)".
 func detectFileCreation(content string) string {
-	lines := strings.Split(content, "\n")
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	// Look for patterns like "```python", file path references, or create_file tool patterns
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -520,8 +596,6 @@ func detectFileCreation(content string) string {
 	}
 	return ""
 }
-
-
 
 // Client returns a new Copilot client for the given working directory.
 // Exported for use by the review package.
@@ -627,7 +701,7 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 				return &copilot.PostToolUseHookOutput{}, nil
 			},
 		},
-		SkillDirectories:    skillDirs,
+		SkillDirectories: skillDirs,
 	}
 
 	// Only set AvailableTools/ExcludedTools when non-empty.

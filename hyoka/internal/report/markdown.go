@@ -51,6 +51,21 @@ func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service,
 	}
 	b.WriteString("\n")
 
+	// Phase Timing
+	if r.GenerationDuration > 0 || r.ReviewDuration > 0 {
+		b.WriteString("## Phase Timing\n\n")
+		b.WriteString("| Phase | Duration |\n")
+		b.WriteString("|-------|----------|\n")
+		if r.GenerationDuration > 0 {
+			fmt.Fprintf(&b, "| Generation | %.1fs |\n", r.GenerationDuration)
+		}
+		if r.ReviewDuration > 0 {
+			fmt.Fprintf(&b, "| Review | %.1fs |\n", r.ReviewDuration)
+		}
+		fmt.Fprintf(&b, "| **Total** | **%.1fs** |\n", r.Duration)
+		b.WriteString("\n")
+	}
+
 	// Config used
 	if len(r.ConfigUsed) > 0 {
 		b.WriteString("## Configuration\n\n")
@@ -228,29 +243,6 @@ func WriteMarkdownReport(r *EvalReport, outputDir string, runID string, service,
 			fmt.Fprintf(&b, "| Extra | %s |\n", strings.Join(r.ToolUsage.ExtraTools, ", "))
 		}
 		b.WriteString("\n")
-	}
-
-	// Build
-	if r.Build != nil {
-		b.WriteString("## Build Verification\n\n")
-		buildResult := "❌ FAIL"
-		if r.Build.Success {
-			buildResult = "✅ PASS"
-		}
-		fmt.Fprintf(&b, "**Result:** %s | **Language:** %s | **Command:** `%s` | **Exit Code:** %d\n\n",
-			buildResult, r.Build.Language, r.Build.Command, r.Build.ExitCode)
-		if r.Build.Stdout != "" || r.Build.Stderr != "" {
-			output := r.Build.Stdout
-			if r.Build.Stderr != "" {
-				if output != "" {
-					output += "\n"
-				}
-				output += r.Build.Stderr
-			}
-			b.WriteString("<details>\n<summary>Build Output</summary>\n\n")
-			fmt.Fprintf(&b, "```\n%s\n```\n\n", truncateStr(output, 5000))
-			b.WriteString("</details>\n\n")
-		}
 	}
 
 	// Review scores

@@ -15,13 +15,16 @@ import (
 
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/ronniegeraghty/hyoka/internal/checkenv"
+	"github.com/ronniegeraghty/hyoka/internal/clean"
 	"github.com/ronniegeraghty/hyoka/internal/config"
 	"github.com/ronniegeraghty/hyoka/internal/eval"
 	"github.com/ronniegeraghty/hyoka/internal/logging"
+	"github.com/ronniegeraghty/hyoka/internal/plugin"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
 	"github.com/ronniegeraghty/hyoka/internal/rerender"
 	"github.com/ronniegeraghty/hyoka/internal/report"
 	"github.com/ronniegeraghty/hyoka/internal/review"
+	"github.com/ronniegeraghty/hyoka/internal/serve"
 	"github.com/ronniegeraghty/hyoka/internal/trends"
 	"github.com/ronniegeraghty/hyoka/internal/validate"
 	"github.com/spf13/cobra"
@@ -71,6 +74,9 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(trendsCmd())
 	root.AddCommand(reportCmd())
 	root.AddCommand(newPromptCmd())
+	root.AddCommand(serveCmd())
+	root.AddCommand(pluginsCmd())
+	root.AddCommand(cleanCmd())
 
 	return root
 }
@@ -128,28 +134,31 @@ type runFlags struct {
 	configDir    string
 	workers         int
 	maxSessions     int
-	timeout         int
-	generateTimeout int
-	buildTimeout    int
-	reviewTimeout   int
 	model           string
 	output       string
 	progressMode string
 	skipTests    bool
 	skipReview   bool
 	skipTrends   bool
-	verifyBuild  bool
 	dryRun       bool
 	useStub      bool
 	// Fan-out visibility (#34)
 	autoConfirm bool
 	allConfigs  bool
 	// Generator guardrails (#35)
-	maxTurns      int
-	maxFiles      int
+	maxSessionActions int
+	maxFiles          int
 	maxOutputSize string
 	// Generator safety (#36)
 	allowCloud bool
+	// Resource monitoring (#45)
+	monitorResources bool
+	// Process lifecycle (#46)
+	strictCleanup bool
+	// Tiered criteria (#30)
+	criteriaDir string
+	// Directory exclusion (#63)
+	excludeDirs string
 }
 
 func addFilterFlags(cmd *cobra.Command, f *runFlags) {
@@ -165,15 +174,10 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.configDir, "config-dir", "./configs", "Directory containing configuration YAML files")
 	cmd.Flags().IntVar(&f.workers, "workers", 0, "Parallel evaluation workers (default: number of CPUs, max 8)")
 	cmd.Flags().IntVar(&f.maxSessions, "max-sessions", 0, "Maximum concurrent Copilot sessions (default: workers × 3)")
-	cmd.Flags().IntVar(&f.timeout, "timeout", 600, "Per-prompt generation timeout in seconds (deprecated: use --generate-timeout)")
-	cmd.Flags().IntVar(&f.generateTimeout, "generate-timeout", 0, "Generation phase timeout in seconds (default: --timeout value or 600)")
-	cmd.Flags().IntVar(&f.buildTimeout, "build-timeout", 300, "Build verification timeout in seconds")
-	cmd.Flags().IntVar(&f.reviewTimeout, "review-timeout", 300, "Review phase timeout in seconds")
 	cmd.Flags().StringVar(&f.model, "model", "", "Override model for all configs")
 	cmd.Flags().StringVar(&f.output, "output", "./reports", "Report output directory")
 	cmd.Flags().BoolVar(&f.skipTests, "skip-tests", false, "Skip test generation")
 	cmd.Flags().BoolVar(&f.skipReview, "skip-review", false, "Skip code review")
-	cmd.Flags().BoolVar(&f.verifyBuild, "verify-build", false, "Run build verification on generated code")
 	cmd.Flags().StringVar(&f.progressMode, "progress", "auto", "Progress display mode: auto, live, log, off")
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "List matching prompts without running")
 	cmd.Flags().BoolVar(&f.useStub, "stub", false, "Use stub evaluator (no Copilot SDK)")
@@ -182,13 +186,21 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().BoolVarP(&f.autoConfirm, "yes", "y", false, "Skip confirmation prompt for large runs (>10 evaluations)")
 	cmd.Flags().BoolVar(&f.allConfigs, "all-configs", false, "Run all configs when no --config filter is specified (required for multi-config runs)")
 	// Generator guardrails (#35)
-	cmd.Flags().IntVar(&f.maxTurns, "max-turns", 25, "Maximum assistant turns per generation before aborting")
+	cmd.Flags().IntVar(&f.maxSessionActions, "max-session-actions", 50, "Maximum actions per Copilot session (reasoning, response, or tool call each count as 1)")
 	cmd.Flags().IntVar(&f.maxFiles, "max-files", 50, "Maximum generated files per evaluation before aborting")
 	cmd.Flags().StringVar(&f.maxOutputSize, "max-output-size", "1MB", "Maximum total output size per evaluation (e.g., 1MB, 512KB)")
 	// Generator safety (#36)
 	cmd.Flags().BoolVar(&f.allowCloud, "allow-cloud", false, "Allow generated code to provision real Azure resources (disables safety boundaries)")
 	cmd.Flags().Bool("sandbox", true, "Enforce safety boundaries preventing real Azure resource provisioning (default, opposite of --allow-cloud)")
 	cmd.Flags().MarkHidden("sandbox") // sandbox is the default; --allow-cloud is the opt-out
+	// Resource monitoring (#45)
+	cmd.Flags().BoolVar(&f.monitorResources, "monitor-resources", false, "Monitor CPU and memory usage of Copilot sessions during evaluation")
+	// Process lifecycle (#46)
+	cmd.Flags().BoolVar(&f.strictCleanup, "strict-cleanup", false, "Fail run with non-zero exit if orphaned Copilot processes remain after cleanup")
+	// Tiered criteria (#30)
+	cmd.Flags().StringVar(&f.criteriaDir, "criteria-dir", "", "Directory containing attribute-matched criteria YAML files (e.g., criteria/)")
+	// Directory exclusion (#63)
+	cmd.Flags().StringVar(&f.excludeDirs, "exclude-dirs", "", "Comma-separated directories to exclude from generated_files output (e.g., node_modules,target,dist)")
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
@@ -423,23 +435,28 @@ func runCmd() *cobra.Command {
 			} else {
 				// Try to create a real Copilot SDK evaluator
 				sdkEval := eval.NewCopilotSDKEvaluator(eval.CopilotEvalOptions{
-					AllowCloud: f.allowCloud,
+					AllowCloud:        f.allowCloud,
+					MaxSessionActions: f.maxSessionActions,
 				})
 				evaluator = sdkEval
 
 				// Verify Copilot CLI is available
-				client := copilot.NewClient(nil)
+				client := copilot.NewClient(&copilot.ClientOptions{
+					Env: eval.HyokaBaseEnv(), // Tag verification process (#70)
+				})
 				if err := client.Start(context.Background()); err != nil {
 					slog.Warn("Copilot SDK unavailable, falling back to stub", "error", err)
 					fmt.Printf("⚠️  Copilot SDK unavailable (%v), falling back to stub evaluator\n", err)
 					evaluator = &eval.StubEvaluator{}
 					reviewer = &review.StubReviewer{}
 				} else {
-					client.Stop()
+					defer client.Stop() // #65: ensure cleanup on any exit path
 					slog.Info("Using Copilot SDK evaluator")
 					fmt.Println("Using Copilot SDK evaluator")
 
-					clientOpts := &copilot.ClientOptions{}
+					clientOpts := &copilot.ClientOptions{
+						Env: eval.HyokaBaseEnv(), // Tag reviewer processes (#70)
+					}
 					if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 						clientOpts.LogLevel = "debug"
 					}
@@ -458,7 +475,7 @@ func runCmd() *cobra.Command {
 
 					if len(reviewerModels) > 1 {
 						// Multi-model panel
-						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels)
+						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
 						if len(reviewerSkillsDirs) > 0 {
 							panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}
@@ -475,7 +492,7 @@ func runCmd() *cobra.Command {
 							if len(reviewerModels) == 1 {
 								reviewerModel = reviewerModels[0]
 							}
-							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel)
+							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions)
 							if len(reviewerSkillsDirs) > 0 {
 								copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
 							}
@@ -500,24 +517,34 @@ func runCmd() *cobra.Command {
 			}
 
 			// Create and run engine
+			// Parse exclude-dirs (#63)
+			var excludeDirs []string
+			if f.excludeDirs != "" {
+				for _, d := range strings.Split(f.excludeDirs, ",") {
+					d = strings.TrimSpace(d)
+					if d != "" {
+						excludeDirs = append(excludeDirs, d)
+					}
+				}
+			}
+
 			engine := eval.NewEngineWithReviewer(evaluator, reviewer, eval.EngineOptions{
-				Workers:          f.workers,
-				MaxSessions:      f.maxSessions,
-				Timeout:          time.Duration(f.timeout) * time.Second,
-				GenerateTimeout:  time.Duration(f.generateTimeout) * time.Second,
-				BuildTimeout:     time.Duration(f.buildTimeout) * time.Second,
-				ReviewTimeout:    time.Duration(f.reviewTimeout) * time.Second,
-				OutputDir:        f.output,
-				SkipTests:        f.skipTests,
-				SkipReview:       f.skipReview,
-				VerifyBuild:      f.verifyBuild,
-				DryRun:           f.dryRun,
-				ProgressMode:     f.progressMode,
-				ConfirmLargeRuns: true,
-				AutoConfirm:      f.autoConfirm,
-				MaxTurns:         f.maxTurns,
-				MaxFiles:         f.maxFiles,
-				MaxOutputSize:    maxOutputSize,
+				Workers:           f.workers,
+				MaxSessions:       f.maxSessions,
+				OutputDir:         f.output,
+				SkipTests:         f.skipTests,
+				SkipReview:        f.skipReview,
+				DryRun:            f.dryRun,
+				ProgressMode:      f.progressMode,
+				ConfirmLargeRuns:  true,
+				AutoConfirm:       f.autoConfirm,
+				MaxSessionActions: f.maxSessionActions,
+				MaxFiles:          f.maxFiles,
+				MaxOutputSize:     maxOutputSize,
+				MonitorResources:  f.monitorResources,
+				StrictCleanup:     f.strictCleanup,
+				CriteriaDir:       f.criteriaDir,
+				ExcludeDirs:       excludeDirs,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)
@@ -914,6 +941,177 @@ func reportCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&all, "all", false, "Re-render all runs")
 
 	return cmd
+}
+
+func serveCmd() *cobra.Command {
+	var port int
+	var reportsDir string
+
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Start a local web server to browse evaluation reports",
+		Long:  "Starts an HTTP server that provides a web UI for browsing past evaluation runs, viewing summaries, and individual report pages.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reportsDir = resolveOutputFile(cmd, []string{"./reports", "../reports"})
+			return serve.Start(serve.Options{
+				ReportsDir: reportsDir,
+				Port:       port,
+			})
+		},
+	}
+
+	cmd.Flags().IntVar(&port, "port", 8080, "Port to serve on")
+	cmd.Flags().StringVar(&reportsDir, "output", "./reports", "Directory containing evaluation reports")
+
+	return cmd
+}
+
+func pluginsCmd() *cobra.Command {
+	var pluginsDir string
+
+	cmd := &cobra.Command{
+		Use:   "plugins",
+		Short: "List available plugins",
+		Long:  "Scans the plugins directory and lists all available plugin definitions with their skills and MCP servers.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reg := plugin.NewRegistry()
+			if err := reg.LoadDir(pluginsDir); err != nil {
+				return fmt.Errorf("loading plugins: %w", err)
+			}
+
+			plugins := reg.All()
+			if len(plugins) == 0 {
+				fmt.Printf("No plugins found in %s\n", pluginsDir)
+				return nil
+			}
+
+			fmt.Printf("Found %d plugin(s) in %s:\n\n", len(plugins), pluginsDir)
+			for _, p := range plugins {
+				fmt.Printf("  %s", p.Name)
+				if p.Description != "" {
+					fmt.Printf(" — %s", p.Description)
+				}
+				fmt.Println()
+				if len(p.Skills) > 0 {
+					fmt.Printf("    Skills: %d\n", len(p.Skills))
+				}
+				if len(p.MCPServers) > 0 {
+					fmt.Printf("    MCP Servers: %d\n", len(p.MCPServers))
+				}
+				if p.Hooks != nil {
+					hooks := len(p.Hooks.PreToolUse) + len(p.Hooks.PostToolUse)
+					if hooks > 0 {
+						fmt.Printf("    Hooks: %d\n", hooks)
+					}
+				}
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&pluginsDir, "plugins-dir", "./plugins", "Directory containing plugin YAML files")
+
+	return cmd
+}
+
+func cleanCmd() *cobra.Command {
+	var dryRun bool
+	var keepLogs int
+	var all bool
+	var yes bool
+
+	cmd := &cobra.Command{
+		Use:   "clean",
+		Short: "Remove stale Copilot CLI session state and orphaned processes from past eval runs",
+		Long: `Scans for orphaned hyoka-spawned Copilot processes (tagged with HYOKA_SESSION)
+and stale ~/.copilot/session-state/ directories. Lists any found processes and
+asks for confirmation before killing them. Session state accumulates over many
+eval runs and can grow to gigabytes, so periodic cleanup is recommended.
+
+By default only cleans hyoka-created sessions and processes. Use --all to also
+clean Copilot CLI log files and non-hyoka session state.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
+
+			// Phase 1: Scan for orphaned hyoka processes (#70)
+			procs, scanErr := clean.ScanHyokaProcesses(out)
+			if scanErr != nil {
+				fmt.Fprintf(out, "Warning: process scan: %v\n", scanErr)
+			}
+
+			killOrphans := false
+			if len(procs) > 0 && !dryRun {
+				if yes {
+					killOrphans = true
+				} else {
+					fmt.Fprintf(out, "\nKill these %d process(es)? [y/N] ", len(procs))
+					var answer string
+					fmt.Fscanln(cmd.InOrStdin(), &answer)
+					answer = strings.TrimSpace(strings.ToLower(answer))
+					killOrphans = answer == "y" || answer == "yes"
+				}
+				if killOrphans {
+					killed := clean.KillHyokaProcesses(procs, out)
+					fmt.Fprintf(out, "Killed %d process(es)\n", killed)
+				} else {
+					fmt.Fprintln(out, "Skipped process cleanup.")
+				}
+			}
+
+			// Phase 2: Session state and log cleanup
+			result, err := clean.Run(clean.Options{
+				DryRun:      dryRun,
+				KeepLogs:    keepLogs,
+				All:         all,
+				KillOrphans: false, // already handled above
+				Out:         out,
+			})
+			if err != nil {
+				return err
+			}
+
+			if dryRun {
+				fmt.Fprintf(out, "\nDry run: found %d session(s) to remove", result.SessionsFound)
+				if len(procs) > 0 {
+					fmt.Fprintf(out, ", %d process(es) to kill", len(procs))
+				}
+				fmt.Fprintln(out)
+			} else {
+				parts := []string{fmt.Sprintf("%d session(s)", result.SessionsRemoved)}
+				if result.LogsRemoved > 0 {
+					parts = append(parts, fmt.Sprintf("%d log(s)", result.LogsRemoved))
+				}
+				fmt.Fprintf(out, "\nCleaned %s — freed %s\n",
+					strings.Join(parts, ", "), humanSize(result.BytesFreed))
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be cleaned without deleting or killing")
+	cmd.Flags().IntVar(&keepLogs, "keep-logs", 50, "Number of recent log files to keep (only with --all)")
+	cmd.Flags().BoolVar(&all, "all", false, "Also clean Copilot CLI logs and non-hyoka session state")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt and kill orphaned processes automatically")
+
+	return cmd
+}
+
+func humanSize(b int64) string {
+	const (
+		kb = 1024
+		mb = kb * 1024
+		gb = mb * 1024
+	)
+	switch {
+	case b >= gb:
+		return fmt.Sprintf("%.1fGB", float64(b)/float64(gb))
+	case b >= mb:
+		return fmt.Sprintf("%.1fMB", float64(b)/float64(mb))
+	case b >= kb:
+		return fmt.Sprintf("%.1fKB", float64(b)/float64(kb))
+	default:
+		return fmt.Sprintf("%dB", b)
+	}
 }
 
 // openInBrowser opens the given file path in the default browser.

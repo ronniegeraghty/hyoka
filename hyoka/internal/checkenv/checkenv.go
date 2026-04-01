@@ -66,7 +66,7 @@ func runCmd(name string, args ...string) (string, error) {
 
 func extractVersion(output string) string {
 	// Many tools output "toolname vX.Y.Z" or "toolname X.Y.Z" — grab first line, trim
-	lines := strings.SplitN(output, "\n", 2)
+	lines := strings.SplitN(strings.ReplaceAll(output, "\r\n", "\n"), "\n", 2)
 	return strings.TrimSpace(lines[0])
 }
 
@@ -200,7 +200,7 @@ func checkCopilotAuth() checkResult {
 		return checkResult{name: "Authenticated", ok: false, hint: "not authenticated (run: gh auth login)"}
 	}
 	// Try to extract username from output
-	for _, line := range strings.Split(out, "\n") {
+	for _, line := range strings.Split(strings.ReplaceAll(out, "\r\n", "\n"), "\n") {
 		if strings.Contains(line, "Logged in to") || strings.Contains(line, "account") {
 			return checkResult{name: "Authenticated", ok: true, version: strings.TrimSpace(line)}
 		}

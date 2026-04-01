@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ronniegeraghty/hyoka/internal/build"
 	"github.com/ronniegeraghty/hyoka/internal/review"
 )
 
@@ -15,20 +14,15 @@ func TestWriteMarkdownReport(t *testing.T) {
 
 	boolTrue := true
 	r := &EvalReport{
-		PromptID:   "test-prompt",
-		ConfigName: "baseline",
-		Timestamp:  "2024-01-15T10:00:00Z",
-		Duration:   12.5,
-		PromptMeta: map[string]any{"service": "storage", "language": "dotnet"},
-		ConfigUsed: map[string]any{"name": "baseline", "model": "gpt-4"},
-		GeneratedFiles: []string{"Program.cs"},
-		Build: &build.BuildResult{
-			Language: "dotnet",
-			Command:  "dotnet build",
-			ExitCode: 0,
-			Success:  true,
-			Stdout:   "Build succeeded.",
-		},
+		PromptID:           "test-prompt",
+		ConfigName:         "baseline",
+		Timestamp:          "2024-01-15T10:00:00Z",
+		Duration:           12.5,
+		GenerationDuration: 8.2,
+		ReviewDuration:     3.1,
+		PromptMeta:         map[string]any{"service": "storage", "language": "dotnet"},
+		ConfigUsed:         map[string]any{"name": "baseline", "model": "gpt-4"},
+		GeneratedFiles:     []string{"Program.cs"},
 		Review: &review.ReviewResult{
 			Scores: review.ReviewScores{
 				Criteria: []review.CriterionResult{
@@ -76,7 +70,6 @@ func TestWriteMarkdownReport(t *testing.T) {
 		"Code Builds",
 		"Good implementation",
 		"Program.cs",
-		"dotnet build",
 		"Write a dotnet storage auth sample",
 		"I need to create an auth sample",
 		"Code Review",
@@ -86,6 +79,11 @@ func TestWriteMarkdownReport(t *testing.T) {
 		"Back to Summary",
 		"File created",
 		"150ms",
+		"Phase Timing",
+		"Generation",
+		"8.2s",
+		"Review",
+		"3.1s",
 	}
 	for _, check := range checks {
 		if !strings.Contains(content, check) {
@@ -153,7 +151,6 @@ func TestWriteSummaryMarkdown(t *testing.T) {
 				Success:    true,
 				Duration:   10.0,
 				PromptMeta: map[string]any{"service": "storage", "plane": "data-plane", "language": "dotnet", "category": "auth"},
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 4, MaxScore: 5},
 			},
 			{
@@ -162,7 +159,6 @@ func TestWriteSummaryMarkdown(t *testing.T) {
 				Success:    true,
 				Duration:   15.0,
 				PromptMeta: map[string]any{"service": "storage", "plane": "data-plane", "language": "dotnet", "category": "auth"},
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 5, MaxScore: 5},
 			},
 			{
@@ -171,7 +167,6 @@ func TestWriteSummaryMarkdown(t *testing.T) {
 				Success:    false,
 				Duration:   5.0,
 				PromptMeta: map[string]any{},
-				Build:      &build.BuildResult{Success: false},
 			},
 			{
 				PromptID:   "prompt-b",
@@ -179,7 +174,6 @@ func TestWriteSummaryMarkdown(t *testing.T) {
 				Success:    true,
 				Duration:   12.0,
 				PromptMeta: map[string]any{},
-				Build:      &build.BuildResult{Success: true},
 				Review:     &review.ReviewResult{OverallScore: 3, MaxScore: 5},
 			},
 		},

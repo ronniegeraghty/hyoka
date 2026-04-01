@@ -256,8 +256,21 @@ If `validate` or `run` finds zero prompts, it scans for near-miss filenames and 
 - `auth-prompt.md` → `auth.prompt.md` (hyphen instead of dot)
 - `crud.prompt.txt` → `crud.prompt.md` (wrong extension)
 
+## Browse Results with Serve
+
+Start the built-in report viewer:
+
+```bash
+go run ./hyoka serve
+```
+
+This launches a local web server at `http://localhost:8080` with an index of all evaluation runs, linking to individual HTML reports.
+
 ## Next Steps
 
-- Read the [root README](../README.md) for full command reference
-- Check out `skills/prompt-authoring/SKILL.md` for prompt writing best practices
-- See `docs/cleanup-plan.md` for the project roadmap
+- [CLI Reference](cli-reference.md) — Full command and flag documentation
+- [Configuration Guide](configuration.md) — Config YAML format and options
+- [Prompt Authoring Guide](prompt-authoring.md) — How to write evaluation prompts
+- [Guardrails and Safety](guardrails.md) — Limits, process cleanup, and safety boundaries
+- [Architecture Overview](architecture.md) — How hyoka works end-to-end
+- [Contributing Guide](contributing.md) — Building, testing, and adding features
