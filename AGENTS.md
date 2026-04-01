@@ -62,7 +62,7 @@ Go version: 1.24.5+ required. Module path: `github.com/ronniegeraghty/hyoka`.
 
 ## Git Workflow
 
-- **Branch naming**: `treebeard/issue-{N}-{short-description}` (Treebeard is the primary agent for this repo)
+- **Branch naming**: `{username}/issue-{N}-{short-description}`
 - **Commit trailers**: Always include `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
 - **Git identity**: Use `ronniegeraghty` account (not EMU). Set:
   ```
@@ -92,6 +92,6 @@ Go version: 1.24.5+ required. Module path: `github.com/ronniegeraghty/hyoka`.
 
 Issues are tracked on Azure/projects/424. When starting work:
 1. Set Status → In Progress
-2. Set Squad Member → Treebeard
+2. Set Squad Member → Copilot
 3. Create branch, implement, push, open PR
 4. Set Status → Done when merged

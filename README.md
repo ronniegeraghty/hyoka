@@ -161,6 +161,7 @@ hyoka list --json
 | `--timeout` | `300` | Per-prompt timeout in seconds |
 | `-y` / `--yes` | `false` | Skip confirmation prompt for large runs (>10 evaluations) |
 | `--all-configs` | `false` | Required when running all configs without a `--config` filter |
+| `--config` | | Config name(s) to run — use quotes for multiple: `"name1,name2"` |
 | `--max-turns` | `25` | Maximum conversation turns per generation before aborting |
 | `--max-files` | `50` | Maximum generated files per evaluation before aborting |
 | `--max-output-size` | `1MB` | Maximum total output size per evaluation (supports KB, MB suffixes) |
@@ -178,7 +179,7 @@ hyoka list --json
 
 ```bash
 # Skip confirmation for large runs (CI-friendly)
-go run ./hyoka run --prompt-id my-prompt --config baseline -y
+go run ./hyoka run --prompt-id my-prompt --config "baseline/claude-sonnet-4.5" -y
 
 # Run all prompts × all configs (requires --all-configs + -y for non-interactive)
 go run ./hyoka run --all-configs -y
@@ -218,7 +219,8 @@ hyoka run --prompt-id storage-dp-dotnet-auth
 hyoka run --config baseline/claude-sonnet-4.5
 
 # Run multiple configs (produces comparison data)
-hyoka run --config baseline/claude-sonnet-4.5,azure-mcp/claude-sonnet-4.5
+# Note: multiple config names must be quoted and comma-separated
+hyoka run --config "baseline/claude-sonnet-4.5,azure-mcp/claude-sonnet-4.5"
 ```
 
 #### Custom Configs
