@@ -29,6 +29,7 @@ type CopilotReviewer struct {
 	model             string
 	maxSessionActions int
 	skillDirectories  []string
+	sessionTimeout    time.Duration
 }
 
 // NewCopilotReviewer creates a reviewer backed by the given Copilot client.
@@ -42,6 +43,12 @@ func NewCopilotReviewer(client *copilot.Client, model string, maxSessionActions 
 // SetSkillDirectories configures skill directories for the review session.
 func (r *CopilotReviewer) SetSkillDirectories(dirs []string) {
 	r.skillDirectories = dirs
+}
+
+// SetSessionTimeout configures the maximum duration for a single review
+// SendAndWait call. Zero means use the default (10 minutes).
+func (r *CopilotReviewer) SetSessionTimeout(d time.Duration) {
+	r.sessionTimeout = d
 }
 
 // Review creates a separate Copilot session, sends the review prompt, and parses results.
@@ -201,8 +208,17 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 		}
 	}()
 
-	slog.Debug("Sending review prompt", "model", r.model)
-	_, err = session.SendAndWait(reviewCtx, copilot.MessageOptions{
+	// Apply an explicit deadline so the SDK does not fall back to its
+	// hard-coded 60-second default (see copilot-sdk session.go).
+	reviewTimeout := 10 * time.Minute
+	if r.sessionTimeout > 0 {
+		reviewTimeout = r.sessionTimeout
+	}
+	sendCtx, sendCancel := context.WithTimeout(reviewCtx, reviewTimeout)
+	defer sendCancel()
+
+	slog.Debug("Sending review prompt", "model", r.model, "timeout", reviewTimeout, "length", len(reviewPrompt))
+	_, err = session.SendAndWait(sendCtx, copilot.MessageOptions{
 		Prompt: reviewPrompt,
 	})
 	if err != nil {
@@ -273,6 +289,7 @@ type PanelReviewer struct {
 	models            []string // first model is the consolidator
 	maxSessionActions int
 	skillDirectories  []string
+	sessionTimeout    time.Duration
 }
 
 // NewPanelReviewer creates a panel reviewer that runs multiple models concurrently.
@@ -288,6 +305,12 @@ func NewPanelReviewer(clientOpts *copilot.ClientOptions, models []string, maxSes
 // SetSkillDirectories configures skill directories for all review sessions.
 func (p *PanelReviewer) SetSkillDirectories(dirs []string) {
 	p.skillDirectories = dirs
+}
+
+// SetSessionTimeout configures the maximum duration for a single review
+// SendAndWait call. Zero means use the default (10 minutes).
+func (p *PanelReviewer) SetSessionTimeout(d time.Duration) {
+	p.sessionTimeout = d
 }
 
 // Models returns the list of reviewer models.
@@ -513,8 +536,17 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 	}
 	panelSessionID = session.SessionID
 
-	slog.Debug("Sending review prompt", "model", model)
-	_, err = session.SendAndWait(reviewCtx, copilot.MessageOptions{
+	// Apply an explicit deadline so the SDK does not fall back to its
+	// hard-coded 60-second default (see copilot-sdk session.go).
+	panelTimeout := 10 * time.Minute
+	if p.sessionTimeout > 0 {
+		panelTimeout = p.sessionTimeout
+	}
+	sendCtx, sendCancel := context.WithTimeout(reviewCtx, panelTimeout)
+	defer sendCancel()
+
+	slog.Debug("Sending review prompt", "model", model, "timeout", panelTimeout, "length", len(reviewPrompt))
+	_, err = session.SendAndWait(sendCtx, copilot.MessageOptions{
 		Prompt: reviewPrompt,
 	})
 	if err != nil {
@@ -662,6 +694,15 @@ func copyDirToTemp(src string, pattern string) (string, error) {
 	err = filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		if d.IsDir() {
+			name := d.Name()
+			if strings.HasPrefix(name, ".") && path != src {
+				return filepath.SkipDir
+			}
+			if utils.IsBuildArtifactDir(name) {
+				return filepath.SkipDir
+			}
 		}
 		rel, err := filepath.Rel(src, path)
 		if err != nil {

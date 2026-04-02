@@ -7,10 +7,13 @@ import (
 	"strings"
 )
 
-// ReadDirFiles reads all files in a directory (non-recursive, skipping hidden/binary).
-// Returns a map of relative path -> content.
+// ReadDirFiles reads all files in a directory recursively, skipping hidden
+// files, build artifact directories, and binary/large files (>1 MB per file,
+// 10 MB total). Returns a map of relative path -> content.
 func ReadDirFiles(dir string) (map[string]string, error) {
 	files := make(map[string]string)
+	var totalSize int64
+	const maxTotalSize = 10 << 20 // 10 MB total cap for review prompt safety
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip unreadable
@@ -20,10 +23,17 @@ func ReadDirFiles(dir string) (map[string]string, error) {
 			if strings.HasPrefix(name, ".") && path != dir {
 				return filepath.SkipDir
 			}
+			if IsBuildArtifactDir(name) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		// Skip binary/large files (limit 1MB)
 		if info.Size() > 1<<20 {
+			return nil
+		}
+		// Enforce total size cap
+		if totalSize+info.Size() > maxTotalSize {
 			return nil
 		}
 		rel, err := filepath.Rel(dir, path)
@@ -38,9 +48,31 @@ func ReadDirFiles(dir string) (map[string]string, error) {
 			return nil
 		}
 		files[rel] = string(data)
+		totalSize += info.Size()
 		return nil
 	})
 	return files, err
+}
+
+// IsBuildArtifactDir returns true for well-known build artifact directory
+// names that should be excluded from file listings, copies, and review prompts.
+func IsBuildArtifactDir(name string) bool {
+	switch name {
+	case "target", // Rust/Cargo
+		"node_modules",  // Node.js/npm
+		"__pycache__",   // Python
+		".venv", "venv", // Python virtual envs
+		"bin", "obj", // .NET
+		"build", "dist", // general build output
+		"out",              // Java/Gradle
+		"vendor",           // Go/PHP
+		"packages",         // NuGet
+		".gradle",          // Gradle cache
+		".cargo",           // Cargo cache
+		"debug", "release": // Rust profile subdirs
+		return true
+	}
+	return false
 }
 
 // ExtractJSON finds the first JSON object in the text, stripping markdown code fences.

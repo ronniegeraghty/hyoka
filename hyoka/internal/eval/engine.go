@@ -58,13 +58,13 @@ func (s *StubEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cfg *con
 
 // EngineOptions configures the evaluation engine.
 type EngineOptions struct {
-	Workers         int
-	MaxSessions     int           // Maximum concurrent Copilot sessions (0 = workers × 2).
-	OutputDir       string
-	SkipTests       bool
-	SkipReview      bool
-	DryRun          bool
-	ProgressMode    string // "auto", "live", "log", "off"
+	Workers      int
+	MaxSessions  int // Maximum concurrent Copilot sessions (0 = workers × 2).
+	OutputDir    string
+	SkipTests    bool
+	SkipReview   bool
+	DryRun       bool
+	ProgressMode string // "auto", "live", "log", "off"
 
 	// Fan-out visibility (#34)
 	ConfirmLargeRuns bool
@@ -75,6 +75,10 @@ type EngineOptions struct {
 	MaxOutputSize     int64
 	// Process lifecycle (#46)
 	StrictCleanup bool // Fail run if orphaned processes detected after cleanup.
+	// Session timeout — maximum duration for a single SendAndWait call
+	// (generation or review). Defaults to 10 minutes. Per-prompt Timeout
+	// frontmatter overrides this for the generation phase.
+	SessionTimeout time.Duration
 	// Resource monitoring (#45)
 	MonitorResources bool
 	// Tiered criteria (#30)
@@ -127,6 +131,9 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 	}
 	if opts.MaxOutputSize <= 0 {
 		opts.MaxOutputSize = 1048576 // 1MB
+	}
+	if opts.SessionTimeout <= 0 {
+		opts.SessionTimeout = 10 * time.Minute
 	}
 	// Resolve to absolute path so workspace directories passed to the Copilot CLI
 	// are always absolute. Without this, the agent constructs wrong paths like
@@ -194,6 +201,7 @@ func (e *Engine) mergedCriteria(p *prompt.Prompt) string {
 // When set, the engine uses the panel instead of the single reviewer.
 func (e *Engine) SetPanelReviewer(pr *review.PanelReviewer) {
 	e.panelReviewer = pr
+	pr.SetSessionTimeout(e.opts.SessionTimeout)
 }
 
 // EvalTask represents a single prompt+config evaluation to run.

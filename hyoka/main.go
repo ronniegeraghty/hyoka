@@ -21,8 +21,8 @@ import (
 	"github.com/ronniegeraghty/hyoka/internal/logging"
 	"github.com/ronniegeraghty/hyoka/internal/plugin"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
-	"github.com/ronniegeraghty/hyoka/internal/rerender"
 	"github.com/ronniegeraghty/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/rerender"
 	"github.com/ronniegeraghty/hyoka/internal/review"
 	"github.com/ronniegeraghty/hyoka/internal/serve"
 	"github.com/ronniegeraghty/hyoka/internal/trends"
@@ -159,6 +159,8 @@ type runFlags struct {
 	criteriaDir string
 	// Directory exclusion (#63)
 	excludeDirs string
+	// Session timeout
+	sessionTimeout string
 }
 
 func addFilterFlags(cmd *cobra.Command, f *runFlags) {
@@ -201,6 +203,8 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.criteriaDir, "criteria-dir", "", "Directory containing attribute-matched criteria YAML files (e.g., criteria/)")
 	// Directory exclusion (#63)
 	cmd.Flags().StringVar(&f.excludeDirs, "exclude-dirs", "", "Comma-separated directories to exclude from generated_files output (e.g., node_modules,target,dist)")
+	// Session timeout
+	cmd.Flags().StringVar(&f.sessionTimeout, "session-timeout", "10m", "Maximum duration for a single generation or review session (e.g., 10m, 30m, 1h)")
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
@@ -427,6 +431,12 @@ func runCmd() *cobra.Command {
 			var reviewer review.Reviewer
 			var panelReviewer *review.PanelReviewer
 
+			// Parse session-timeout flag early — needed for reviewer setup.
+			sessionTimeout, err := time.ParseDuration(f.sessionTimeout)
+			if err != nil {
+				return fmt.Errorf("invalid --session-timeout %q: %w", f.sessionTimeout, err)
+			}
+
 			if f.useStub {
 				slog.Info("Using stub evaluator", "reason", "--stub flag")
 				fmt.Println("Using stub evaluator (--stub flag)")
@@ -438,6 +448,7 @@ func runCmd() *cobra.Command {
 					AllowCloud:        f.allowCloud,
 					MaxSessionActions: f.maxSessionActions,
 				})
+				sdkEval.SetSessionTimeout(sessionTimeout)
 				evaluator = sdkEval
 
 				// Verify Copilot CLI is available
@@ -476,6 +487,7 @@ func runCmd() *cobra.Command {
 					if len(reviewerModels) > 1 {
 						// Multi-model panel
 						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
+						panelReviewer.SetSessionTimeout(sessionTimeout)
 						if len(reviewerSkillsDirs) > 0 {
 							panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}
@@ -493,6 +505,7 @@ func runCmd() *cobra.Command {
 								reviewerModel = reviewerModels[0]
 							}
 							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions)
+							copilotReviewer.SetSessionTimeout(sessionTimeout)
 							if len(reviewerSkillsDirs) > 0 {
 								copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
 							}
@@ -545,6 +558,7 @@ func runCmd() *cobra.Command {
 				StrictCleanup:     f.strictCleanup,
 				CriteriaDir:       f.criteriaDir,
 				ExcludeDirs:       excludeDirs,
+				SessionTimeout:    sessionTimeout,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)
