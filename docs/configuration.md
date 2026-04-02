@@ -57,29 +57,157 @@ configs:
 
 When `models` lists multiple models, hyoka uses a **panel review** where all models review independently and the first model acts as consolidator to produce a consensus result.
 
-### Skill Types
+### Skills
+
+Skills are Copilot agent instructions packaged as directories containing a `SKILL.md` file. When attached to a generator or reviewer session, the agent receives the skill's content as additional context that guides its behavior.
+
+Skills can be attached to either the **generator** (code generation agent) or the **reviewer** (grading panel agents), or both. They are configured under the `generator.skills` and `reviewer.skills` fields respectively.
+
+#### Skill Types
+
+There are two ways to load skills: **local** (from the filesystem) and **remote** (fetched from a GitHub repository).
+
+##### Local Skills
+
+Local skills reference a directory on disk. Paths can be absolute or relative to the config file's directory.
 
 ```yaml
-skills:
-  # Local skill from filesystem
-  - type: local
-    path: ../skills/generator
-
-  # Remote skill from GitHub
-  - type: remote
-    repo: github.com/Azure/ai-hub-sdk
-    name: azure-sdk-tools
+generator:
+  model: claude-opus-4.6
+  skills:
+    - type: local
+      path: ./skills/generator
 ```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | yes | Must be `"local"` |
+| `path` | yes | Path to a skill directory (absolute or relative) |
+
+**Glob patterns** are supported, letting you load multiple skill directories at once. Only directories are included — files are filtered out.
+
+```yaml
+generator:
+  skills:
+    # Loads every subdirectory under ./skills/generator/
+    - type: local
+      path: "./skills/generator/*"
+```
+
+For example, if `./skills/reviewer/` contains three subdirectories (`code-review-comments/`, `reviewer-build/`, `sdk-version-check/`), the pattern `./skills/reviewer/*` expands to all three.
+
+##### Remote Skills
+
+Remote skills are fetched from a GitHub repository using `npx skills add`. They are cached locally under `.skills-cache/` so subsequent runs don't re-download.
+
+```yaml
+generator:
+  model: claude-sonnet-4.5
+  skills:
+    - type: remote
+      name: azure-keyvault-py
+      repo: microsoft/skills
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | yes | Must be `"remote"` |
+| `repo` | yes | GitHub repository in `owner/repo` format |
+| `name` | no | Specific skill name within the repo |
+
+Under the hood, hyoka runs:
+
+```
+npx skills add <repo> --directory .skills-cache/<repo>/<name> [--name <name>]
+```
+
+#### Generator vs Reviewer Skills
+
+- **Generator skills** guide the code generation agent — for example, providing SDK usage patterns, coding conventions, or language-specific best practices.
+- **Reviewer skills** guide the review panel agents — for example, instructing them to add inline review comments or verify builds.
+
+```yaml
+configs:
+  - name: my-eval/claude-opus-4.6
+    generator:
+      model: claude-opus-4.6
+      skills:
+        - type: local
+          path: ./skills/generator
+        - type: remote
+          name: azure-keyvault-py
+          repo: microsoft/skills
+    reviewer:
+      models:
+        - claude-opus-4.6
+        - gpt-4.1
+      skills:
+        - type: local
+          path: "./skills/reviewer/*"
+```
+
+#### Skill Directory Structure
+
+Each skill is a directory containing at minimum a `SKILL.md` file:
+
+```
+skills/
+├── generator/
+│   └── my-sdk-skill/
+│       └── SKILL.md        # Instructions for the generator agent
+└── reviewer/
+    ├── code-review-comments/
+    │   └── SKILL.md        # Adds inline REVIEW: comments
+    ├── reviewer-build/
+    │   └── SKILL.md        # Verifies generated code builds
+    └── sdk-version-check/
+        └── SKILL.md        # Checks SDK package versions
+```
+
+The `SKILL.md` file contains markdown instructions that the Copilot agent receives as context during its session.
+
+#### Legacy Skill Format
+
+Older configs use flat `skill_directories`, `generator_skill_directories`, or `reviewer_skill_directories` fields. These are automatically normalized to the unified `skills` list at load time:
+
+```yaml
+# Legacy format (still supported)
+configs:
+  - name: old-style
+    model: claude-opus-4.6
+    skill_directories:              # → generator.skills (type: local)
+      - ../skills/generator
+    reviewer_skill_directories:     # → reviewer.skills (type: local)
+      - ../skills/reviewer
+```
+
+The precedence for legacy migration is:
+
+1. `generator_skill_directories` → `generator.skills`
+2. If absent, `skill_directories` → `generator.skills`
+3. `reviewer_skill_directories` → `reviewer.skills`
+
+New configs should use the structured `generator.skills` / `reviewer.skills` format.
 
 ### MCP Servers
 
 ```yaml
 mcp_servers:
   azure:
-    type: sse
+    type: local
     command: npx
-    args: ["-y", "@azure/mcp@latest"]
+    args: ["-y", "@azure/mcp@latest", "server", "start"]
+    tools: ["*"]
 ```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | yes | `"local"` (stdio) or `"sse"` / `"http"` (remote) |
+| `command` | yes | Command to launch the MCP server |
+| `args` | no | Arguments passed to the command |
+| `tools` | no | Tool filter — `["*"]` for all tools, or a list of specific tool names |
+
+> **Important:** The `tools` field must be set (typically `["*"]`) for the MCP server's tools to be registered with the agent. Without it, the server starts but its tools won't be available.
 
 ## Legacy Format
 
@@ -94,7 +222,7 @@ configs:
       - ../skills/generator
 ```
 
-Legacy fields are normalized to the structured `generator`/`reviewer` format at load time.
+Legacy fields (`model`, `reviewer_model`, `reviewer_models`, `skill_directories`, `generator_skill_directories`, `reviewer_skill_directories`, `mcp_servers`, `available_tools`, `excluded_tools`) are automatically normalized to the structured `generator`/`reviewer` format at load time. See the [Skills > Legacy Skill Format](#legacy-skill-format) section for details on how skill directories are migrated.
 
 ## Multiple Config Files
 
