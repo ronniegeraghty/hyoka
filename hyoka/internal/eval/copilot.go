@@ -473,7 +473,12 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		}
 	}
 
-	slog.Info("Creating Copilot session", "model", cfg.EffectiveModel(), "skills", len(sessionCfg.SkillDirectories), "work_dir", workDir)
+	slog.Info("Creating Copilot session",
+		"model", cfg.EffectiveModel(),
+		"skills", len(sessionCfg.SkillDirectories),
+		"mcp_servers", len(sessionCfg.MCPServers),
+		"work_dir", workDir,
+	)
 	session, err := client.CreateSession(genCtx, sessionCfg)
 	if err != nil {
 		return &EvalResult{
@@ -721,12 +726,25 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 	if len(mcpServers) > 0 {
 		sc.MCPServers = make(map[string]copilot.MCPServerConfig, len(mcpServers))
 		for name, srv := range mcpServers {
-			sc.MCPServers[name] = copilot.MCPServerConfig{
+			mcpCfg := copilot.MCPServerConfig{
 				"type":    srv.Type,
 				"command": srv.Command,
 				"args":    srv.Args,
 			}
+			if len(srv.Tools) > 0 {
+				mcpCfg["tools"] = srv.Tools
+			}
+			sc.MCPServers[name] = mcpCfg
+			slog.Info("MCP server configured",
+				"name", name,
+				"type", srv.Type,
+				"command", srv.Command,
+				"args", srv.Args,
+				"tools", srv.Tools,
+			)
 		}
+	} else {
+		slog.Debug("No MCP servers configured")
 	}
 
 	return sc
