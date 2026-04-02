@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ronniegeraghty/hyoka/internal/utils"
 )
 
 // Workspace manages a directory for an evaluation run.
@@ -99,6 +101,9 @@ func listFiles(dir string) ([]string, error) {
 			if strings.HasPrefix(info.Name(), ".") && path != dir {
 				return filepath.SkipDir
 			}
+			if utils.IsBuildArtifactDir(info.Name()) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if strings.HasPrefix(filepath.Base(path), ".") {
@@ -143,7 +148,8 @@ func filterExcludedDirs(files []string, excludeDirs []string) []string {
 	return filtered
 }
 
-// copyDir recursively copies src to dst, skipping symlinks to prevent escape.
+// copyDir recursively copies src to dst, skipping symlinks, hidden dirs,
+// and well-known build artifact directories to prevent escape and bloat.
 func copyDir(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -154,6 +160,16 @@ func copyDir(src, dst string) error {
 			rel, _ := filepath.Rel(src, path)
 			slog.Warn("Skipping symlink in starter project", "path", rel)
 			return nil
+		}
+		if info.IsDir() {
+			name := info.Name()
+			if strings.HasPrefix(name, ".") && path != src {
+				return filepath.SkipDir
+			}
+			if utils.IsBuildArtifactDir(name) {
+				slog.Debug("Skipping build artifact directory", "dir", name)
+				return filepath.SkipDir
+			}
 		}
 		rel, err := filepath.Rel(src, path)
 		if err != nil {
