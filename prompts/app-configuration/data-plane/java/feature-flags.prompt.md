@@ -45,21 +45,7 @@ Include a complete `pom.xml` with the necessary Azure SDK dependencies.
 
 ## Evaluation Criteria
 
-### Dependencies
-- Uses `com.azure:azure-data-appconfiguration` (correct package name)
-- Uses `com.azure:azure-identity`
-- No `com.microsoft.azure` groupId anywhere
-- Specifies Java 17
-
-### Authentication
-- Uses `DefaultAzureCredential` — not connection strings or access keys
-- Reads App Configuration endpoint from environment variable
-
-### Client Construction
-- Uses `ConfigurationClientBuilder` (sync) / `ConfigurationAsyncClient` builder (async)
-- Builder chain includes `.endpoint()` and `.credential()`
-
-### SDK Patterns
+### Scenario-Specific Patterns
 - Retrieves settings with a specific label parameter using `SettingSelector`
 - Lists settings filtered by key prefix using `setKeyFilter()`
 - Implements conditional reads with `matchConditions` / `setIfNoneMatch()` using the setting's ETag
@@ -69,20 +55,6 @@ Include a complete `pom.xml` with the necessary Azure SDK dependencies.
 - Implements deterministic percentage rollout (consistent hash, not `Math.random()`)
 - Implements sentinel key watching with configurable polling interval
 - Detects sentinel value change via ETag or value comparison and triggers full refresh
-
-### Error Handling
-- Handles missing settings gracefully (returns null, Optional, or default)
-- Catches `HttpResponseException` or SDK-specific exceptions
-
-### Async Quality
-- Uses `ConfigurationAsyncClient` (not sync on background thread)
-- Uses Project Reactor types (`Mono`, `Flux`)
-- Does not call `.block()` inside the async implementation
-
-### Anti-Patterns (should NOT appear)
-- Connection string-based authentication
-- Fabricated/hallucinated class names that don't exist in the SDK
-- `com.microsoft.azure.*` imports
 
 ## Context
 

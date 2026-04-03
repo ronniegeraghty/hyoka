@@ -46,31 +46,19 @@ Include a complete `pom.xml` with the necessary Azure SDK dependencies.
 
 ## Evaluation Criteria
 
-### Dependencies
-- Uses `com.azure:azure-storage-blob`
-- Uses `com.azure:azure-security-keyvault-keys` (Keys, NOT Secrets)
-- Uses `com.azure:azure-identity`
-- No `com.microsoft.azure` groupId anywhere
-- Specifies Java 17
+### Dependencies (scenario-specific)
+- Uses `com.azure:azure-security-keyvault-keys` (Keys, NOT Secrets) — critical distinction
 - Uses `javax.crypto` or `java.security` for local AES-GCM encryption
 
-### Authentication
-- Uses `DefaultAzureCredential` shared between Blob Storage and Key Vault clients
-- No hardcoded keys, connection strings, or SAS tokens
-- Reads endpoints from environment variables
-
-### Client Construction
-- Uses `BlobServiceClientBuilder` for Blob Storage
+### Client Construction (scenario-specific)
 - Uses `KeyClient` / `CryptographyClient` builder for Key Vault Keys (NOT `SecretClient`)
-- Both use `.endpoint()` / `.vaultUrl()` and `.credential()`
 
-### SDK Patterns — Key Vault Keys (critical)
-- Uses Key Vault **Keys** service, NOT Secrets
+### Key Vault Keys Patterns (critical)
 - Uses `CryptographyClient` for `wrapKey()` and `unwrapKey()` operations
 - Specifies RSA key wrap algorithm (`KeyWrapAlgorithm.RSA_OAEP` or `RSA_OAEP_256`)
 - Key material never leaves Key Vault (wrap/unwrap is server-side)
 
-### SDK Patterns — Envelope Encryption (critical)
+### Envelope Encryption Patterns (critical)
 - Generates a random AES-256 DEK locally (32 bytes)
 - Encrypts data with AES-GCM locally using the DEK
 - Wraps the DEK via Key Vault `wrapKey()`
@@ -83,22 +71,16 @@ Include a complete `pom.xml` with the necessary Azure SDK dependencies.
 - Uses AES-GCM (not AES-CBC, AES-ECB, or other modes)
 - Generates random IV for each encryption (typically 12 bytes for GCM)
 
-### Error Handling
-- Handles `BlobStorageException` for blob errors
+### Scenario-Specific Error Handling
 - Handles Key Vault errors (key disabled, key not found)
-- Catches specific exceptions rather than generic `Exception`
 
-### Async Quality
-- Uses `BlobAsyncClient` and `CryptographyAsyncClient`
-- Uses Project Reactor types (`Mono`, `Flux`)
-- Does not call `.block()` inside the async implementation
+### Scenario-Specific Async
+- Uses `BlobAsyncClient` and `CryptographyAsyncClient` for async
 
-### Anti-Patterns (should NOT appear)
-- Using `SecretClient` instead of `KeyClient`/`CryptographyClient`
-- Encrypting data directly with the vault key (should be envelope encryption)
-- Storing raw DEK in plaintext
-- AES-CBC or AES-ECB mode
-- `com.microsoft.azure.*` imports
+### Anti-Patterns (scenario-specific)
+- NOT using `SecretClient` instead of `KeyClient`/`CryptographyClient`
+- NOT encrypting data directly with the vault key (should be envelope encryption)
+- NOT storing raw DEK in plaintext
 
 ## Context
 

@@ -45,23 +45,7 @@ Include a complete `pom.xml` with the necessary Azure SDK dependencies.
 
 ## Evaluation Criteria
 
-### Dependencies
-- Uses `com.azure:azure-messaging-eventgrid`
-- Uses `com.azure:azure-storage-blob`
-- Uses `com.azure:azure-identity`
-- No `com.microsoft.azure` groupId anywhere
-- Specifies Java 17
-
-### Authentication
-- Uses `DefaultAzureCredential` — no access keys, connection strings, or SAS tokens
-- Reads endpoints from environment variables
-
-### Client Construction
-- Uses `BlobServiceClientBuilder` for Blob Storage
-- Uses `EventGridPublisherClientBuilder` for Event Grid publishing
-- Both builders use `.endpoint()` and `.credential()`
-
-### SDK Patterns
+### Scenario-Specific Patterns
 - Handles Event Grid native schema via `EventGridEvent.fromString()` deserialization
 - Handles CloudEvents 1.0 schema via `CloudEvent.fromString()` deserialization
 - Does NOT manually parse JSON without the SDK's deserialization helpers
@@ -71,20 +55,9 @@ Include a complete `pom.xml` with the necessary Azure SDK dependencies.
 - Publishes custom events with subject hierarchy for filtering
 - Retrieves and prints blob access tier from blob properties
 
-### Error Handling
+### Scenario-Specific Error Handling
 - Handles race condition: blob may no longer exist (catches `BlobStorageException` with 404 status)
 - Catches Event Grid-specific exceptions for publishing errors
-- Does not use bare `Exception` catches
-
-### Async Quality
-- Uses `BlobAsyncClient` and `EventGridPublisherAsyncClient`
-- Uses Project Reactor types (`Mono`, `Flux`)
-- Does not call `.block()` inside the async implementation
-
-### Anti-Patterns (should NOT appear)
-- `CloudStorageAccount` or `CloudBlobClient` (deprecated v8 API)
-- Fabricated Event Grid classes that don't exist in the SDK
-- `com.microsoft.azure.*` imports
 
 ## Context
 
