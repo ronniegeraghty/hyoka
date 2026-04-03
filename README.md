@@ -295,6 +295,33 @@ reviewer:
 
 > **Tip:** The [microsoft/skills](https://github.com/microsoft/skills) repo contains 132+ skills across Azure SDK scenarios. Browse the repo or run `npx skills add microsoft/skills` to see what's available.
 
+#### Using Copilot CLI Installed Plugins
+
+If you've installed skill plugins via the Copilot CLI `/plugin` commands, you can reference them directly in your config using the `plugins` field. This avoids hardcoding absolute paths.
+
+**Step 1 — Install skills in Copilot CLI:**
+
+```
+/plugin marketplace add Microsoft/skills
+/plugin install azure-sdk-java@skills
+/plugin list
+```
+
+**Step 2 — Reference in config:**
+
+```yaml
+configs:
+  - name: baseline-skills/claude-sonnet-4.5
+    description: "Baseline + Skills"
+    model: "claude-sonnet-4.5"
+    plugins:
+      - "azure-sdk-java@skills"
+```
+
+The `plugins` field resolves `plugin-name@marketplace` to `~/.copilot/installed-plugins/{marketplace}/{plugin}/skills/` automatically. This is equivalent to setting `generator_skill_directories` to the full absolute path.
+
+See `configs/baseline-sonnet-skills.yaml` for a working example.
+
 See `configs/example-full.yaml` for a complete example with all options.
 
 ## Adding a New Prompt

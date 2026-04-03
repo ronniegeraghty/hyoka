@@ -637,10 +637,20 @@ func (e *CopilotSDKEvaluator) Client(ctx context.Context, workDir string) (*copi
 }
 
 func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir string, configDir string) *copilot.SessionConfig {
-	// Use generator-specific skills if configured, otherwise fall back to shared
-	skillDirs := cfg.GeneratorSkillDirectories
+	// Collect skill directories from all sources:
+	// 1. Normalized Generator.Skills (includes resolved plugins)
+	// 2. Legacy GeneratorSkillDirectories / SkillDirectories fields
+	var skillDirs []string
+	for _, s := range cfg.EffectiveGeneratorSkills() {
+		if s.Type == "local" && s.Path != "" {
+			skillDirs = append(skillDirs, s.Path)
+		}
+	}
 	if len(skillDirs) == 0 {
-		skillDirs = cfg.SkillDirectories
+		skillDirs = cfg.GeneratorSkillDirectories
+		if len(skillDirs) == 0 {
+			skillDirs = cfg.SkillDirectories
+		}
 	}
 
 	// System message ensures the agent creates actual code files in the workspace

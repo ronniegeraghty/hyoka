@@ -119,12 +119,65 @@ func (tc *ToolConfig) Normalize() {
 		}
 	}
 
+	// Resolve installed Copilot CLI plugins to generator skills.
+	// Format: "plugin-name@marketplace" (e.g., "azure-sdk-java@skills")
+	// Resolves to: ~/.copilot/installed-plugins/{marketplace}/{plugin}/skills/
+	for _, p := range tc.Plugins {
+		if dir := resolveInstalledPlugin(p); dir != "" {
+			tc.Generator.Skills = append(tc.Generator.Skills, Skill{Type: "local", Path: dir})
+			slog.Info("Resolved plugin to skill directory", "plugin", p, "path", dir)
+		} else {
+			slog.Warn("Could not resolve installed plugin", "plugin", p)
+		}
+	}
+
 	// Reviewer skill directories → Reviewer.Skills (type: local)
 	if len(tc.Reviewer.Skills) == 0 {
 		for _, d := range tc.ReviewerSkillDirectories {
 			tc.Reviewer.Skills = append(tc.Reviewer.Skills, Skill{Type: "local", Path: d})
 		}
 	}
+}
+
+// resolveInstalledPlugin resolves a plugin reference (e.g., "azure-sdk-java@skills")
+// to the local skills directory under ~/.copilot/installed-plugins/.
+// The format is "plugin-name@marketplace" where marketplace is the source
+// (e.g., "skills" from "/plugin marketplace add Microsoft/skills").
+// Returns the path to the plugin's skills directory, or empty string if not found.
+func resolveInstalledPlugin(ref string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	basePath := filepath.Join(home, ".copilot", "installed-plugins")
+
+	// Parse "plugin@marketplace" format
+	plugin, marketplace := ref, ""
+	if idx := len(ref) - 1; idx > 0 {
+		for i := idx; i >= 0; i-- {
+			if ref[i] == '@' {
+				plugin = ref[:i]
+				marketplace = ref[i+1:]
+				break
+			}
+		}
+	}
+
+	// Try with marketplace subdirectory: ~/.copilot/installed-plugins/{marketplace}/{plugin}/skills/
+	if marketplace != "" {
+		dir := filepath.Join(basePath, marketplace, plugin, "skills")
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			return dir
+		}
+	}
+
+	// Fallback: try without marketplace: ~/.copilot/installed-plugins/{plugin}/skills/
+	dir := filepath.Join(basePath, plugin, "skills")
+	if info, err := os.Stat(dir); err == nil && info.IsDir() {
+		return dir
+	}
+
+	return ""
 }
 
 // EffectiveModel returns the generator model, preferring Generator.Model.
@@ -360,6 +413,11 @@ entries = append(entries, entry{"skill", s})
 for _, p := range c.Plugins {
 if !seen["plugin:"+p] {
 seen["plugin:"+p] = true
+// Skip npx install if the plugin is already installed locally
+if dir := resolveInstalledPlugin(p); dir != "" {
+slog.Info("Plugin already installed locally, skipping npx install", "plugin", p, "path", dir)
+continue
+}
 entries = append(entries, entry{"plugin", p})
 }
 }
