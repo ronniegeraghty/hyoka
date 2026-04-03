@@ -1,6 +1,7 @@
 package report
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"os"
@@ -266,15 +267,37 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 				})
 				stepIndex++
 				toolTitle := ev.ToolName
+				icon := "🔧"
+				stepType := "tool_call"
 				if ev.FilePath != "" {
 					toolTitle += " → " + ev.FilePath
+				}
+				// Distinguish skill-related tool calls with dedicated icons
+				if ev.ToolName == "skill" {
+					icon = "📚"
+					stepType = "skill"
+					// Extract skill name from args JSON
+					if skillArg := extractJSONField(ev.ToolArgs, "skill"); skillArg != "" {
+						toolTitle = "Skill invoked: " + skillArg
+					} else {
+						toolTitle = "Skill invoked"
+					}
+				} else if ev.ToolName == "view" && strings.Contains(ev.ToolArgs, "skills") && strings.Contains(ev.ToolArgs, "references") {
+					icon = "📖"
+					stepType = "skill_ref"
+					toolTitle = "Skill reference fetch"
+					if ev.FilePath != "" {
+						toolTitle += " → " + filepath.Base(ev.FilePath)
+					} else if refFile := extractJSONField(ev.ToolArgs, "path"); refFile != "" {
+						toolTitle += " → " + filepath.Base(refFile)
+					}
 				}
 				step := TimelineStep{
 					Index:     stepIndex,
 					Phase:     "generation",
-					StepType:  "tool_call",
-					Icon:      "🔧",
-					Title:     "Tool call: " + toolTitle,
+					StepType:  stepType,
+					Icon:      icon,
+					Title:     toolTitle,
 					Detail:    ev.ToolArgs,
 					ToolName:  ev.ToolName,
 					MCPServer: ev.MCPServerName,
@@ -320,6 +343,44 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 					Content:  ev.Content,
 				})
 			}
+		case "skill.invoked":
+			skillName := ev.SkillName
+			if skillName == "" && ev.Content != "" {
+				for _, line := range strings.Split(ev.Content, "\n") {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "name:") {
+						skillName = strings.TrimSpace(strings.TrimPrefix(line, "name:"))
+						break
+					}
+				}
+			}
+			// Merge into the existing skill tool call timeline step if present,
+			// rather than creating a duplicate entry.
+			merged := false
+			for i := len(d.TimelineSteps) - 1; i >= 0; i-- {
+				if d.TimelineSteps[i].StepType == "skill" {
+					d.TimelineSteps[i].Content = truncateStr(ev.Content, 2000)
+					if skillName != "" {
+						d.TimelineSteps[i].Title = "Skill loaded: " + skillName
+					}
+					merged = true
+					break
+				}
+			}
+			if !merged && (skillName != "" || ev.Content != "") {
+				if skillName == "" {
+					skillName = "(unknown)"
+				}
+				stepIndex++
+				d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+					Index:    stepIndex,
+					Phase:    "generation",
+					StepType: "skill",
+					Icon:     "📚",
+					Title:    "Skill loaded: " + skillName,
+					Content:  truncateStr(ev.Content, 2000),
+				})
+			}
 		}
 	}
 
@@ -344,6 +405,18 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 
 // readFileContents reads file contents from the code directory for display in the HTML report.
 // If starterFiles is non-empty, only files NOT in the starter set are included.
+// extractJSONField extracts a string field from a JSON args string.
+func extractJSONField(jsonStr, field string) string {
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &m); err != nil {
+		return ""
+	}
+	if v, ok := m[field].(string); ok {
+		return v
+	}
+	return ""
+}
+
 func readFileContents(codeDir string, files []string, starterFiles []string) map[string]string {
 	contents := make(map[string]string)
 	starterSet := make(map[string]bool, len(starterFiles))
