@@ -1,0 +1,42 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "The Matrix",
+      "used_at": "2026-04-03T22:10:00Z",
+      "project": "hyoka",
+      "agent_count": 4
+    },
+    {
+      "universe": "The Matrix",
+      "used_at": "2026-07-16T00:00:00Z",
+      "project": "hyoka",
+      "agent_count": 6
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "hyoka-2026-04-03": {
+      "assignment_id": "hyoka-2026-04-03",
+      "universe": "The Matrix",
+      "timestamp": "2026-04-03T22:10:00Z",
+      "agents": [
+        { "name": "Morpheus", "role": "Lead" },
+        { "name": "Neo", "role": "Core Dev" },
+        { "name": "Tank", "role": "Platform Dev" },
+        { "name": "Switch", "role": "Tester" }
+      ]
+    },
+    "hyoka-2026-07-16": {
+      "assignment_id": "hyoka-2026-07-16",
+      "universe": "The Matrix",
+      "timestamp": "2026-07-16T00:00:00Z",
+      "agents": [
+        { "name": "Morpheus", "role": "Lead" },
+        { "name": "Neo", "role": "Core Eval Framework" },
+        { "name": "Tank", "role": "CLI Dev" },
+        { "name": "Trinity", "role": "Frontend Dev" },
+        { "name": "Switch", "role": "Testing" },
+        { "name": "Oracle", "role": "Docs" }
+      ]
+    }
+  }
+}
