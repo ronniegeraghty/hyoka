@@ -1,0 +1,19 @@
+version: "2"
+run:
+  go: "1.24"
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - misspell
+    - unconvert
+    - unused
+    - staticcheck
+  settings:
+    gocyclo:
+      min-complexity: 15
+formatters:
+  enable:
+    - gofmt
+    - goimports
