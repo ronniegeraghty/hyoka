@@ -2,6 +2,36 @@
 
 ## Active Decisions
 
+### Decision: Plan Directory Created (2026-04-04)
+
+**Author:** Morpheus 🕶️  
+**Status:** Implemented
+
+**What:** Created `plan/` directory at repo root with 5 comprehensive documents capturing the full evolution vision from the hardening session:
+
+1. `plan/evolution-plan.md` — 5-phase plan, 40+ tasks, dependency graph, team assignments
+2. `plan/core-principles.md` — 10 guiding principles
+3. `plan/PRD.md` — 18 features as structured PRD (FR-01 through FR-18)
+4. `plan/engineering-standards.md` — 10 engineering standard areas
+5. `plan/decisions-log.md` — 15 indexed session decisions
+
+**Why:** Separation of concerns — `docs/` documents the current tool while `plan/` captures the forward-looking vision. The evolution plan is now persistent and serves as the master task list for Phase 0–Phase 4 execution.
+
+**Incorporated directives:**
+- Ronnie's Q1-Q6 answers (Tier 1 removal, zero system prompt, pairwise flag, big-bang migration, project-scoped .hyoka, config-level response type)
+- Reviewer tools addition
+- Configurable system prompts (gen + review)
+- Starter files (Waza ResourceFile pattern)
+- Zero system prompt (Waza pattern)
+- Skill philosophy (guardrails not cages)
+- 14 skills recommendations
+
+**Team impact:** All squad members should read `plan/evolution-plan.md` for their assigned tasks and `plan/engineering-standards.md` for coding conventions.
+
+**Orchestration Log:** See `.squad/orchestration-log/2026-04-04T00-52-morpheus-plan-docs.md`
+
+---
+
 ### Decision: Hyoka Evolution Plan — Hardening + Product Vision
 
 **Date:** 2026-04-04  

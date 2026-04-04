@@ -108,3 +108,16 @@ Initial setup complete.
 **Template skills to copy/customize:** test-discipline, ci-validation-gates, reviewer-protocol, secret-handling (copy as-is); git-workflow (fork — hyoka uses `{username}/issue-{N}-{desc}` not `squad/{N}-{slug}`); project-conventions (replace with hyoka-contributor-guide).
 
 **Recommendations written to:** `.squad/decisions/inbox/morpheus-skills-recommendations.md` with full details, priority matrix, and 3 open questions.
+
+### Plan Documentation (2026-10-14)
+
+**Task:** Created comprehensive `plan/` directory at repo root capturing the full evolution vision, separated from `docs/` (which documents the current tool).
+
+**5 documents created:**
+1. `plan/evolution-plan.md` (~25K chars) — Full 5-phase plan with 40+ tasks, dependency graph, team assignments, timeline, risk assessment. Incorporates all of Ronnie's Q1-Q6 answers and late additions (starter files, reviewer tools, configurable system prompts, zero system prompt).
+2. `plan/core-principles.md` (~8K chars) — 10 guiding principles: transparency, unbiased measurement, tool impact focus, generality, isolation, resource responsibility, insights first, configurable not opinionated, dependency simplicity, skills as guardrails.
+3. `plan/feature-requirements.md` (~18K chars) — 18 features as structured PRD with IDs (FR-01 through FR-18), user stories, acceptance criteria, dependencies, and phase assignments. Includes dependency map and priority ordering.
+4. `plan/engineering-standards.md` (~11K chars) — 10 standard areas: error handling, logging, testing, CLI conventions, configuration, dependencies, code organization, CI, git workflow, reference patterns (Waza). All based on existing codebase patterns.
+5. `plan/decisions-log.md` (~9K chars) — 15 indexed decisions from the session: hardening priorities, phase structure, Q1-Q6 answers, late additions, Waza reference, zero system prompt, skill philosophy, plan directory structure.
+
+**Key learning:** When creating standalone reference documents, cross-reference specific file paths and line numbers from audit findings. This makes the documents actionable — someone can go straight from a requirement to the code that needs changing.
