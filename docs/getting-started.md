@@ -6,7 +6,7 @@ This guide walks you through cloning the repo, running your first evaluation, an
 
 | Tool | Version | Check |
 |------|---------|-------|
-| Go | 1.24.5+ | `go version` |
+| Go | 1.26.1+ | `go version` |
 | GitHub Copilot CLI | Latest | `copilot --version` |
 | Git | Any | `git --version` |
 | Node.js (for Azure MCP config) | 18+ | `node --version` |

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Go 1.24.5+
+- Go 1.26.1+
 - Node.js 18+ (for Copilot CLI)
 - GitHub CLI (`gh`)
 - Copilot CLI (`copilot`)

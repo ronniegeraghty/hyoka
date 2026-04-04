@@ -53,6 +53,7 @@ Initial setup complete.
 ### Deep Hardening Audit (2026-10-14)
 
 **Delta from July audit:** Zero structural changes. All 10 issues still open. Reviewer model bug (main.go:469-473) still present. main.go still 1329 lines. pidfile still untested. Go module bumped to 1.26.1. All docs now reference 1.26.1+.
+**Delta from July audit:** Zero structural changes. All 10 issues still open. Reviewer model bug (main.go:469-473) still present. main.go still 1329 lines. pidfile still untested. Go module bumped to 1.26.1 but docs reference 1.26.1+.
 
 **Critical new finding: No CI pipeline.** `.github/workflows/` has only squad orchestration — no `go build`, `go test`, or `go vet` in CI. Any PR can merge broken code.
 

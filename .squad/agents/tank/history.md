@@ -36,3 +36,22 @@ Created 72 GitHub issues (#91–#162) for evolution plan across 5 phases:
 - Phase 5 (Polish & tools): #152–#162 (11 issues)
 
 All issues labeled, assigned, and staged for backlog prioritization. Backlog is fully populated.
+
+### Session 2026-04-04T19:30 (CI Pipeline Implementation)
+
+**Issue #91:** Created GitHub Actions CI workflow (`.github/workflows/ci.yml`)
+- Triggers: All PRs + pushes to main/ronniegeraghty/dev
+- Go 1.26.1 (matches go.mod), ubuntu-latest
+- Steps: build → vet → test with `-race` flag
+- 2-minute timeout (tests run in ~5s with race, 24× headroom)
+- Race detection required from day one per D-AUTO-DM8 (concurrent code in ResourceMonitor, ProcessTracker, PanelReviewer)
+- Verified all commands pass locally before pushing
+- Branch: `ronniegeraghty/issue-91-ci-pipeline`
+- PR: #168 → ronniegeraghty/dev
+
+**Key learnings:**
+- CI (task 0.1) is explicit blocker for Phase 1 per D-AUTO-DM17 — nothing merges until CI is green
+- Race detector adds ~4-5s overhead to test runtime but catches concurrency bugs early
+- Phase 0 keeps it simple: no golangci-lint yet (deferred to Phase 1)
+- File path: `.github/workflows/ci.yml` (34 lines, YAML)
+- **CI verified working:** First run on PR #168 passed in 1m3s (build + vet + test with -race)
