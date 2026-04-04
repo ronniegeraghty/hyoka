@@ -222,7 +222,10 @@ func resolveConfigSkillDirs(configs []config.ToolConfig, promptsDir string) {
 				}
 				for _, c := range candidates {
 					if info, err := os.Stat(c); err == nil && info.IsDir() {
-						abs, _ := filepath.Abs(c)
+						abs, absErr := filepath.Abs(c)
+						if absErr != nil {
+							slog.Warn("Failed to resolve absolute skill path", "path", c, "error", absErr)
+						}
 						skills[j].Path = abs
 						break
 					}

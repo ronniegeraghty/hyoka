@@ -5,6 +5,7 @@ package clean
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -316,7 +317,7 @@ func isHyokaSession(sessionPath string) bool {
 // dirSize returns the total size of all files in a directory tree.
 func dirSize(path string) int64 {
 	var size int64
-	_ = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+	if walkErr := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip inaccessible files but continue walk
 		}
@@ -324,7 +325,9 @@ func dirSize(path string) int64 {
 			size += info.Size()
 		}
 		return nil
-	})
+	}); walkErr != nil {
+		slog.Warn("Failed to walk directory for size calculation", "path", path, "error", walkErr)
+	}
 	return size
 }
 

@@ -665,7 +665,10 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		lg.Warn("Failed to copy generated files to report dir", "error", err)
 	}
 
-	generatedFiles, _ := ws.ListFiles()
+	generatedFiles, listErr := ws.ListFiles()
+	if listErr != nil {
+		lg.Warn("Failed to list workspace files", "error", listErr)
+	}
 	if len(generatedFiles) == 0 && result != nil && len(result.GeneratedFiles) > 0 {
 		generatedFiles = result.GeneratedFiles
 	}

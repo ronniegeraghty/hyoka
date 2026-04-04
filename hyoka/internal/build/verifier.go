@@ -108,7 +108,7 @@ func buildCommands(lc *LanguageConfig, workDir string) []buildStep {
 		}
 	case "python":
 		var pyFiles []string
-		_ = filepath.WalkDir(workDir, func(path string, d os.DirEntry, err error) error {
+		if err := filepath.WalkDir(workDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
@@ -122,7 +122,9 @@ func buildCommands(lc *LanguageConfig, workDir string) []buildStep {
 				pyFiles = append(pyFiles, path)
 			}
 			return nil
-		})
+		}); err != nil {
+			slog.Warn("Failed to walk directory for Python files", "dir", workDir, "error", err)
+		}
 		if len(pyFiles) == 0 {
 			return []buildStep{{Cmd: "python3", Args: []string{"-m", "py_compile", os.DevNull}}}
 		}
@@ -131,7 +133,7 @@ func buildCommands(lc *LanguageConfig, workDir string) []buildStep {
 		return []buildStep{{Cmd: "python3", Args: args}}
 	case "javascript":
 		var jsFiles []string
-		_ = filepath.WalkDir(workDir, func(path string, d os.DirEntry, err error) error {
+		if err := filepath.WalkDir(workDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
@@ -145,7 +147,9 @@ func buildCommands(lc *LanguageConfig, workDir string) []buildStep {
 				jsFiles = append(jsFiles, path)
 			}
 			return nil
-		})
+		}); err != nil {
+			slog.Warn("Failed to walk directory for JavaScript files", "dir", workDir, "error", err)
+		}
 		if len(jsFiles) == 0 {
 			return []buildStep{{Cmd: "node", Args: []string{"--check", os.DevNull}}}
 		}

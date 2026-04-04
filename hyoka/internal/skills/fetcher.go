@@ -65,7 +65,10 @@ func resolveLocal(path, baseDir string) ([]string, error) {
 				continue
 			}
 			if info.IsDir() {
-				abs, _ := filepath.Abs(m)
+				abs, absErr := filepath.Abs(m)
+				if absErr != nil {
+					slog.Warn("Failed to resolve absolute path", "path", m, "error", absErr)
+				}
 				dirs = append(dirs, abs)
 			}
 		}
@@ -79,13 +82,19 @@ func resolveLocal(path, baseDir string) ([]string, error) {
 	}
 	for _, c := range candidates {
 		if info, err := os.Stat(c); err == nil && info.IsDir() {
-			abs, _ := filepath.Abs(c)
+			abs, absErr := filepath.Abs(c)
+			if absErr != nil {
+				slog.Warn("Failed to resolve absolute path", "path", c, "error", absErr)
+			}
 			return []string{abs}, nil
 		}
 	}
 
 	// Path doesn't exist yet — return absolute form anyway
-	abs, _ := filepath.Abs(path)
+	abs, absErr := filepath.Abs(path)
+	if absErr != nil {
+		slog.Warn("Failed to resolve absolute path", "path", path, "error", absErr)
+	}
 	return []string{abs}, nil
 }
 
@@ -117,6 +126,9 @@ func fetchRemote(s config.Skill, baseDir string) (string, error) {
 		return "", fmt.Errorf("npx skills add: %w", err)
 	}
 
-	abs, _ := filepath.Abs(installDir)
+	abs, absErr := filepath.Abs(installDir)
+	if absErr != nil {
+		slog.Warn("Failed to resolve absolute install path", "path", installDir, "error", absErr)
+	}
 	return abs, nil
 }
