@@ -49,3 +49,21 @@ Initial setup complete.
 - HTML report: hyoka/internal/report/html.go (1374 lines — largest file)
 - Config: hyoka/internal/config/config.go (383 lines)
 - Trends: hyoka/internal/trends/trends.go (857 lines)
+
+### Deep Hardening Audit (2026-10-14)
+
+**Delta from July audit:** Zero structural changes. All 10 issues still open. Reviewer model bug (main.go:469-473) still present. main.go still 1329 lines. pidfile still untested. Go module bumped to 1.26.1 but docs reference 1.24.5+.
+
+**Critical new finding: No CI pipeline.** `.github/workflows/` has only squad orchestration — no `go build`, `go test`, or `go vet` in CI. Any PR can merge broken code.
+
+**Config validation gap:** Empty `Generator.Model` passes validation but fails at runtime. Duplicate config names silently shadow — second config inaccessible.
+
+**Serve security note:** `runID` in serve.go:171 not validated for directory traversal (unlike `relPath` on line 197). Low exploitability due to Go's URL normalization but inconsistent defense-in-depth.
+
+**Error handling remains strong:** No `fmt.Errorf` missing `%w`, no log-and-return, no panics in production code. Only `reviewer.go:352` and `copilot.go:83` silently discard errors that should be logged.
+
+**Test quality high but gaps remain:** 264 tests, 21/22 packages covered. Flaky `time.Sleep` in resourcemonitor_test.go. Review package thin (5 tests for 732 lines).
+
+**Full hardening plan written to:** `.squad/decisions/inbox/morpheus-hardening-plan.md` with 20 prioritized tasks (3 P0, 10 P1, 7 P2).
+
+**Decision:** CI is the single biggest hardening priority. Without it, every other fix can regress silently.
