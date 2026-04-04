@@ -40,6 +40,10 @@ type CopilotEvaluator interface {
 	Evaluate(ctx context.Context, prompt *prompt.Prompt, config *config.ToolConfig, workDir string) (*EvalResult, error)
 }
 
+// ReviewerFactory creates a reviewer for a specific config.
+// Returns nil if no reviewer should be created (e.g., stub mode or review disabled).
+type ReviewerFactory func(cfg *config.ToolConfig) (review.Reviewer, *review.PanelReviewer, error)
+
 // StubEvaluator returns placeholder results for testing.
 type StubEvaluator struct{}
 
@@ -94,21 +98,30 @@ type EngineOptions struct {
 
 // Engine orchestrates evaluation runs.
 type Engine struct {
-	evaluator     CopilotEvaluator
-	reviewer      review.Reviewer
-	panelReviewer *review.PanelReviewer
-	opts          EngineOptions
-	tracker       *ProcessTracker
-	criteriaSets  []criteria.CriteriaSet // Tier 2 attribute-matched criteria (#30)
+	evaluator       CopilotEvaluator
+	reviewerFactory ReviewerFactory
+	opts            EngineOptions
+	tracker         *ProcessTracker
+	criteriaSets    []criteria.CriteriaSet // Tier 2 attribute-matched criteria (#30)
 }
 
 // NewEngine creates a new Engine with the given evaluator and options.
 func NewEngine(evaluator CopilotEvaluator, opts EngineOptions) *Engine {
-	return NewEngineWithReviewer(evaluator, nil, opts)
+	return NewEngineWithReviewerFactory(evaluator, nil, opts)
 }
 
 // NewEngineWithReviewer creates a new Engine with an evaluator and reviewer.
+// Deprecated: Use NewEngineWithReviewerFactory instead.
 func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer, opts EngineOptions) *Engine {
+	// Backward compatibility: wrap the single reviewer in a factory
+	factory := func(cfg *config.ToolConfig) (review.Reviewer, *review.PanelReviewer, error) {
+		return reviewer, nil, nil
+	}
+	return NewEngineWithReviewerFactory(evaluator, factory, opts)
+}
+
+// NewEngineWithReviewerFactory creates a new Engine with an evaluator and reviewer factory.
+func NewEngineWithReviewerFactory(evaluator CopilotEvaluator, factory ReviewerFactory, opts EngineOptions) *Engine {
 	if opts.Workers <= 0 {
 		w := runtime.NumCPU()
 		if w > 8 {
@@ -149,10 +162,10 @@ func NewEngineWithReviewer(evaluator CopilotEvaluator, reviewer review.Reviewer,
 		tracker = DefaultTracker
 	}
 	return &Engine{
-		evaluator: evaluator,
-		reviewer:  reviewer,
-		opts:      opts,
-		tracker:   tracker,
+		evaluator:       evaluator,
+		reviewerFactory: factory,
+		opts:            opts,
+		tracker:         tracker,
 	}
 }
 
@@ -198,10 +211,13 @@ func (e *Engine) mergedCriteria(p *prompt.Prompt) string {
 }
 
 // SetPanelReviewer configures a multi-model review panel.
-// When set, the engine uses the panel instead of the single reviewer.
+// Deprecated: Use NewEngineWithReviewerFactory instead.
 func (e *Engine) SetPanelReviewer(pr *review.PanelReviewer) {
-	e.panelReviewer = pr
-	pr.SetSessionTimeout(e.opts.SessionTimeout)
+	// Backward compatibility: wrap the panel reviewer in a factory
+	e.reviewerFactory = func(cfg *config.ToolConfig) (review.Reviewer, *review.PanelReviewer, error) {
+		pr.SetSessionTimeout(e.opts.SessionTimeout)
+		return nil, pr, nil
+	}
 }
 
 // EvalTask represents a single prompt+config evaluation to run.
@@ -806,11 +822,21 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		// Merge tiered evaluation criteria (#30)
 		evalCriteria := e.mergedCriteria(task.Prompt)
 
-		if e.panelReviewer != nil {
-			models := e.panelReviewer.Models()
+		// Create reviewer for this specific config using the factory (#92)
+		var reviewer review.Reviewer
+		var panelReviewer *review.PanelReviewer
+		if e.reviewerFactory != nil {
+			reviewer, panelReviewer, err = e.reviewerFactory(&task.Config)
+			if err != nil {
+				rlg.Warn("Reviewer creation failed, skipping review", "error", err)
+			}
+		}
+
+		if panelReviewer != nil {
+			models := panelReviewer.Models()
 			rlg.Debug("Starting review panel")
 			sendEvent(progress.EventToolStart, fmt.Sprintf("Review panel: %v", models))
-			panel, consolidated, err := e.panelReviewer.ReviewPanel(ctx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
+			panel, consolidated, err := panelReviewer.ReviewPanel(ctx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
 			if err != nil {
 				rlg.Error("Review panel failed", "error", err)
 				sendEvent(progress.EventReasoning, fmt.Sprintf("Review panel failed: %v", err))
@@ -827,10 +853,10 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 					"score", consolidated.OverallScore,
 					"max_score", consolidated.MaxScore)
 			}
-		} else if e.reviewer != nil {
+		} else if reviewer != nil {
 			rlg.Debug("Starting single review session")
 			sendEvent(progress.EventToolStart, "Single model review")
-			reviewResult, err := e.reviewer.Review(ctx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
+			reviewResult, err := reviewer.Review(ctx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)
 			if err != nil {
 				rlg.Error("Code review failed", "error", err)
 				sendEvent(progress.EventReasoning, fmt.Sprintf("Review failed: %v", err))
