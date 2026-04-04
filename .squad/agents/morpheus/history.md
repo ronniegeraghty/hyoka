@@ -152,3 +152,24 @@ Initial setup complete.
 5. `plan/decisions-log.md` — Added D-AR1 (grader pivot), D-AR2 (config cleanup), D-AR3 (run spec future), D-AUTO (coordinator autonomy). Updated decision index.
 
 **Key learning:** When a human approves architectural pivots, the ripple across documentation is significant — 5 files, ~30 edits. Having a structured plan directory with clear section numbering makes these updates tractable. The alternative (unstructured docs) would make this kind of cross-cutting update error-prone.
+
+### Issue Tracking Integration (2026-10-15)
+
+**Task:** Tank created 72 GitHub issues (#91–#162) mapping to all evolution plan tasks. Updated `plan/evolution-plan.md` to reference each task's issue number.
+
+**Work done:**
+1. Added comprehensive Issue Tracking section at top of evolution plan with phase-by-phase breakdown.
+2. Added issue references to all 72 task entries (formats: `(#NNN)` in task descriptions, Phase 5.4 as integration task).
+3. Committed with proper trailer: `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
+
+**Key learning:** Linking plan documents to issue tracking at the time of planning (not retroactively) makes the plan actionable and creates audit trail. Every task in the plan is now discoverable via GitHub issue search.
+
+**Issue ranges by phase:**
+- Phase 0 (Foundation): #91–#99 (9 issues — CI, bug fixes, validation)
+- Phase 1 (Core Model): #100–#119 (20 issues — Properties, graders, tool filters, formats, refactor)
+- Phase 2 (Evaluation Engine): #120–#137 (18 issues — Pairwise, limits, isolation, resources, graders)
+- Phase 3 (Transparency): #138–#143 (6 issues — Action history, grader result display)
+- Phase 4 (Insights & Comparison): #144–#151 (8 issues — Comparison engine, serve evolution, trends)
+- Phase 5 (Ecosystem): #152–#162 (11 issues — .hyoka init, tool registry, tests, skills)
+
+**Total: 72 issues across 5 phases**
