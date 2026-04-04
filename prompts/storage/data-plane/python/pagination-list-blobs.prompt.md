@@ -1,22 +1,23 @@
 ---
 id: storage-dp-python-pagination
-service: storage
-plane: data-plane
-language: python
-category: pagination
-difficulty: intermediate
-description: >
-  Can a developer correctly paginate through a large list of blobs in
-  Azure Storage using the Python SDK?
-sdk_package: azure-storage-blob
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/storage-blob-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: python
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer correctly paginate through a large list of blobs in Azure Storage using the Python SDK?
+
+    '
+  sdk_package: azure-storage-blob
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/storage-blob-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - blob
-  - pagination
-  - list-blobs
-  - continuation-token
-created: 2025-07-27
-author: ronniegeraghty
+- blob
+- pagination
+- list-blobs
+- continuation-token
 ---
 
 # Pagination: List Blobs in Azure Storage (Python)

@@ -1,22 +1,23 @@
 ---
 id: cosmos-db-dp-dotnet-crud
-service: cosmos-db
-plane: data-plane
-language: dotnet
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, query, and delete items in an Azure Cosmos DB
-  container using the .NET SDK?
-sdk_package: Microsoft.Azure.Cosmos
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/microsoft.azure.cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: dotnet
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, query, and delete items in an Azure Cosmos DB container using the .NET SDK?
+
+    '
+  sdk_package: Microsoft.Azure.Cosmos
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/microsoft.azure.cosmos-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - cosmos-db
-  - nosql
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- cosmos-db
+- nosql
+- crud
+- getting-started
 ---
 
 # CRUD Items: Azure Cosmos DB (.NET)

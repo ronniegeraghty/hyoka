@@ -1,22 +1,24 @@
 ---
 id: app-configuration-dp-js-ts-crud
-service: app-configuration
-plane: data-plane
-language: js-ts
-category: crud
-difficulty: basic
-description: >
-  Can a developer read and write configuration values and feature flags
-  in Azure App Configuration using the JavaScript/TypeScript SDK?
-sdk_package: "@azure/app-configuration"
-doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/app-configuration-readme
+properties:
+  service: app-configuration
+  plane: data-plane
+  language: js-ts
+  category: crud
+  difficulty: basic
+  description: 'Can a developer read and write configuration values and feature flags in Azure App Configuration using the
+    JavaScript/TypeScript SDK?
+
+    '
+  sdk_package: '@azure/app-configuration'
+  doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/app-configuration-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - app-configuration
-  - configuration
-  - feature-flags
-  - crud
-created: 2025-07-28
-author: ronniegeraghty
+- app-configuration
+- configuration
+- feature-flags
+- crud
 ---
 
 # Configuration Values: Azure App Configuration (JavaScript/TypeScript)

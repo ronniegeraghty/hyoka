@@ -1,21 +1,22 @@
 ---
 id: identity-dp-go-service-principal
-service: identity
-plane: data-plane
-language: go
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer authenticate with a Service Principal (client secret)
-  using the Go SDK?
-sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
-doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
+properties:
+  service: identity
+  plane: data-plane
+  language: go
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer authenticate with a Service Principal (client secret) using the Go SDK?
+
+    '
+  sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
+  doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - service-principal
-  - client-secret
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- service-principal
+- client-secret
 ---
 
 # Service Principal Authentication: Azure Identity (Go)

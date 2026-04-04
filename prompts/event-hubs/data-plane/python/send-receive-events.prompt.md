@@ -1,22 +1,23 @@
 ---
 id: event-hubs-dp-python-streaming
-service: event-hubs
-plane: data-plane
-language: python
-category: streaming
-difficulty: intermediate
-description: >
-  Can a developer send and receive events using Azure Event Hubs
-  with the Python SDK?
-sdk_package: azure-eventhub
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/eventhub-readme
+properties:
+  service: event-hubs
+  plane: data-plane
+  language: python
+  category: streaming
+  difficulty: intermediate
+  description: 'Can a developer send and receive events using Azure Event Hubs with the Python SDK?
+
+    '
+  sdk_package: azure-eventhub
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/eventhub-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - event-hubs
-  - streaming
-  - producer
-  - consumer
-created: 2025-07-28
-author: ronniegeraghty
+- event-hubs
+- streaming
+- producer
+- consumer
 ---
 
 # Send and Receive Events: Azure Event Hubs (Python)

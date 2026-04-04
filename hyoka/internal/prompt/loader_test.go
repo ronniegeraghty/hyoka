@@ -42,6 +42,77 @@ using DefaultAzureCredential and lists all containers in the storage account.
 This is a beginner-level prompt for testing.
 `
 
+const testPromptContentNested = `---
+id: storage-auth-dotnet
+properties:
+  service: storage
+  plane: data-plane
+  language: dotnet
+  category: authentication
+  difficulty: beginner
+  description: "Authenticate to Azure Blob Storage using DefaultAzureCredential"
+  sdk_package: Azure.Storage.Blobs
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/azure.storage.blobs
+  created: "2024-01-15"
+  author: test
+tags:
+  - authentication
+  - blob
+  - identity
+expected_packages:
+  - Azure.Storage.Blobs
+  - Azure.Identity
+expected_tools:
+  - create_file
+  - run_terminal_command
+---
+
+# Storage Authentication (.NET)
+
+## Prompt
+
+Write a C# console application that authenticates to Azure Blob Storage
+using DefaultAzureCredential and lists all containers in the storage account.
+
+## Notes
+
+This is a beginner-level prompt for testing.
+`
+
+func TestParsePromptFileNested(t *testing.T) {
+	p, err := ParsePromptFile([]byte(testPromptContentNested), "test-nested.prompt.md")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.ID != "storage-auth-dotnet" {
+		t.Errorf("expected ID 'storage-auth-dotnet', got %q", p.ID)
+	}
+	if p.Service() != "storage" {
+		t.Errorf("expected service 'storage', got %q", p.Service())
+	}
+	if p.Plane() != "data-plane" {
+		t.Errorf("expected plane 'data-plane', got %q", p.Plane())
+	}
+	if p.Language() != "dotnet" {
+		t.Errorf("expected language 'dotnet', got %q", p.Language())
+	}
+	if p.Category() != "authentication" {
+		t.Errorf("expected category 'authentication', got %q", p.Category())
+	}
+	if p.Properties == nil || p.Properties["service"] != "storage" {
+		t.Errorf("expected properties[service] 'storage', got %v", p.Properties)
+	}
+	if len(p.Tags) != 3 {
+		t.Errorf("expected 3 tags, got %d", len(p.Tags))
+	}
+	if len(p.ExpectedPkgs) != 2 {
+		t.Errorf("expected 2 expected_packages, got %d", len(p.ExpectedPkgs))
+	}
+	if p.PromptText == "" {
+		t.Error("expected non-empty prompt text")
+	}
+}
+
 func TestParsePromptFile(t *testing.T) {
 	p, err := ParsePromptFile([]byte(testPromptContent), "test.prompt.md")
 	if err != nil {

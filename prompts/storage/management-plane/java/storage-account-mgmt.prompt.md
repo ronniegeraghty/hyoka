@@ -1,21 +1,22 @@
 ---
 id: storage-mp-java-account-mgmt
-service: storage
-plane: management-plane
-language: java
-category: provisioning
-difficulty: intermediate
-description: >
-  Can a developer create, configure, and manage Azure Storage Accounts
-  using the Java management SDK?
-sdk_package: azure-resourcemanager-storage
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/resourcemanager-storage-readme
+properties:
+  service: storage
+  plane: management-plane
+  language: java
+  category: provisioning
+  difficulty: intermediate
+  description: 'Can a developer create, configure, and manage Azure Storage Accounts using the Java management SDK?
+
+    '
+  sdk_package: azure-resourcemanager-storage
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/resourcemanager-storage-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - storage-account
-  - management-plane
-  - provisioning
-created: 2025-07-28
-author: ronniegeraghty
+- storage-account
+- management-plane
+- provisioning
 ---
 
 # Storage Account Management: Azure Storage (Java)

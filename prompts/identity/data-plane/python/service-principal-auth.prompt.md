@@ -1,21 +1,22 @@
 ---
 id: identity-dp-python-service-principal
-service: identity
-plane: data-plane
-language: python
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer authenticate with a Service Principal (client secret)
-  using the Python SDK?
-sdk_package: azure-identity
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme
+properties:
+  service: identity
+  plane: data-plane
+  language: python
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer authenticate with a Service Principal (client secret) using the Python SDK?
+
+    '
+  sdk_package: azure-identity
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - service-principal
-  - client-secret
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- service-principal
+- client-secret
 ---
 
 # Service Principal Authentication: Azure Identity (Python)

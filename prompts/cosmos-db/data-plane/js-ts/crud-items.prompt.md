@@ -1,22 +1,24 @@
 ---
 id: cosmos-db-dp-js-ts-crud
-service: cosmos-db
-plane: data-plane
-language: js-ts
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, query, and delete items in an Azure Cosmos DB
-  container using the JavaScript/TypeScript SDK?
-sdk_package: "@azure/cosmos"
-doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: js-ts
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, query, and delete items in an Azure Cosmos DB container using the JavaScript/TypeScript
+    SDK?
+
+    '
+  sdk_package: '@azure/cosmos'
+  doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/cosmos-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - cosmos-db
-  - nosql
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- cosmos-db
+- nosql
+- crud
+- getting-started
 ---
 
 # CRUD Items: Azure Cosmos DB (JavaScript/TypeScript)

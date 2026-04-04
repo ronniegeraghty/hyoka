@@ -1,30 +1,31 @@
 ---
 id: key-vault-dp-java-secret-config
-service: key-vault
-plane: data-plane
-language: java
-category: crud
-difficulty: intermediate
-description: >
-  Can an agent generate a Key Vault-backed configuration provider with secret
-  versioning, expiry inspection, in-memory caching with bulk-load, and safe
-  secret rotation using long-running delete operations (SyncPoller/PollerFlux)?
-sdk_package: com.azure:azure-security-keyvault-secrets
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/security-keyvault-secrets-readme
+properties:
+  service: key-vault
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: intermediate
+  description: 'Can an agent generate a Key Vault-backed configuration provider with secret versioning, expiry inspection,
+    in-memory caching with bulk-load, and safe secret rotation using long-running delete operations (SyncPoller/PollerFlux)?
+
+    '
+  sdk_package: com.azure:azure-security-keyvault-secrets
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/security-keyvault-secrets-readme
+  created: '2026-03-25'
+  author: JonathanGiles, samvaity
 tags:
-  - key-vault
-  - secrets
-  - caching
-  - secret-rotation
-  - lro
-  - sync-poller
-  - poller-flux
-  - versioning
-  - expiry
-  - async
-  - reactor
-created: 2026-03-25
-author: JonathanGiles, samvaity
+- key-vault
+- secrets
+- caching
+- secret-rotation
+- lro
+- sync-poller
+- poller-flux
+- versioning
+- expiry
+- async
+- reactor
 ---
 
 # Secret Config Provider: Azure Key Vault (Java)

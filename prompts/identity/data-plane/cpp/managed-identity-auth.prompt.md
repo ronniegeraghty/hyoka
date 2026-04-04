@@ -1,21 +1,22 @@
 ---
 id: identity-dp-cpp-managed-identity
-service: identity
-plane: data-plane
-language: cpp
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer use Managed Identity to authenticate Azure SDK clients
-  using the C++ SDK?
-sdk_package: azure-identity-cpp
-doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
+properties:
+  service: identity
+  plane: data-plane
+  language: cpp
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer use Managed Identity to authenticate Azure SDK clients using the C++ SDK?
+
+    '
+  sdk_package: azure-identity-cpp
+  doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - managed-identity
-  - azure-hosted
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- managed-identity
+- azure-hosted
 ---
 
 # Managed Identity Authentication: Azure Identity (C++)

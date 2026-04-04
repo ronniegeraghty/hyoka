@@ -1,21 +1,22 @@
 ---
 id: key-vault-dp-cpp-crud
-service: key-vault
-plane: data-plane
-language: cpp
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the C++ SDK?
-sdk_package: azure-security-keyvault-secrets-cpp
-doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/keyvault/azure-security-keyvault-secrets
+properties:
+  service: key-vault
+  plane: data-plane
+  language: cpp
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, update, and delete secrets in Azure Key Vault using the C++ SDK?
+
+    '
+  sdk_package: azure-security-keyvault-secrets-cpp
+  doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/keyvault/azure-security-keyvault-secrets
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - secrets
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- secrets
+- crud
+- getting-started
 ---
 
 # CRUD Secrets: Azure Key Vault (C++)

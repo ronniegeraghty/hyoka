@@ -1,22 +1,23 @@
 ---
 id: service-bus-dp-dotnet-crud
-service: service-bus
-plane: data-plane
-language: dotnet
-category: crud
-difficulty: intermediate
-description: >
-  Can a developer send and receive messages using Azure Service Bus
-  queues and topics with the .NET SDK?
-sdk_package: Azure.Messaging.ServiceBus
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/messaging.servicebus-readme
+properties:
+  service: service-bus
+  plane: data-plane
+  language: dotnet
+  category: crud
+  difficulty: intermediate
+  description: 'Can a developer send and receive messages using Azure Service Bus queues and topics with the .NET SDK?
+
+    '
+  sdk_package: Azure.Messaging.ServiceBus
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/messaging.servicebus-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - service-bus
-  - messaging
-  - queues
-  - topics
-created: 2025-07-28
-author: ronniegeraghty
+- service-bus
+- messaging
+- queues
+- topics
 ---
 
 # Send and Receive Messages: Azure Service Bus (.NET)

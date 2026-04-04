@@ -1,21 +1,22 @@
 ---
 id: identity-dp-go-default-credential
-service: identity
-plane: data-plane
-language: go
-category: auth
-difficulty: basic
-description: >
-  Can a developer set up DefaultAzureCredential for Azure SDK clients
-  using the Go SDK?
-sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
-doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
+properties:
+  service: identity
+  plane: data-plane
+  language: go
+  category: auth
+  difficulty: basic
+  description: 'Can a developer set up DefaultAzureCredential for Azure SDK clients using the Go SDK?
+
+    '
+  sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
+  doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - default-azure-credential
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- default-azure-credential
+- getting-started
 ---
 
 # DefaultAzureCredential: Azure Identity (Go)

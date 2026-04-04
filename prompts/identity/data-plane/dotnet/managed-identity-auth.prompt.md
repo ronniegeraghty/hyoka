@@ -1,21 +1,22 @@
 ---
 id: identity-dp-dotnet-managed-identity
-service: identity
-plane: data-plane
-language: dotnet
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer use Managed Identity to authenticate Azure SDK clients
-  using the .NET SDK?
-sdk_package: Azure.Identity
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/identity-readme
+properties:
+  service: identity
+  plane: data-plane
+  language: dotnet
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer use Managed Identity to authenticate Azure SDK clients using the .NET SDK?
+
+    '
+  sdk_package: Azure.Identity
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/identity-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - managed-identity
-  - azure-hosted
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- managed-identity
+- azure-hosted
 ---
 
 # Managed Identity Authentication: Azure Identity (.NET)

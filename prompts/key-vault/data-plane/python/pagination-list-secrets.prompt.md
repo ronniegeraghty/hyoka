@@ -1,21 +1,22 @@
 ---
 id: key-vault-dp-python-pagination
-service: key-vault
-plane: data-plane
-language: python
-category: pagination
-difficulty: intermediate
-description: >
-  Can a developer paginate through a large list of Key Vault secrets
-  using the Python SDK?
-sdk_package: azure-keyvault-secrets
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme
+properties:
+  service: key-vault
+  plane: data-plane
+  language: python
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer paginate through a large list of Key Vault secrets using the Python SDK?
+
+    '
+  sdk_package: azure-keyvault-secrets
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/keyvault-secrets-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - pagination
-  - list-secrets
-  - iteration
-created: 2025-07-27
-author: ronniegeraghty
+- pagination
+- list-secrets
+- iteration
 ---
 
 # Pagination: List Key Vault Secrets (Python)

@@ -1,21 +1,22 @@
 ---
 id: identity-dp-dotnet-service-principal
-service: identity
-plane: data-plane
-language: dotnet
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer authenticate with a Service Principal (client secret)
-  using the .NET SDK?
-sdk_package: Azure.Identity
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/identity-readme
+properties:
+  service: identity
+  plane: data-plane
+  language: dotnet
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer authenticate with a Service Principal (client secret) using the .NET SDK?
+
+    '
+  sdk_package: Azure.Identity
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/identity-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - service-principal
-  - client-secret
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- service-principal
+- client-secret
 ---
 
 # Service Principal Authentication: Azure Identity (.NET)

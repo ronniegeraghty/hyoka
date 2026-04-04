@@ -1,28 +1,29 @@
 ---
 id: app-configuration-dp-java-feature-flags
-service: app-configuration
-plane: data-plane
-language: java
-category: crud
-difficulty: intermediate
-description: >
-  Can an agent generate a feature flag and configuration management system using
-  Azure App Configuration with label-based settings, conditional reads with ETags,
-  percentage-based rollout, and sentinel key watching?
-sdk_package: com.azure:azure-data-appconfiguration
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/data-appconfiguration-readme
+properties:
+  service: app-configuration
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: intermediate
+  description: 'Can an agent generate a feature flag and configuration management system using Azure App Configuration with
+    label-based settings, conditional reads with ETags, percentage-based rollout, and sentinel key watching?
+
+    '
+  sdk_package: com.azure:azure-data-appconfiguration
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/data-appconfiguration-readme
+  created: '2026-03-25'
+  author: JonathanGiles, samvaity
 tags:
-  - app-configuration
-  - feature-flags
-  - etag
-  - conditional-reads
-  - labels
-  - sentinel-key
-  - percentage-rollout
-  - async
-  - reactor
-created: 2026-03-25
-author: JonathanGiles, samvaity
+- app-configuration
+- feature-flags
+- etag
+- conditional-reads
+- labels
+- sentinel-key
+- percentage-rollout
+- async
+- reactor
 ---
 
 # Feature Flag Management: Azure App Configuration (Java)

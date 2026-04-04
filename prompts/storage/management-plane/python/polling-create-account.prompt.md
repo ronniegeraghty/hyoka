@@ -1,22 +1,24 @@
 ---
 id: storage-mp-python-polling
-service: storage
-plane: management-plane
-language: python
-category: polling
-difficulty: intermediate
-description: >
-  Can a developer use the LRO polling pattern to create a Storage Account
-  and wait for completion using the Python management SDK?
-sdk_package: azure-mgmt-storage
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/mgmt-storage-readme
+properties:
+  service: storage
+  plane: management-plane
+  language: python
+  category: polling
+  difficulty: intermediate
+  description: 'Can a developer use the LRO polling pattern to create a Storage Account and wait for completion using the
+    Python management SDK?
+
+    '
+  sdk_package: azure-mgmt-storage
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/mgmt-storage-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - polling
-  - lro
-  - long-running-operation
-  - management-plane
-created: 2025-07-27
-author: ronniegeraghty
+- polling
+- lro
+- long-running-operation
+- management-plane
 ---
 
 # Polling/LRO: Create Storage Account (Python)

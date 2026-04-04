@@ -1,21 +1,23 @@
 ---
 id: key-vault-dp-js-ts-crud
-service: key-vault
-plane: data-plane
-language: js-ts
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the JavaScript/TypeScript SDK?
-sdk_package: "@azure/keyvault-secrets"
-doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/keyvault-secrets-readme
+properties:
+  service: key-vault
+  plane: data-plane
+  language: js-ts
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, update, and delete secrets in Azure Key Vault using the JavaScript/TypeScript
+    SDK?
+
+    '
+  sdk_package: '@azure/keyvault-secrets'
+  doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/keyvault-secrets-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - secrets
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- secrets
+- crud
+- getting-started
 ---
 
 # CRUD Secrets: Azure Key Vault (JavaScript/TypeScript)

@@ -1,22 +1,23 @@
 ---
 id: resource-manager-mp-go-rg-crud
-service: resource-manager
-plane: management-plane
-language: go
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, list, update, and delete Azure Resource Groups
-  using the Go management SDK?
-sdk_package: github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources
-doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources
+properties:
+  service: resource-manager
+  plane: management-plane
+  language: go
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, list, update, and delete Azure Resource Groups using the Go management SDK?
+
+    '
+  sdk_package: github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources
+  doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - resource-groups
-  - management-plane
-  - provisioning
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- resource-groups
+- management-plane
+- provisioning
+- getting-started
 ---
 
 # Resource Group Management: Azure Resource Manager (Go)

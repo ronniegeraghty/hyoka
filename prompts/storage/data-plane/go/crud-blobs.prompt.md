@@ -1,21 +1,22 @@
 ---
 id: storage-dp-go-crud
-service: storage
-plane: data-plane
-language: go
-category: crud
-difficulty: basic
-description: >
-  Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the Go SDK?
-sdk_package: azblob
-doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/storage/azblob
+properties:
+  service: storage
+  plane: data-plane
+  language: go
+  category: crud
+  difficulty: basic
+  description: 'Can a developer upload, download, list, and delete blobs in Azure Blob Storage using the Go SDK?
+
+    '
+  sdk_package: azblob
+  doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/storage/azblob
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - blob
-  - crud
-  - getting-started
-created: 2025-07-27
-author: ronniegeraghty
+- blob
+- crud
+- getting-started
 ---
 
 # CRUD Blobs: Azure Blob Storage (Go)

@@ -1,21 +1,22 @@
 ---
 id: storage-dp-dotnet-error-handling
-service: storage
-plane: data-plane
-language: dotnet
-category: error-handling
-difficulty: intermediate
-description: >
-  Can a developer handle common Azure Blob Storage errors
-  including 404, 403, and 429 responses in .NET?
-sdk_package: Azure.Storage.Blobs
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: dotnet
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can a developer handle common Azure Blob Storage errors including 404, 403, and 429 responses in .NET?
+
+    '
+  sdk_package: Azure.Storage.Blobs
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - error-handling
-  - exceptions
-  - retry
-created: 2025-07-27
-author: ronniegeraghty
+- error-handling
+- exceptions
+- retry
 ---
 
 # Error Handling: Azure Blob Storage (.NET)

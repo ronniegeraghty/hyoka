@@ -1,21 +1,22 @@
 ---
 id: storage-dp-dotnet-auth
-service: storage
-plane: data-plane
-language: dotnet
-category: authentication
-difficulty: basic
-description: >
-  Can a developer authenticate to Azure Blob Storage
-  using DefaultAzureCredential in .NET?
-sdk_package: Azure.Storage.Blobs
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: dotnet
+  category: authentication
+  difficulty: basic
+  description: 'Can a developer authenticate to Azure Blob Storage using DefaultAzureCredential in .NET?
+
+    '
+  sdk_package: Azure.Storage.Blobs
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - identity
-  - default-azure-credential
-  - getting-started
-created: 2025-07-27
-author: ronniegeraghty
+- identity
+- default-azure-credential
+- getting-started
 ---
 
 # Authentication: Azure Blob Storage (.NET)

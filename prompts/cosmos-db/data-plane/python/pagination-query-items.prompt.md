@@ -1,21 +1,22 @@
 ---
 id: cosmos-db-dp-python-pagination
-service: cosmos-db
-plane: data-plane
-language: python
-category: pagination
-difficulty: intermediate
-description: >
-  Can a developer paginate through large Cosmos DB query results
-  using continuation tokens in Python?
-sdk_package: azure-cosmos
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: python
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer paginate through large Cosmos DB query results using continuation tokens in Python?
+
+    '
+  sdk_package: azure-cosmos
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - pagination
-  - query
-  - continuation-token
-created: 2025-07-27
-author: ronniegeraghty
+- pagination
+- query
+- continuation-token
 ---
 
 # Pagination: Query Items in Azure Cosmos DB (Python)

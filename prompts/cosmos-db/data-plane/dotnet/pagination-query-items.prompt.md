@@ -1,22 +1,23 @@
 ---
 id: cosmos-db-dp-dotnet-pagination
-service: cosmos-db
-plane: data-plane
-language: dotnet
-category: pagination
-difficulty: intermediate
-description: >
-  Can a developer paginate through large Cosmos DB query results
-  using continuation tokens in .NET?
-sdk_package: Microsoft.Azure.Cosmos
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/microsoft.azure.cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: dotnet
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer paginate through large Cosmos DB query results using continuation tokens in .NET?
+
+    '
+  sdk_package: Microsoft.Azure.Cosmos
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/microsoft.azure.cosmos-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - pagination
-  - query
-  - continuation-token
-  - feed-iterator
-created: 2025-07-27
-author: ronniegeraghty
+- pagination
+- query
+- continuation-token
+- feed-iterator
 ---
 
 # Pagination: Query Items in Azure Cosmos DB (.NET)

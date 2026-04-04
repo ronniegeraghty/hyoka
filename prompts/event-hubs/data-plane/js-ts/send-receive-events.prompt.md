@@ -1,22 +1,23 @@
 ---
 id: event-hubs-dp-js-ts-streaming
-service: event-hubs
-plane: data-plane
-language: js-ts
-category: streaming
-difficulty: intermediate
-description: >
-  Can a developer send and receive events using Azure Event Hubs
-  with the JavaScript/TypeScript SDK?
-sdk_package: "@azure/event-hubs"
-doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/event-hubs-readme
+properties:
+  service: event-hubs
+  plane: data-plane
+  language: js-ts
+  category: streaming
+  difficulty: intermediate
+  description: 'Can a developer send and receive events using Azure Event Hubs with the JavaScript/TypeScript SDK?
+
+    '
+  sdk_package: '@azure/event-hubs'
+  doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/event-hubs-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - event-hubs
-  - streaming
-  - producer
-  - consumer
-created: 2025-07-28
-author: ronniegeraghty
+- event-hubs
+- streaming
+- producer
+- consumer
 ---
 
 # Send and Receive Events: Azure Event Hubs (JavaScript/TypeScript)

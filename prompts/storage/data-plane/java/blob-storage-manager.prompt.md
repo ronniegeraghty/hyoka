@@ -1,28 +1,30 @@
 ---
 id: storage-dp-java-blob-manager
-service: storage
-plane: data-plane
-language: java
-category: crud
-difficulty: advanced
-description: >
-  Can an agent generate a complete, production-ready Azure Blob Storage management
-  utility with sync and async implementations, covering upload (large files, index tags),
-  download, list, delete, concurrency prevention, retry configuration, and HTTP logging?
-sdk_package: com.azure:azure-storage-blob
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/storage-blob-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: advanced
+  description: 'Can an agent generate a complete, production-ready Azure Blob Storage management utility with sync and async
+    implementations, covering upload (large files, index tags), download, list, delete, concurrency prevention, retry configuration,
+    and HTTP logging?
+
+    '
+  sdk_package: com.azure:azure-storage-blob
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/storage-blob-readme
+  created: '2026-03-19'
+  author: JonathanGiles, samvaity
 tags:
-  - identity
-  - default-azure-credential
-  - blob-storage
-  - async
-  - reactor
-  - retry
-  - lease
-  - parallel-upload
-  - index-tags
-created: 2026-03-19
-author: JonathanGiles, samvaity
+- identity
+- default-azure-credential
+- blob-storage
+- async
+- reactor
+- retry
+- lease
+- parallel-upload
+- index-tags
 ---
 
 # Blob Storage Manager: Azure Blob Storage (Java)

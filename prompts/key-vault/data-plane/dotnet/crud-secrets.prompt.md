@@ -1,21 +1,22 @@
 ---
 id: key-vault-dp-dotnet-crud
-service: key-vault
-plane: data-plane
-language: dotnet
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the .NET SDK?
-sdk_package: Azure.Security.KeyVault.Secrets
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/security.keyvault.secrets-readme
+properties:
+  service: key-vault
+  plane: data-plane
+  language: dotnet
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, update, and delete secrets in Azure Key Vault using the .NET SDK?
+
+    '
+  sdk_package: Azure.Security.KeyVault.Secrets
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/security.keyvault.secrets-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - secrets
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- secrets
+- crud
+- getting-started
 ---
 
 # CRUD Secrets: Azure Key Vault (.NET)

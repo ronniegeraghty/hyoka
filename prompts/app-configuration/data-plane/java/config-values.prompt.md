@@ -1,22 +1,24 @@
 ---
 id: app-configuration-dp-java-crud
-service: app-configuration
-plane: data-plane
-language: java
-category: crud
-difficulty: basic
-description: >
-  Can a developer read and write configuration values and feature flags
-  in Azure App Configuration using the Java SDK?
-sdk_package: azure-data-appconfiguration
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/data-appconfiguration-readme
+properties:
+  service: app-configuration
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: basic
+  description: 'Can a developer read and write configuration values and feature flags in Azure App Configuration using the
+    Java SDK?
+
+    '
+  sdk_package: azure-data-appconfiguration
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/data-appconfiguration-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - app-configuration
-  - configuration
-  - feature-flags
-  - crud
-created: 2025-07-28
-author: ronniegeraghty
+- app-configuration
+- configuration
+- feature-flags
+- crud
 ---
 
 # Configuration Values: Azure App Configuration (Java)

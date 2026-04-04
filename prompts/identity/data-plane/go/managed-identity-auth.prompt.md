@@ -1,21 +1,22 @@
 ---
 id: identity-dp-go-managed-identity
-service: identity
-plane: data-plane
-language: go
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer use Managed Identity to authenticate Azure SDK clients
-  using the Go SDK?
-sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
-doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
+properties:
+  service: identity
+  plane: data-plane
+  language: go
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer use Managed Identity to authenticate Azure SDK clients using the Go SDK?
+
+    '
+  sdk_package: github.com/Azure/azure-sdk-for-go/sdk/azidentity
+  doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - managed-identity
-  - azure-hosted
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- managed-identity
+- azure-hosted
 ---
 
 # Managed Identity Authentication: Azure Identity (Go)

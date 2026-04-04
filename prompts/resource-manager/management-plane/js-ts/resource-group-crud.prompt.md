@@ -1,22 +1,24 @@
 ---
 id: resource-manager-mp-js-ts-rg-crud
-service: resource-manager
-plane: management-plane
-language: js-ts
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, list, update, and delete Azure Resource Groups
-  using the JavaScript/TypeScript management SDK?
-sdk_package: "@azure/arm-resources"
-doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/arm-resources-readme
+properties:
+  service: resource-manager
+  plane: management-plane
+  language: js-ts
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, list, update, and delete Azure Resource Groups using the JavaScript/TypeScript management
+    SDK?
+
+    '
+  sdk_package: '@azure/arm-resources'
+  doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/arm-resources-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - resource-groups
-  - management-plane
-  - provisioning
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- resource-groups
+- management-plane
+- provisioning
+- getting-started
 ---
 
 # Resource Group Management: Azure Resource Manager (JavaScript/TypeScript)

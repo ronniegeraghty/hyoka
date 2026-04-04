@@ -1,22 +1,24 @@
 ---
 id: app-configuration-dp-dotnet-crud
-service: app-configuration
-plane: data-plane
-language: dotnet
-category: crud
-difficulty: basic
-description: >
-  Can a developer read and write configuration values and feature flags
-  in Azure App Configuration using the .NET SDK?
-sdk_package: Azure.Data.AppConfiguration
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/data.appconfiguration-readme
+properties:
+  service: app-configuration
+  plane: data-plane
+  language: dotnet
+  category: crud
+  difficulty: basic
+  description: 'Can a developer read and write configuration values and feature flags in Azure App Configuration using the
+    .NET SDK?
+
+    '
+  sdk_package: Azure.Data.AppConfiguration
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/data.appconfiguration-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - app-configuration
-  - configuration
-  - feature-flags
-  - crud
-created: 2025-07-28
-author: ronniegeraghty
+- app-configuration
+- configuration
+- feature-flags
+- crud
 ---
 
 # Configuration Values: Azure App Configuration (.NET)

@@ -1,29 +1,30 @@
 ---
 id: storage-dp-java-encrypted-uploader
-service: storage
-plane: data-plane
-language: java
-category: crud
-difficulty: advanced
-description: >
-  Can an agent implement client-side envelope encryption for Azure Blob Storage
-  using Key Vault Keys for key wrapping, with AES-GCM local encryption, wrapped
-  DEK stored as blob metadata, and proper key material lifecycle?
-sdk_package: com.azure:azure-storage-blob
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/storage-blob-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: advanced
+  description: 'Can an agent implement client-side envelope encryption for Azure Blob Storage using Key Vault Keys for key
+    wrapping, with AES-GCM local encryption, wrapped DEK stored as blob metadata, and proper key material lifecycle?
+
+    '
+  sdk_package: com.azure:azure-storage-blob
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/storage-blob-readme
+  created: '2026-03-25'
+  author: JonathanGiles, samvaity
 tags:
-  - blob-storage
-  - key-vault
-  - encryption
-  - envelope-encryption
-  - aes-gcm
-  - key-wrap
-  - cryptography-client
-  - multi-service
-  - async
-  - reactor
-created: 2026-03-25
-author: JonathanGiles, samvaity
+- blob-storage
+- key-vault
+- encryption
+- envelope-encryption
+- aes-gcm
+- key-wrap
+- cryptography-client
+- multi-service
+- async
+- reactor
 ---
 
 # Encrypted Uploader: Azure Blob Storage + Key Vault Keys (Java)
