@@ -274,3 +274,145 @@ func containsSubstring(s, sub string) bool {
 	}
 	return false
 }
+
+const testYAMLPromptContent = `id: storage-auth-dotnet
+service: storage
+plane: data-plane
+language: dotnet
+category: authentication
+difficulty: beginner
+description: "Authenticate to Azure Blob Storage using DefaultAzureCredential"
+sdk_package: Azure.Storage.Blobs
+doc_url: https://learn.microsoft.com/en-us/dotnet/api/azure.storage.blobs
+tags:
+  - authentication
+  - blob
+  - identity
+created: "2024-01-15"
+author: test
+expected_packages:
+  - Azure.Storage.Blobs
+  - Azure.Identity
+expected_tools:
+  - create_file
+  - run_terminal_command
+prompt_text: |
+  Write a C# console application that authenticates to Azure Blob Storage
+  using DefaultAzureCredential and lists all containers in the storage account.
+evaluation_criteria: |
+  Must use DefaultAzureCredential from Azure.Identity.
+`
+
+func TestParsePromptYAML(t *testing.T) {
+p, err := ParsePromptYAML([]byte(testYAMLPromptContent), "test.prompt.yaml")
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+
+if p.ID != "storage-auth-dotnet" {
+t.Errorf("expected ID 'storage-auth-dotnet', got %q", p.ID)
+}
+if p.Service != "storage" {
+t.Errorf("expected service 'storage', got %q", p.Service)
+}
+if p.Plane != "data-plane" {
+t.Errorf("expected plane 'data-plane', got %q", p.Plane)
+}
+if p.Language != "dotnet" {
+t.Errorf("expected language 'dotnet', got %q", p.Language)
+}
+if p.Category != "authentication" {
+t.Errorf("expected category 'authentication', got %q", p.Category)
+}
+if p.Difficulty != "beginner" {
+t.Errorf("expected difficulty 'beginner', got %q", p.Difficulty)
+}
+if p.SDKPackage != "Azure.Storage.Blobs" {
+t.Errorf("expected sdk_package 'Azure.Storage.Blobs', got %q", p.SDKPackage)
+}
+if len(p.Tags) != 3 {
+t.Errorf("expected 3 tags, got %d", len(p.Tags))
+}
+if len(p.ExpectedPkgs) != 2 {
+t.Errorf("expected 2 expected_packages, got %d", len(p.ExpectedPkgs))
+}
+if len(p.ExpectedTools) != 2 {
+t.Errorf("expected 2 expected_tools, got %d", len(p.ExpectedTools))
+}
+if p.PromptText == "" {
+t.Error("expected non-empty prompt text")
+}
+if p.EvaluationCriteria == "" {
+t.Error("expected non-empty evaluation criteria")
+}
+if p.FilePath != "test.prompt.yaml" {
+t.Errorf("expected file path 'test.prompt.yaml', got %q", p.FilePath)
+}
+}
+
+func TestParsePromptYAMLMissingID(t *testing.T) {
+content := []byte("service: storage\nprompt_text: hello\n")
+_, err := ParsePromptYAML(content, "no-id.prompt.yaml")
+if err == nil {
+t.Fatal("expected error for missing ID")
+}
+}
+
+func TestParsePromptYAMLInvalidField(t *testing.T) {
+content := []byte("id: test\nunknown_field: bad\nprompt_text: hello\n")
+_, err := ParsePromptYAML(content, "bad.prompt.yaml")
+if err == nil {
+t.Fatal("expected error for unknown field with KnownFields(true)")
+}
+}
+
+func TestLoadPromptsYAML(t *testing.T) {
+dir := t.TempDir()
+subDir := filepath.Join(dir, "storage", "data-plane", "dotnet")
+if err := os.MkdirAll(subDir, 0755); err != nil {
+t.Fatalf("failed to create dir: %v", err)
+}
+
+if err := os.WriteFile(filepath.Join(subDir, "auth.prompt.yaml"), []byte(testYAMLPromptContent), 0644); err != nil {
+t.Fatalf("failed to write file: %v", err)
+}
+
+prompts, err := LoadPrompts(dir)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if len(prompts) != 1 {
+t.Fatalf("expected 1 prompt, got %d", len(prompts))
+}
+if prompts[0].ID != "storage-auth-dotnet" {
+t.Errorf("expected ID 'storage-auth-dotnet', got %q", prompts[0].ID)
+}
+}
+
+func TestLoadPromptsMixed(t *testing.T) {
+dir := t.TempDir()
+if err := os.WriteFile(filepath.Join(dir, "md.prompt.md"), []byte(testPromptContent), 0644); err != nil {
+t.Fatalf("failed to write md file: %v", err)
+}
+if err := os.WriteFile(filepath.Join(dir, "yaml.prompt.yml"), []byte(testYAMLPromptContent), 0644); err != nil {
+t.Fatalf("failed to write yaml file: %v", err)
+}
+
+prompts, err := LoadPrompts(dir)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if len(prompts) != 2 {
+t.Fatalf("expected 2 prompts (md + yaml), got %d", len(prompts))
+}
+}
+
+func TestScanNearMissesIgnoresYAMLPrompts(t *testing.T) {
+dir := t.TempDir()
+os.WriteFile(filepath.Join(dir, "auth.prompt.yaml"), []byte("id: x\nprompt_text: hello\n"), 0644)
+misses := ScanNearMisses(dir)
+if len(misses) != 0 {
+t.Errorf("expected 0 near misses for .prompt.yaml file, got %d", len(misses))
+}
+}
+

@@ -13,6 +13,7 @@ var promptSectionRe = regexp.MustCompile(`(?m)^## Prompt\s*\n`)
 var evaluationCriteriaRe = regexp.MustCompile(`(?m)^## Evaluation Criteria\s*\n`)
 
 // ParsePromptFile parses a .prompt.md file's content into a Prompt struct.
+// For .prompt.yaml/.prompt.yml files, use ParsePromptYAML instead.
 func ParsePromptFile(content []byte, filePath string) (*Prompt, error) {
 text := string(content)
 
@@ -63,4 +64,35 @@ return nil, fmt.Errorf("prompt missing required 'id' field: %s", filePath)
 }
 
 return &p, nil
+}
+
+// yamlPromptFile is used internally to parse .prompt.yaml files where
+// prompt_text and evaluation_criteria are YAML fields rather than Markdown sections.
+type yamlPromptFile struct {
+Prompt                  `yaml:",inline"`
+PromptTextField         string `yaml:"prompt_text"`
+EvaluationCriteriaField string `yaml:"evaluation_criteria"`
+}
+
+// ParsePromptYAML parses a pure YAML prompt file (.prompt.yaml or .prompt.yml)
+// into a Prompt struct. All fields including prompt_text and evaluation_criteria
+// are expressed as top-level YAML keys.
+func ParsePromptYAML(content []byte, filePath string) (*Prompt, error) {
+var yf yamlPromptFile
+dec := yaml.NewDecoder(bytes.NewReader(content))
+dec.KnownFields(true)
+if err := dec.Decode(&yf); err != nil {
+return nil, fmt.Errorf("parsing YAML prompt %s: %w", filePath, err)
+}
+
+p := &yf.Prompt
+p.PromptText = yf.PromptTextField
+p.EvaluationCriteria = yf.EvaluationCriteriaField
+p.FilePath = filePath
+
+if p.ID == "" {
+return nil, fmt.Errorf("prompt missing required 'id' field: %s", filePath)
+}
+
+return p, nil
 }
