@@ -2,8 +2,10 @@
 configs:
   - name: baseline/claude-sonnet-4.5
     description: "Baseline — raw Copilot with Claude Sonnet 4.5"
-    model: "claude-sonnet-4.5"
-    reviewer_models:
-      - "claude-opus-4.6"
-      - "gemini-3-pro-preview"
-      - "gpt-4.1"
+    generator:
+      model: "claude-sonnet-4.5"
+    reviewer:
+      models:
+        - "claude-opus-4.6"
+        - "gemini-3-pro-preview"
+        - "gpt-4.1"

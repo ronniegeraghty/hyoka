@@ -2,8 +2,10 @@
 configs:
   - name: baseline/gpt-5.3-codex
     description: "Baseline — raw Copilot with GPT 5.3 Codex"
-    model: "gpt-5.3-codex"
-    reviewer_models:
-      - "claude-opus-4.6"
-      - "gemini-3-pro-preview"
-      - "gpt-4.1"
+    generator:
+      model: "gpt-5.3-codex"
+    reviewer:
+      models:
+        - "claude-opus-4.6"
+        - "gemini-3-pro-preview"
+        - "gpt-4.1"

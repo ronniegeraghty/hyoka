@@ -540,7 +540,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		},
 		ConfigUsed: map[string]any{
 			"name":  task.Config.Name,
-			"model": task.Config.Model,
+			"model": task.Config.Generator.Model,
 		},
 		// Guardrail limits recorded for report transparency (#35)
 		GuardrailMaxTurns:      e.opts.MaxSessionActions,
@@ -715,17 +715,25 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 	// Overall Duration is set at the end of the function after all phases complete.
 
 	// Populate environment info from config and captured events
+	var skillDirectories []string
+	if task.Config.Generator != nil {
+		for _, s := range task.Config.Generator.Skills {
+			if s.Type == "local" && s.Path != "" {
+				skillDirectories = append(skillDirectories, s.Path)
+			}
+		}
+	}
 	env := &report.EnvironmentInfo{
-		Model:            task.Config.EffectiveModel(),
-		SkillDirectories: task.Config.SkillDirectories,
-		AvailableTools:   task.Config.EffectiveAvailableTools(),
-		ExcludedTools:    task.Config.EffectiveExcludedTools(),
+		Model:            task.Config.Generator.Model,
+		SkillDirectories: skillDirectories,
+		AvailableTools:   task.Config.Generator.AvailableTools,
+		ExcludedTools:    task.Config.Generator.ExcludedTools,
 		SafetyBoundaries: true,
 		AllowCloud:       false,
 		WorkingDirectory: ws.Dir,
 	}
 	// Extract MCP server names
-	for name := range task.Config.EffectiveMCPServers() {
+	for name := range task.Config.Generator.MCPServers {
 		env.MCPServers = append(env.MCPServers, name)
 	}
 	// Derive token usage, turn count, truncation, skills from events

@@ -482,7 +482,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	}
 
 	slog.Info("Creating Copilot session",
-		"model", cfg.EffectiveModel(),
+		"model", cfg.Generator.Model,
 		"skills", len(sessionCfg.SkillDirectories),
 		"mcp_servers", len(sessionCfg.MCPServers),
 		"work_dir", workDir,
@@ -637,10 +637,14 @@ func (e *CopilotSDKEvaluator) Client(ctx context.Context, workDir string) (*copi
 }
 
 func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir string, configDir string) *copilot.SessionConfig {
-	// Use generator-specific skills if configured, otherwise fall back to shared
-	skillDirs := cfg.GeneratorSkillDirectories
-	if len(skillDirs) == 0 {
-		skillDirs = cfg.SkillDirectories
+	// Build skill directories from the new Generator.Skills list
+	var skillDirs []string
+	if cfg.Generator != nil {
+		for _, s := range cfg.Generator.Skills {
+			if s.Type == "local" && s.Path != "" {
+				skillDirs = append(skillDirs, s.Path)
+			}
+		}
 	}
 
 	// System message ensures the agent creates actual code files in the workspace
@@ -677,7 +681,7 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 	}
 
 	sc := &copilot.SessionConfig{
-		Model: cfg.EffectiveModel(),
+		Model: cfg.Generator.Model,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "append",
 			Content: systemMsg,
@@ -734,8 +738,8 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 	// Only set AvailableTools/ExcludedTools when non-empty.
 	// An empty slice serializes as JSON [] which tells the CLI "zero tools" —
 	// nil serializes as null which means "all default tools available."
-	availableTools := cfg.EffectiveAvailableTools()
-	excludedTools := cfg.EffectiveExcludedTools()
+	availableTools := cfg.Generator.AvailableTools
+	excludedTools := cfg.Generator.ExcludedTools
 	if len(availableTools) > 0 {
 		sc.AvailableTools = availableTools
 	}
@@ -744,7 +748,7 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 	}
 
 	// Map MCP servers
-	mcpServers := cfg.EffectiveMCPServers()
+	mcpServers := cfg.Generator.MCPServers
 	if len(mcpServers) > 0 {
 		sc.MCPServers = make(map[string]copilot.MCPServerConfig, len(mcpServers))
 		for name, srv := range mcpServers {

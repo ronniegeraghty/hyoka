@@ -2,16 +2,19 @@
 configs:
   - name: azure-mcp/claude-opus-4.6
     description: "Azure MCP — Claude Opus 4.6"
-    model: "claude-opus-4.6"
-    reviewer_models:
-      - "claude-opus-4.6"
-      - "gemini-3-pro-preview"
-      - "gpt-4.1"
-    mcp_servers:
-      azure:
-        type: local
-        command: npx
-        args: ["-y", "@azure/mcp@latest", "server", "start"]
-        tools: ["*"]
-    reviewer_skill_directories:
-      - "./skills/reviewer"
+    generator:
+      model: "claude-opus-4.6"
+      mcp_servers:
+        azure:
+          type: local
+          command: npx
+          args: ["-y", "@azure/mcp@latest", "server", "start"]
+          tools: ["*"]
+    reviewer:
+      models:
+        - "claude-opus-4.6"
+        - "gemini-3-pro-preview"
+        - "gpt-4.1"
+      skills:
+        - type: local
+          path: "./skills/reviewer"

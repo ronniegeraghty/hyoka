@@ -1,12 +1,10 @@
-# Example: full config showing all available options in the new schema.
+# Example: full config showing all available options.
 #
 # The config is split into two clear sections:
 #   generator: — everything about the code generation agent
 #   reviewer:  — everything about the review/grading plane
 #
 # Skills use a unified list with type: remote or type: local.
-# Old-style top-level fields (model, reviewer_models, skill_directories, etc.)
-# still work for backward compatibility.
 configs:
   - name: example-full/claude-sonnet-4.5
     description: "Full example — all config options demonstrated"
@@ -50,7 +48,8 @@ configs:
         - type: local
           path: "./skills/reviewer"
 
-  # Minimal config — only required fields (backward-compatible format still works)
+  # Minimal config — only required fields
   - name: example-minimal/gpt-4
-    description: "Minimal config — legacy format"
-    model: "gpt-4"
+    description: "Minimal config"
+    generator:
+      model: "gpt-4"
