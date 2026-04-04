@@ -405,3 +405,53 @@ The codebase is in surprisingly good shape for its maturity stage. The architect
 4. **Q3 (Run spec files):** YES — explore `hyoka run eval.yaml` pattern as future enhancement. Don't block current work on it.
 
 **Why:** User decisions on anchoring review findings. These are binding architectural pivots.
+# Decision: GitHub Issue Linking for Evolution Plan
+
+**Date:** 2026-10-15  
+**Author:** Morpheus (Lead/Architect)  
+**Status:** Documented  
+
+## Problem
+
+Evolution plan tasks (72 across 5 phases) exist as plan entries with no direct traceback to GitHub issues, making it difficult to:
+- Link plan work to project tracking
+- Discover task scope from GitHub issue search
+- Cross-reference plan→issue→PR→code during development
+
+## Decision
+
+**Link all plan tasks to GitHub issues at planning time, not retroactively.**
+
+Every task entry in `plan/evolution-plan.md` now references its GitHub issue number using the format `(#NNN)` directly in the task description or title. A comprehensive Issue Tracking section at the top of the plan document provides phase-by-phase breakdowns.
+
+### Rationale
+
+1. **Actionability:** Issue numbers make plan entries clickable and searchable on GitHub. Engineers can jump directly from plan to issue.
+2. **Single source of truth:** The plan document becomes the authoritative task list; issues are the execution tracking mechanism.
+3. **Audit trail:** Commit messages and plan updates can reference issues; code reviews can close issues when tasks land.
+4. **Phase visibility:** Breaking out issue counts by phase (9, 20, 18, 6, 8, 11) makes sprint planning easier.
+
+### Format
+
+**In-line format:**
+```
+| 0.1 | **Create CI pipeline** (#91) — `go build`, ... | Tank | Medium | — |
+```
+
+**Grouped summary format (top of plan):**
+```
+Phase 0 (Foundation): #91–#99 (9 issues)  
+Phase 1 (Core Model): #100–#119 (20 issues)  
+...
+```
+
+## Outcome
+
+- All 72 tasks now reference issues #91–#162
+- Plan document updated and committed
+- Team can navigate plan→GitHub issue→PR→code seamlessly
+- Sprint planning can count issues per phase
+
+## Team Note
+
+When creating plan tasks in the future, wait for Tank/Ronnie to create the GitHub issues, then link them immediately in the plan document. This prevents orphaned tasks and keeps documentation in sync with project tracking.
