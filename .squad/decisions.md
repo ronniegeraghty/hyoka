@@ -455,3 +455,401 @@ Phase 1 (Core Model): #100–#119 (20 issues)
 ## Team Note
 
 When creating plan tasks in the future, wait for Tank/Ronnie to create the GitHub issues, then link them immediately in the plan document. This prevents orphaned tasks and keeps documentation in sync with project tracking.
+### 2026-04-04T03:55:26Z: Design Meeting — Evolution Plan Review
+
+**Participants:** Morpheus 🕶️ (facilitator), Neo 💊, Tank 📡, Trinity 🖤, Switch 🤍, Oracle 🔮
+**Requested by:** Ronnie Geraghty
+
+---
+
+## Meeting Summary
+
+Five domain reviews converged on a clear picture: the evolution plan is structurally sound but under-specified in three critical areas — the `GraderResult` type design, the boundary between typed fields and the `Properties` map, and the testing investment required for safe migration. Every reviewer independently identified dependencies and ordering constraints that the flat task list obscures, and several found tasks that are missing entirely (reviewer system message, report schema versioning, template extraction, security sanitization). The consensus is that Phase 0 needs to be strengthened before Phase 1 begins — CI with race detection, pidfile tests, and a serve handler security fix should all land before the model-change work starts.
+
+Neo's eval engine review was the deepest technically, exposing that the reviewer model bug is worse than described (engine-scoped when it should be task-scoped), that `Properties map[string]string` as written would lose type safety on non-string fields like `Tags []string` and `Timeout int`, and that `GraderResult.Details interface{}` will be a pain point in Go templates and test assertions. Trinity's report review revealed that `SessionEventRecord` and `TimelineStep` already exist — the timeline work (3.1c) is largely a no-op for JSON, and the React SPA (not Go templates) is the right surface for the Phase 4 dashboard. Switch's testing review is the most actionable: 44 tests break in Phase 1 (not "mostly mechanical"), a serve handler path traversal vulnerability exists today, and pidfile — a safety feature — has zero tests. Tank confirmed the config migration is safe as a single PR and proposed promoting D-AR3 (run spec file) to Phase 2, which needs Ronnie's approval. Oracle identified that a 72-task plan has only 1 documentation task, recommending 12 distributed across phases.
+
+---
+
+## Consensus Points
+
+These are areas where reviewers independently reached the same conclusion. These are **confirmed decisions** going forward:
+
+1. **CI from day one is non-negotiable.** Tank and Switch agree: `go build`, `go vet`, `go test` with `-race` on every PR. Single Go version (1.26.1), single OS. CI (0.1) is an explicit blocker for all Phase 1 work.
+
+2. **Convenience getters are essential.** Neo, Tank, and Oracle all assume `p.Language()` instead of `p.Properties["language"]`. The properties migration must include getter methods.
+
+3. **System prompt removal must be phased, not big-bang.** Neo recommends: bias rules (9,10) first → guidance rules (1,2) → path rules (3-7). Everyone agrees that 1.6 must come after 0.2 (reviewer bug fix) is merged.
+
+4. **`file` grader should be built first** to validate the `GraderResult` type before implementing more complex graders. Neo and Trinity both identified that the type design is the highest-risk decision in Phase 2.
+
+5. **Schema versioning is mandatory for reports.** Trinity identified that `ReviewResult → GraderResult` changes the scoring model (int → float64). Without `schema_version`, old reports break `rerender`. No dissent.
+
+6. **Template extraction must precede grader display work.** Trinity says html.go will exceed 1600 lines. Extract to `.gohtml` files with `embed.FS` before Phase 3.2a begins.
+
+7. **Testing investment in Phase 1 is significantly underestimated.** Switch quantified: ~8 prompt assertion tests, ~6 filter tests, ~12 config tests, 6 criteria tests, and 12 main tests need updating. Plan should acknowledge this.
+
+8. **Documentation is underrepresented.** Oracle found 1 explicit doc task in a 72-task plan. Feature owners draft docs; Oracle polishes. Breaking changes need migration guides before code lands.
+
+9. **Config big-bang migration (0.6) is safe.** Tank confirmed: 6 of 8 configs use legacy format, ~17 call sites to update, test coverage is excellent. Single PR.
+
+10. **React SPA is the right surface for Phase 4 dashboard.** Trinity confirmed: static HTML reports stay Go-templated, interactive comparison/drill-down goes in the existing React SPA (Vite + React + Radix + Recharts already present).
+
+---
+
+## Decisions Made (Coordinator Authority — D-AUTO)
+
+### D-AUTO-DM1: Reviewer bug fix — per-task reviewer creation
+
+The reviewer must be created per-task in `runSingleEval()`, not shared across the engine. This aligns with the grader direction where each evaluation task assembles its own grader set. Neo's option (b) — reviewer factory function — is the correct approach.
+
+**Rationale:** Engine-scoped reviewer means multi-config runs silently use the wrong reviewer panel. Per-task creation is the minimal correct fix and sets the pattern for the grader architecture.
+
+### D-AUTO-DM2: Properties map is metadata-only — typed fields retained for non-string data
+
+`Properties map[string]string` replaces the hardcoded Azure-specific metadata fields (`Service`, `Language`, `Plane`, `Category`, `Difficulty`, `SDKPackage`, `DocURL`). The following fields remain typed on the `Prompt` struct:
+- `Tags []string`
+- `ExpectedPkgs []string`
+- `ExpectedTools []string`
+- `Timeout int`
+- `StarterProject string`
+- `ProjectContext map[string]string`
+- `ReferenceAnswer string`
+
+**Rationale:** `map[string]string` cannot represent `[]string` or `int` without lossy serialization. These fields have semantic meaning beyond key-value metadata. Convenience getters (`p.Language()`, `p.Service()`) read from the Properties map for the fields that moved.
+
+### D-AUTO-DM3: Add `gate: bool` to grader config schema
+
+Grader configs support an optional `gate: bool` field. When `gate: true`, a failing grader causes the entire evaluation to fail regardless of weighted average. Use cases: file exists, builds successfully, no forbidden tools used.
+
+**Rationale:** Weighted averaging alone cannot express hard constraints. A program that doesn't compile should not pass evaluation just because LLM review scores were high. This is a small schema addition with large correctness impact.
+
+### D-AUTO-DM4: GraderResult uses typed optional fields, not `interface{}`
+
+Replace `Details interface{}` on `GraderResult` with typed optional fields per grader kind:
+```go
+type GraderResult struct {
+    Kind       string
+    Name       string
+    Score      float64
+    Weight     float64
+    Pass       bool
+    Gate       bool      // hard pass/fail gate
+    // Typed details (only one populated per result)
+    FileDetails    *FileGraderDetails
+    ProgramDetails *ProgramGraderDetails
+    PromptDetails  *PromptGraderDetails
+    BehaviorDetails *BehaviorGraderDetails
+    // ...
+}
+```
+
+**Rationale:** `interface{}` requires type switches everywhere — templates, tests, serialization. Typed optional fields are explicit, discoverable, and template-friendly. Neo and Trinity both flagged this independently.
+
+### D-AUTO-DM5: GraderInput is a concrete struct, not an interface
+
+`GraderInput` must be a concrete struct containing everything a grader might need: session workspace path, action log, prompt metadata, config, file listing. Graders use what they need and ignore the rest.
+
+**Rationale:** An `interface{}` or generic interface adds abstraction without value. All graders operate on the same evaluation output. A concrete struct is simpler, testable, and doesn't require type assertions.
+
+### D-AUTO-DM6: Phase system prompt removal incrementally
+
+System prompt removal (1.6b-c) follows this order:
+1. Remove bias rules (9: research restrictions, 10: Python rules) — these are explicitly identified as behavioral bias
+2. Remove guidance rules (1-2) — less critical than bias but still prescriptive
+3. Remove path/operational rules (3-7, 8) — only after confirming SDK session config handles isolation
+4. Remove safety boundaries (11-15) — move to code-level hooks first
+
+**Rationale:** Big-bang removal risks breaking agent sessions if SDK config doesn't fully handle isolation. Incremental removal lets us verify each category independently.
+
+### D-AUTO-DM7: Add explicit task for reviewer hardcoded system message
+
+Add task **1.6d**: "Remove hardcoded system message from reviewer (`reviewer.go:180-183`). Make reviewer system prompt configurable via config YAML `reviewer.system_prompt` field." Assigned to Neo, size Small. This is part of the 1.6 system prompt work.
+
+**Rationale:** Neo identified that the plan addresses the generator's system prompt but not the reviewer's. The reviewer has its own hardcoded message that must also be addressed for zero-system-prompt to be complete.
+
+### D-AUTO-DM8: CI pipeline specification
+
+Phase 0 CI (task 0.1) uses:
+- Go 1.26.1 (matches go.mod), single OS (ubuntu-latest)
+- `go build ./hyoka/... && go vet ./hyoka/... && go test -race ./hyoka/... -timeout 2m`
+- Skip `golangci-lint` in Phase 0, add in Phase 1
+- `-race` flag from day one (concurrent code in ResourceMonitor, ProcessTracker, PanelReviewer)
+- 2-minute timeout (tests run in ~20s with -race, 2 min gives headroom)
+
+**Rationale:** Switch correctly identified that concurrent code needs race detection from the start. Tank's 5-minute timeout is unnecessarily generous — 2 minutes is 6× the actual runtime.
+
+### D-AUTO-DM9: Move pidfile tests from Phase 5 to Phase 0
+
+Task 5.3a (pidfile tests) becomes **task 0.10**: "Add pidfile package tests — 136 lines, zero tests, safety-critical code." Assigned to Switch, size Small (~30 minutes per Switch's estimate).
+
+**Rationale:** A safety feature with zero tests is a Phase 0 concern, not a Phase 5 nice-to-have. This is a 30-minute task that eliminates a gap in safety-critical code.
+
+### D-AUTO-DM10: Move review package coverage from Phase 5 to Phase 1
+
+Task 5.3c (review package coverage) moves to Phase 1 as **task 1.8**: "Increase review package test coverage (5 tests for 840 lines)." Must complete before Phase 2 replaces the reviewer.
+
+**Rationale:** Switch's logic is correct — test the code before you replace it. Phase 2 replaces `review/` with `graders/`. If we don't test the reviewer in Phase 1, we lose the ability to verify the `prompt` grader faithfully wraps the old behavior.
+
+### D-AUTO-DM11: Add schema_version to EvalReport
+
+Task 2.5g gains an explicit requirement: add `SchemaVersion int` field to `EvalReport`. Version 1 = current format (ReviewResult-based). Version 2 = grader-based ([]GraderResult). Rerender checks schema version and handles both.
+
+**Rationale:** Without versioning, the hundreds of existing reports in `reports/` will break when the report format changes. Trinity's recommendation is essential for backward compatibility.
+
+### D-AUTO-DM12: Extract templates before Phase 3.2a
+
+Add task **3.0** (pre-Phase 3): "Extract HTML templates from html.go string concatenation into `.gohtml` files using `embed.FS`." Assigned to Trinity, size Medium. This is a prerequisite for 3.2a.
+
+**Rationale:** html.go is already 1374 lines of string concatenation. Adding per-grader display components without extraction would push it past 1600 lines. Template extraction is a necessary refactor that makes all Phase 3 template work cleaner.
+
+### D-AUTO-DM13: Property key naming convention — enforce snake_case
+
+All property keys in prompt frontmatter use `snake_case`: `service`, `language`, `data_plane`, `sdk_package`. Validation rejects keys with hyphens or camelCase. Migration script (1.1b) normalizes existing keys.
+
+**Rationale:** Consistency matters for property-based matching. `snake_case` is the most common YAML convention and matches Go struct tag conventions.
+
+### D-AUTO-DM14: Freeze GraderInput/GraderResult types before implementing graders
+
+Task 2.5a (Grader interface design) must be fully reviewed and approved before 2.5b-f begin. The `file` grader (2.5b) serves as the type validation — it's the simplest grader and will expose any design issues in GraderInput/GraderResult before more complex graders are built.
+
+**Rationale:** Neo correctly identifies GraderResult as the most expensive type to fix later. Every grader implementation, every report consumer, and every template depends on it. Get it right before building on it.
+
+### D-AUTO-DM15: Tasks 0.2 and 0.6 are independent — no ordering constraint
+
+The reviewer bug fix (0.2) and config migration (0.6) can proceed in parallel. 0.2 fixes a logic bug in reviewer scoping. 0.6 migrates config file format. They touch different code paths.
+
+**Rationale:** Tank asked if 0.2 should wait for 0.6. The answer is no — 0.2 is a P0 correctness bug and should not be blocked by a cleanup task. However, config migration (0.6) and property migration (1.1b) MUST NOT overlap — Neo's hidden constraint is valid.
+
+### D-AUTO-DM16: `.hyoka` walk-up discovery stops at Git root
+
+The `.hyoka` directory search walks up from CWD and stops at the Git repository root (detected by `.git/` directory). It does not escape the repository boundary.
+
+**Rationale:** Tank's recommendation. Walking past Git root would find unrelated `.hyoka` directories from parent projects, creating confusing behavior.
+
+### D-AUTO-DM17: 0.1 (CI) is explicit blocker for all Phase 1 work
+
+No Phase 1 PR merges until CI is green and enforced. The dependency graph already shows this but it was not explicitly stated as a hard gate.
+
+**Rationale:** Tank requested this be explicit. The entire point of Phase 0 is establishing the safety net. Merging model changes without CI defeats the purpose.
+
+### D-AUTO-DM18: Add 12 documentation tasks distributed across phases
+
+Oracle's recommendation is adopted. Feature owners draft documentation; Oracle reviews and polishes. Breaking changes (Phase 1 properties migration, Phase 2 grader architecture) require migration guides published BEFORE code lands. Specific doc tasks to be enumerated by Oracle during Phase 0.
+
+**Rationale:** A 72-task plan with 1 doc task is a documentation debt timebomb. Pairing docs with features ensures they stay current.
+
+### D-AUTO-DM19: `prompt` grader instances each run ONE model
+
+Each `prompt` grader config specifies a single model. To get multi-model review, configure multiple `prompt` grader instances with different models. Aggregation is handled by the grader framework's weighted scoring, not by internal panel logic.
+
+**Rationale:** Trinity asked this question. Single-model-per-grader is simpler, more composable, and more transparent than hiding panel logic inside the grader. The user explicitly configures each reviewer model as a separate grader instance with its own weight.
+
+### D-AUTO-DM20: `newPromptCmd` must update after Phase 1.1
+
+Tank noted that `newPromptCmd` scaffolds old prompt format. Add to task 1.1b (migration script): also update the `new-prompt` command scaffold template to emit the new `properties:` format.
+
+**Rationale:** Without this, every new prompt created after migration would use the old format and immediately fail validation.
+
+---
+
+## Decisions Requiring Ronnie's Input
+
+### ESC-1: Serve runID path traversal fix — add to Phase 0?
+
+**Issue:** Switch identified that `handleAPIRunDetail` in `serve.go` takes `runID` from the URL without sanitization. The path `/api/runs/../../etc/eval?path=passwd` could bypass directory checks. This is a **security vulnerability**.
+
+**Options:**
+- (a) Add as task 0.11 in Phase 0 — fix immediately before any other work
+- (b) Fix as a hotfix PR outside the evolution plan, don't count as a plan task
+- (c) Defer to Phase 1 (Switch recommends against this)
+
+**Recommendation:** Option (b) — hotfix PR immediately, outside the plan's phase structure. Security issues don't wait for sprint planning. Switch can implement the fix and serve handler tests in a single PR.
+
+### ESC-2: Promote D-AR3 (run spec file) from "future" to Phase 2?
+
+**Issue:** Tank argues that `runCmd` already has 33 flags and Phase 2 adds more (pairwise, session limits). A declarative `hyoka run eval.yaml` pattern would absorb most flags.
+
+**Options:**
+- (a) Promote to Phase 2 as Tank recommends — adds ~1 Medium task
+- (b) Keep as "future" — do the main.go split (1.5) first, revisit after Phase 2
+- (c) Add to Phase 3 as a bridge between CLI simplification and dashboard
+
+**Recommendation:** Option (b) — keep as future. The main.go split (1.5) is already Phase 1 work. Run spec files are a significant design investment. Let the split settle, let the grader config format stabilize, then design run specs that compose with both. Promoting to Phase 2 risks designing the spec format before grader configs are battle-tested.
+
+### ESC-3: Branch protection timing
+
+**Issue:** Tank recommends requiring CI green + 1 review on `main` branch. This changes the development workflow for everyone.
+
+**Options:**
+- (a) Enable immediately once CI (0.1) merges — strict from day one
+- (b) Grace period — CI required, review recommended but not enforced, for Phase 0
+- (c) Phase 1 — enable full protection after Phase 0 tasks are merged
+
+**Recommendation:** Option (a) — enable immediately. Phase 0 is 9 small/medium tasks. If CI is the first thing we build, every subsequent Phase 0 PR benefits from it. One review requirement keeps quality high without being burdensome for a small team.
+
+### ESC-4: `hyoka migrate-reports` command
+
+**Issue:** Trinity recommends a command to migrate existing reports from schema version 1 (ReviewResult) to version 2 (GraderResult). This is a new feature not in the plan.
+
+**Options:**
+- (a) Add as task in Phase 2.5 — required for clean transition
+- (b) Handle in rerender — rerender detects schema version and adapts
+- (c) Skip — old reports stay old, new reports use new format
+
+**Recommendation:** Option (b) — handle in rerender. A separate `migrate-reports` command is user-hostile (they have to know to run it). Rerender should transparently handle both schema versions. The schema_version field (D-AUTO-DM11) enables this. No new command needed.
+
+---
+
+## Phase 0 Action Items (Updated)
+
+Changes from the original plan are marked with ⚡.
+
+| Task | Description | Owner | Size | Depends On | Change |
+|------|-------------|-------|------|------------|--------|
+| 0.1 | **Create CI pipeline** (#91) — `go build`, `go vet`, `go test -race`, 2-min timeout, single Go version/OS | Tank | Medium | — | ⚡ Added `-race`, reduced timeout to 2 min |
+| 0.2 | **Fix reviewer model bug** (#92) — Create reviewer per-task via factory function, not engine-scoped | Neo | Small | — | ⚡ Clarified fix approach: per-task reviewer factory |
+| 0.3 | **Fix stale path in new-prompt** (#93) | Tank | Small | — | — |
+| 0.4 | **Add generator model validation** (#94) | Tank | Small | — | — |
+| 0.5 | **Detect duplicate config names** (#95) | Tank | Small | — | — |
+| 0.6 | **Big-bang config migration** (#96) — Also update `main.go:394` write to legacy field, update `Validate()` internals | Tank | Medium | — | ⚡ Tank identified 2 additional call sites |
+| 0.7 | **Log discarded errors** (#97) | Neo | Small | — | — |
+| 0.8 | **Fix Go version in docs** (#98) — 4 public + 9 internal agent docs | Oracle | Small | — | ⚡ Oracle found 9 additional internal docs |
+| 0.9 | **Fix flaky resourcemonitor tests** (#99) — Remove Sleep, call sample() directly, add focused ticker test | Switch | Small | — | ⚡ Switch specified fix approach |
+| 0.10 | ⚡ **Add pidfile tests** (moved from 5.3a) — 136 lines, zero tests, safety-critical | Switch | Small | — | NEW — moved from Phase 5 |
+
+**Pending Ronnie approval:**
+| 0.11? | ⚡ **Fix serve runID path traversal** (ESC-1) — sanitize runID input, add handler tests | Switch | Small | — | NEW — security fix |
+
+**Phase 0 exit criteria:** All 10 (or 11) tasks merged, CI green and enforced, branch protection enabled.
+
+---
+
+## Risks Identified
+
+| # | Risk | Severity | Source | Mitigation |
+|---|------|----------|--------|------------|
+| R1 | Properties map design cascades to everything — wrong boundary between typed/map fields breaks graders, filters, reports | **Critical** | Neo | D-AUTO-DM2 resolves: metadata-only in map, typed fields retained for non-string data |
+| R2 | GraderResult type is most expensive to fix later — every grader, report, and template depends on it | **Critical** | Neo, Trinity | D-AUTO-DM4/DM5/DM14: typed fields, concrete input, freeze before implementation |
+| R3 | System prompt removal (1.6) before reviewer bug fix (0.2) could mask issues | **High** | Neo | D-AUTO-DM6: phased removal; 0.2 must merge first |
+| R4 | Config migration (0.6) and property migration (1.1b) overlap creates merge conflicts | **High** | Neo | D-AUTO-DM15: these must NOT overlap; 0.6 completes fully before 1.1b begins |
+| R5 | Serve runID path traversal — active security vulnerability | **High** | Switch | ESC-1: escalated to Ronnie for immediate fix |
+| R6 | Phase 2.5 Neo overload — 5 tasks including 2 Large, all on critical path | **High** | Neo | Morpheus delivers 2.5a (interface design) early so Neo isn't blocked; consider splitting 2.5d |
+| R7 | 44 tests need updating in Phase 1 — significantly more than "mostly mechanical" | **Medium** | Switch | Create test helpers and golden file infrastructure at Phase 1 start; track test count delta per PR |
+| R8 | Report schema migration breaks rerender for existing reports | **Medium** | Trinity | D-AUTO-DM11: schema_version field; rerender handles both versions |
+| R9 | html.go grows past 1600 lines in Phase 3 without template extraction | **Medium** | Trinity | D-AUTO-DM12: extract templates before 3.2a |
+| R10 | 1 doc task in 72-task plan creates documentation debt | **Medium** | Oracle | D-AUTO-DM18: 12 distributed doc tasks; feature owner drafts, Oracle polishes |
+| R11 | main.go split (1.5) concurrent with 5 other Phase 1 workstreams — merge conflict factory | **Medium** | Tank | Recommend 1.5 starts first in Phase 1 to minimize conflicts |
+| R12 | `TrendEntry.Score` is `int`, needs `float64` for grader scores | **Low** | Trinity | Classification logic doesn't use Score; transition is isolated |
+
+---
+
+## Cross-Agent Questions Resolved
+
+### Neo's Questions
+
+**Q: Should reviewer system message be configurable in Phase 1 or deferred to Phase 2?**
+→ **Phase 1.** Added as task 1.6d (D-AUTO-DM7). It's part of the same system prompt work.
+
+**Q: After 0.6, do `cfg.EffectiveModel()` calls become `cfg.Generator.Model` directly?**
+→ **Yes.** That's the entire point of 0.6. All ~17 `Effective*()` call sites become direct field access. Tank confirmed.
+
+**Q: Property key naming convention — enforce snake_case?**
+→ **Yes.** D-AUTO-DM13. Validation rejects non-snake_case keys. Migration script normalizes.
+
+**Q: Which 6 of Waza's 12 grader types did we drop, and why?**
+→ **Deferred.** Waza's full grader inventory needs review against hyoka's use cases. The initial set (file, program, prompt, behavior, action_sequence, tool_constraint) covers known requirements. Additional types can be added in later phases. This is not blocking.
+
+**Q: After reviewer bug fix, how to verify existing reports weren't corrupted?**
+→ **Spot-check.** Compare a sample of multi-config run reports: check that each config's review panel used the correct models. If corruption is found, affected reports should be re-generated. No automated migration needed — reports record which models were used.
+
+### Tank's Questions
+
+**Q: Should main.go split be a dependency for 1.2/1.3?**
+→ **No hard dependency.** But recommend starting 1.5 first in Phase 1 to reduce merge conflicts. Other Phase 1 tasks can proceed in the split file structure.
+
+**Q: Should 0.2 wait for 0.6?**
+→ **No.** D-AUTO-DM15. These are independent. 0.2 is a P0 bug; fix immediately.
+
+**Q: Should config_test.go backward-compat tests be kept or deleted after migration?**
+→ **Deleted.** The whole point of big-bang is no backward compat. Tests that verify `Normalize()` and `Effective*()` behavior are deleted alongside that code.
+
+**Q: `newPromptCmd` scaffolds old format — needs update after 1.1?**
+→ **Yes.** D-AUTO-DM20. Added to task 1.1b scope.
+
+**Q: Should `--model` override flag be deprecated in favor of run spec file?**
+→ **Not yet.** Run spec files are still "future" (pending ESC-2). The `--model` flag stays for now.
+
+### Trinity's Questions
+
+**Q: Does each `prompt` grader instance run ONE model or multi-model panel?**
+→ **One model.** D-AUTO-DM19. Multiple `prompt` grader instances for multi-model review. More composable and transparent.
+
+**Q: How to type-assert `GraderResult.Details` in Go templates?**
+→ **Resolved by D-AUTO-DM4.** Typed optional fields replace `interface{}`. Templates check `if .FileDetails` directly — no type assertion needed.
+
+**Q: Is React site the intended Phase 4 dashboard home?**
+→ **Yes.** D-AUTO-DM consensus. Static HTML reports stay Go-templated. Interactive dashboard is React SPA.
+
+**Q: What's the pairwise report output format?**
+→ **Deferred to task 2.1d design.** Likely a comparison matrix (baseline vs each toggle) per grader, with delta scores.
+
+**Q: Are serve path traversal tests comprehensive enough for new API endpoints?**
+→ **No.** Switch identified the current gap (ESC-1). New API endpoints (4.2a) must include traversal tests as part of implementation.
+
+### Switch's Questions
+
+**Q: GraderResult Details testing approach — generics or typed assertion helpers?**
+→ **Typed assertion helpers.** D-AUTO-DM4 uses typed optional fields, so test helpers assert on concrete types: `assertFileDetails(t, result)`, `assertProgramDetails(t, result)`.
+
+**Q: CI branch protection timing — need flaky fix (0.9) before CI?**
+→ **No.** 0.1 and 0.9 can proceed in parallel. If the flaky test fails in CI before 0.9 merges, that's fine — it proves CI is working. 0.9 then fixes it.
+
+**Q: Reuse or rewrite PanelReviewer.ReviewPanel() for prompt grader?**
+→ **Wrap, don't rewrite.** The `prompt` grader (2.5d) wraps the current reviewer behavior. PanelReviewer becomes a multi-instance prompt grader pattern. Full replacement happens when all graders are working.
+
+**Q: engine.go:301 production time.Sleep — intentional or TODO?**
+→ **Needs investigation.** Neo should check this during 0.7 (log discarded errors) as it's the same code area. If it's a rate limiter, it should be documented. If it's a workaround, it should be tracked.
+
+**Q: Should we track test count/coverage delta per PR?**
+→ **Track count, don't enforce minimum.** Add test count to CI output. Don't block PRs on coverage thresholds in Phase 0, but monitor the trend. Target: 260 → 350+ by end of Phase 2.
+
+### Oracle's Questions
+
+No explicit questions raised, but the recommendation for 12 documentation tasks is adopted (D-AUTO-DM18). Oracle should enumerate specific doc tasks during Phase 0 so they're ready when Phase 1 begins.
+
+---
+
+## Unresolved Questions
+
+1. **Waza grader inventory delta** — Neo asked which 6 of Waza's 12 grader types were dropped. Requires investigation of Waza's current grader set. Not blocking for Phase 0-1, needed before Phase 2.5.
+
+2. **Pairwise report output format** — Trinity asked, and the answer depends on 2.1a design. Deferred to Phase 2 design phase.
+
+3. **engine.go:301 `time.Sleep`** — Switch flagged. Needs investigation. May be intentional rate limiting or may be a TODO.
+
+4. **`copilot.ClientOptions` shared by all reviewers** — Neo flagged as "currently safe but fragile." Monitor during 0.2 fix; may need per-task client options if any reviewer-specific options are added later.
+
+5. **Phase 2.5 workload distribution** — Neo has 5 tasks (2 Large) on the critical path. May need to redistribute 2.5e (behavior/action_sequence/tool_constraint graders) if the `file`/`program`/`prompt` graders take longer than estimated.
+
+6. **`generatorSkillsDirs` and `reviewerSkillsDirs` resolution** — Neo noted these are resolved once from `f.prompts`, not per-config. Same architectural flaw as the reviewer bug. Should be addressed in 0.2 or as a follow-up.
+
+7. **Backward compatibility policy** — Oracle flagged the plan lacks a formal backward compat statement. Big-bang migrations for prompts (1.1b) and configs (0.6) are decided, but the report format transition (Phase 2.5g) needs a more nuanced policy. Schema versioning (D-AUTO-DM11) partially addresses this.
+
+---
+
+## Summary of Changes to Evolution Plan
+
+| What | Original | Updated |
+|------|----------|---------|
+| CI spec | `go build/vet/test` | Added `-race`, 2-min timeout |
+| Phase 0 tasks | 9 tasks (0.1–0.9) | 10 tasks (+0.10 pidfile tests), possibly 11 (+serve security fix) |
+| Properties map scope | Replace ALL typed fields | Metadata-only; Tags, Timeout, etc. stay typed |
+| GraderResult.Details | `interface{}` | Typed optional fields per grader kind |
+| GraderInput | Unspecified | Concrete struct |
+| Grader config schema | weight only | Added `gate: bool` for hard pass/fail |
+| System prompt removal | Implicit big-bang | Explicit phased: bias → guidance → path → safety |
+| Phase 1 tasks | 20 tasks | +1 (1.6d reviewer system message), +1 (1.8 review coverage) |
+| Pre-Phase 3 | — | +1 (3.0 template extraction) |
+| prompt grader | Multi-model unclear | One model per instance, compose for multi-model |
+| Documentation | 1 task | 12+ tasks distributed across phases |
+| Test target | Unspecified | 260 → 350+ by Phase 2, 400+ by Phase 5 |
