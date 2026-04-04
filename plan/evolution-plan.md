@@ -7,6 +7,19 @@
 
 ---
 
+## Issue Tracking
+
+**All 72 evolution plan tasks are tracked as GitHub issues #91–#162.**
+
+Phase 0 (Foundation): #91–#99 (9 issues)  
+Phase 1 (Core Model): #100–#119 (20 issues)  
+Phase 2 (Evaluation Engine): #120–#137 (18 issues)  
+Phase 3 (Transparency): #138–#143 (6 issues)  
+Phase 4 (Insights & Comparison): #144–#151 (8 issues)  
+Phase 5 (Ecosystem): #152–#162 (11 issues)  
+
+---
+
 ## Vision
 
 Transform hyoka from an Azure SDK–focused evaluation tool into a **general-purpose AI agent benchmarking platform**. Any team can bring their own prompts, criteria, tools, and system prompts to measure how different tool configurations affect agent code generation quality.
@@ -47,15 +60,15 @@ The core question hyoka answers: **Which tools help agents write better code, an
 
 | Task | Description | Owner | Size | Depends On |
 |------|-------------|-------|------|------------|
-| 0.1 | **Create CI pipeline** — `go build`, `go test`, `go vet` on all PRs and pushes. Add to `.github/workflows/ci.yml`. | Tank | Medium | — |
-| 0.2 | **Fix reviewer model bug** — `main.go:469-473` grabs reviewers from first config only. Each config must use its own reviewer panel. | Neo | Small | — |
-| 0.3 | **Fix stale path in new-prompt** — `main.go:1276` says `go run ./tool/cmd/hyoka validate`, should be `go run ./hyoka validate`. | Tank | Small | — |
-| 0.4 | **Add generator model validation** — Empty `Generator.Model` passes validation but fails at runtime (`config.go:256-287`). | Tank | Small | — |
-| 0.5 | **Detect duplicate config names** — Two configs with the same name silently shadow. Second config becomes inaccessible. | Tank | Small | — |
-| 0.6 | **Big-bang migrate config files** — Migrate all 8 config files to `Generator`/`Reviewer` sub-struct format. Delete all legacy fields, `Normalize()`, and 7 `Effective*()` getters (~130 lines / 35% of config.go). Direct field access replaces `tc.EffectiveModel()` → `tc.Generator.Model`. | Tank | Medium | — |
-| 0.7 | **Log discarded errors** — `reviewer.go:352`, `copilot.go:83`, `main.go:219,263,270,286`, `fetcher.go:68,82,88,120`. | Neo | Small | — |
-| 0.8 | **Fix Go version in docs** — 4 files say Go 1.24.5+, go.mod requires 1.26.1. | Oracle | Small | — |
-| 0.9 | **Fix flaky resourcemonitor tests** — Replace `time.Sleep` assertions with event-driven checks. | Switch | Small | — |
+| 0.1 | **Create CI pipeline** (#91) — `go build`, `go test`, `go vet` on all PRs and pushes. Add to `.github/workflows/ci.yml`. | Tank | Medium | — |
+| 0.2 | **Fix reviewer model bug** (#92) — `main.go:469-473` grabs reviewers from first config only. Each config must use its own reviewer panel. | Neo | Small | — |
+| 0.3 | **Fix stale path in new-prompt** (#93) — `main.go:1276` says `go run ./tool/cmd/hyoka validate`, should be `go run ./hyoka validate`. | Tank | Small | — |
+| 0.4 | **Add generator model validation** (#94) — Empty `Generator.Model` passes validation but fails at runtime (`config.go:256-287`). | Tank | Small | — |
+| 0.5 | **Detect duplicate config names** (#95) — Two configs with the same name silently shadow. Second config becomes inaccessible. | Tank | Small | — |
+| 0.6 | **Big-bang migrate config files** (#96) — Migrate all 8 config files to `Generator`/`Reviewer` sub-struct format. Delete all legacy fields, `Normalize()`, and 7 `Effective*()` getters (~130 lines / 35% of config.go). Direct field access replaces `tc.EffectiveModel()` → `tc.Generator.Model`. | Tank | Medium | — |
+| 0.7 | **Log discarded errors** (#97) — `reviewer.go:352`, `copilot.go:83`, `main.go:219,263,270,286`, `fetcher.go:68,82,88,120`. | Neo | Small | — |
+| 0.8 | **Fix Go version in docs** (#98) — 4 files say Go 1.24.5+, go.mod requires 1.26.1. | Oracle | Small | — |
+| 0.9 | **Fix flaky resourcemonitor tests** (#99) — Replace `time.Sleep` assertions with event-driven checks. | Switch | Small | — |
 
 ---
 
@@ -89,9 +102,9 @@ properties:
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 1.1a | Redesign `Prompt` struct: replace typed fields with `Properties map[string]string`. Add convenience getter methods (`Language()`, `Service()`, etc.). Update parser for nested `properties:` key. | Neo | Medium |
-| 1.1b | Write migration script to convert all 87 prompts from flat typed fields to nested `properties:` format. | Tank | Medium |
-| 1.1c | Update all filter flags (`--service`, `--language`, `--plane`, `--category`) to query properties map. Redesign `Filter` struct as `map[string]string`. Support generic `--filter key=value` alongside legacy aliases. | Tank | Medium |
+| 1.1a | Redesign `Prompt` struct: replace typed fields with `Properties map[string]string`. Add convenience getter methods (`Language()`, `Service()`, etc.). Update parser for nested `properties:` key. (#100) | Neo | Medium |
+| 1.1b | Write migration script to convert all 87 prompts from flat typed fields to nested `properties:` format. (#101) | Tank | Medium |
+| 1.1c | Update all filter flags (`--service`, `--language`, `--plane`, `--category`) to query properties map. Redesign `Filter` struct as `map[string]string`. Support generic `--filter key=value` alongside legacy aliases. (#102) | Tank | Medium |
 
 ### 1.2 — Criteria → Grader Configs
 
@@ -138,9 +151,9 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 1.2a | Design grader config YAML schema (`kind:`, `name:`, `config:`, `when:`, `weight:`). Define initial grader types: `file`, `program`, `prompt`, `behavior`, `action_sequence`, `tool_constraint`. | Morpheus | Medium |
-| 1.2b | Replace `MatchCondition` with `when: map[string]string` property matching on grader configs. Delete `MergeCriteria()` and `FormatCriteria()`. | Neo | Medium |
-| 1.2c | Migrate existing criteria YAML files to grader config format. Remove Tier 1 system. | Tank | Medium |
+| 1.2a | Design grader config YAML schema (`kind:`, `name:`, `config:`, `when:`, `weight:`). Define initial grader types: `file`, `program`, `prompt`, `behavior`, `action_sequence`, `tool_constraint`. (#103) | Morpheus | Medium |
+| 1.2b | Replace `MatchCondition` with `when: map[string]string` property matching on grader configs. Delete `MergeCriteria()` and `FormatCriteria()`. (#104) | Neo | Medium |
+| 1.2c | Migrate existing criteria YAML files to grader config format. Remove Tier 1 system. (#105) | Tank | Medium |
 
 ### 1.3 — Tool Filters (Property-Based)
 
@@ -152,9 +165,9 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 1.3a | Design tool filter schema that references prompt properties. | Morpheus | Small |
-| 1.3b | Implement property-based tool filter resolution in config loading. | Tank | Medium |
-| 1.3c | Wire tool filters into session config builder (`copilot.go:617-693`). | Neo | Medium |
+| 1.3a | Design tool filter schema that references prompt properties. (#106) | Morpheus | Small |
+| 1.3b | Implement property-based tool filter resolution in config loading. (#107) | Tank | Medium |
+| 1.3c | Wire tool filters into session config builder (`copilot.go:617-693`). (#108) | Neo | Medium |
 
 ### 1.4 — YAML Prompt Format
 
@@ -166,8 +179,8 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 1.4a | Add `ParsePromptYAML()` function alongside existing Markdown parser. | Neo | Medium |
-| 1.4b | Update prompt loader to auto-detect format by file extension (`.prompt.md` vs `.prompt.yaml`). | Neo | Small |
+| 1.4a | Add `ParsePromptYAML()` function alongside existing Markdown parser. (#109) | Neo | Medium |
+| 1.4b | Update prompt loader to auto-detect format by file extension (`.prompt.md` vs `.prompt.yaml`). (#110) | Neo | Small |
 
 ### 1.5 — Split main.go
 
@@ -179,9 +192,9 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 1.5a | Create `hyoka/cmd/` package structure with root command and shared state. | Tank | Large |
-| 1.5b | Move each command to its own file with RunE function. | Tank | Large |
-| 1.5c | Update main.go to be a thin entry point that registers commands from cmd/. | Tank | Small |
+| 1.5a | Create `hyoka/cmd/` package structure with root command and shared state. (#111) | Tank | Large |
+| 1.5b | Move each command to its own file with RunE function. (#112) | Tank | Large |
+| 1.5c | Update main.go to be a thin entry point that registers commands from cmd/. (#113) | Tank | Small |
 
 ### 1.6 — Configurable System Prompts
 
@@ -198,9 +211,9 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 1.6a | Add `system_prompt` field to both generator and reviewer config sections. | Tank | Small |
-| 1.6b | Modify `buildSessionConfig()` to use config system prompt (or empty if not set) instead of hardcoded rules. | Neo | Medium |
-| 1.6c | Remove the 15 hardcoded rules. Move any truly operational rules (file path enforcement) to SDK hooks or pre/post validation. | Neo | Medium |
+| 1.6a | Add `system_prompt` field to both generator and reviewer config sections. (#114) | Tank | Small |
+| 1.6b | Modify `buildSessionConfig()` to use config system prompt (or empty if not set) instead of hardcoded rules. (#115) | Neo | Medium |
+| 1.6c | Remove the 15 hardcoded rules. Move any truly operational rules (file path enforcement) to SDK hooks or pre/post validation. (#116) | Neo | Medium |
 
 ### 1.7 — Starter Files
 
@@ -214,9 +227,9 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 1.7a | Design starter file reference format in prompt frontmatter (directory path or file list). | Morpheus | Small |
-| 1.7b | Implement file copying into workspace before session creation. Fix silent error handling at `copilot.go:83`. | Neo | Medium |
-| 1.7c | Add starter file validation to prompt validation pipeline. | Switch | Small |
+| 1.7a | Design starter file reference format in prompt frontmatter (directory path or file list). (#117) | Morpheus | Small |
+| 1.7b | Implement file copying into workspace before session creation. Fix silent error handling at `copilot.go:83`. (#118) | Neo | Medium |
+| 1.7c | Add starter file validation to prompt validation pipeline. (#119) | Switch | Small |
 
 ---
 
@@ -235,10 +248,10 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 2.1a | Create `pairwise/` package that generates N+1 config variants from a base config (one per tool toggle + baseline). | Neo | Large |
-| 2.1b | Add `--pairwise` flag to run command. Wire into eval engine to expand configs before execution. | Tank | Medium |
-| 2.1c | Add `always_on` field to tool config. Exempt marked tools from pairwise toggling. | Tank | Small |
-| 2.1d | Generate pairwise comparison report showing per-tool impact scores. | Trinity | Medium |
+| 2.1a | Create `pairwise/` package that generates N+1 config variants from a base config (one per tool toggle + baseline). (#120) | Neo | Large |
+| 2.1b | Add `--pairwise` flag to run command. Wire into eval engine to expand configs before execution. (#121) | Tank | Medium |
+| 2.1c | Add `always_on` field to tool config. Exempt marked tools from pairwise toggling. (#122) | Tank | Small |
+| 2.1d | Generate pairwise comparison report showing per-tool impact scores. (#123) | Trinity | Medium |
 
 ### 2.2 — User-Configurable Session Limits
 
@@ -250,8 +263,8 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 2.2a | Add session limit fields to config schema (max_turns, max_files, max_output_size, max_session_actions). | Tank | Small |
-| 2.2b | Wire config limits into eval engine guardrail checks. | Neo | Medium |
+| 2.2a | Add session limit fields to config schema (max_turns, max_files, max_output_size, max_session_actions). (#124) | Tank | Small |
+| 2.2b | Wire config limits into eval engine guardrail checks. (#125) | Neo | Medium |
 
 ### 2.3 — Isolated Evaluation Environment
 
@@ -263,9 +276,9 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 2.3a | Create isolated workspace directory per session with clean environment. | Neo | Medium |
-| 2.3b | Copy only declared starter files and config-specified resources into workspace. | Neo | Small |
-| 2.3c | Clean up workspace after session completes (integrate with existing clean command). | Neo | Small |
+| 2.3a | Create isolated workspace directory per session with clean environment. (#126) | Neo | Medium |
+| 2.3b | Copy only declared starter files and config-specified resources into workspace. (#127) | Neo | Small |
+| 2.3c | Clean up workspace after session completes (integrate with existing clean command). (#128) | Neo | Small |
 
 ### 2.4 — Resource Efficiency
 
@@ -277,8 +290,8 @@ Grader applicability uses property-based `when:` conditions instead of `MatchCon
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 2.4a | Audit goroutine lifecycle across eval/review pipeline. Ensure all goroutines terminate on context cancellation. | Neo | Medium |
-| 2.4b | Add memory bounds for in-flight report data. Stream large reports to disk. | Trinity | Medium |
+| 2.4a | Audit goroutine lifecycle across eval/review pipeline. Ensure all goroutines terminate on context cancellation. (#129) | Neo | Medium |
+| 2.4b | Add memory bounds for in-flight report data. Stream large reports to disk. (#130) | Trinity | Medium |
 
 ### 2.5 — Grader Architecture
 
@@ -325,13 +338,13 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 2.5a | Define `Grader` interface and `GraderResult` type in `hyoka/internal/graders/`. | Morpheus | Medium |
-| 2.5b | Implement `file` grader (file existence, content pattern checks). | Neo | Medium |
-| 2.5c | Implement `program` grader (run command, pass/fail on exit code, capture output). | Neo | Medium |
-| 2.5d | Implement `prompt` grader (wrap current LLM reviewer as a grader — one rubric per grader instance, structured output). | Neo | Large |
-| 2.5e | Implement `behavior`, `action_sequence`, and `tool_constraint` graders. | Neo | Medium |
-| 2.5f | Wire grader execution into eval engine — collect applicable graders, run all, aggregate results. | Neo | Large |
-| 2.5g | Update report types — `EvalReport` centers on `[]GraderResult` instead of monolithic `ReviewResult`. | Trinity | Medium |
+| 2.5a | Define `Grader` interface and `GraderResult` type in `hyoka/internal/graders/`. (#131) | Morpheus | Medium |
+| 2.5b | Implement `file` grader (file existence, content pattern checks). (#132) | Neo | Medium |
+| 2.5c | Implement `program` grader (run command, pass/fail on exit code, capture output). (#133) | Neo | Medium |
+| 2.5d | Implement `prompt` grader (wrap current LLM reviewer as a grader — one rubric per grader instance, structured output). (#134) | Neo | Large |
+| 2.5e | Implement `behavior`, `action_sequence`, and `tool_constraint` graders. (#135) | Neo | Medium |
+| 2.5f | Wire grader execution into eval engine — collect applicable graders, run all, aggregate results. (#136) | Neo | Large |
+| 2.5g | Update report types — `EvalReport` centers on `[]GraderResult` instead of monolithic `ReviewResult`. (#137) | Trinity | Medium |
 
 ---
 
@@ -352,10 +365,10 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 3.1a | Define action event schema (timestamp, type, tool, input, output, duration). | Morpheus | Small |
-| 3.1b | Capture all agent events from SDK session hooks into structured action log. | Neo | Medium |
-| 3.1c | Include full action timeline in JSON report output. | Trinity | Medium |
-| 3.1d | Render action timeline in HTML reports (expandable, searchable). | Trinity | Large |
+| 3.1a | Define action event schema (timestamp, type, tool, input, output, duration). (#138) | Morpheus | Small |
+| 3.1b | Capture all agent events from SDK session hooks into structured action log. (#139) | Neo | Medium |
+| 3.1c | Include full action timeline in JSON report output. (#140) | Trinity | Medium |
+| 3.1d | Render action timeline in HTML reports (expandable, searchable). (#141) | Trinity | Large |
 
 ### 3.2 — Grader Result Transparency
 
@@ -372,8 +385,8 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 3.2a | Render per-grader results in HTML reports — each grader type gets a typed display component (build output for `program`, LLM reasoning for `prompt`, check results for `file`). | Trinity | Large |
-| 3.2b | Show weighted score aggregation formula and per-grader contributions in report. | Trinity | Small |
+| 3.2a | Render per-grader results in HTML reports — each grader type gets a typed display component (build output for `program`, LLM reasoning for `prompt`, check results for `file`). (#142) | Trinity | Large |
+| 3.2b | Show weighted score aggregation formula and per-grader contributions in report. (#143) | Trinity | Small |
 
 ---
 
@@ -394,9 +407,9 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 4.1a | Create `comparison/` package with config-vs-config, run-vs-run, and temporal diff logic. | Neo | Large |
-| 4.1b | Add `hyoka compare` command for CLI-based comparison. | Tank | Medium |
-| 4.1c | Expose comparison data via serve API for the dashboard. | Trinity | Medium |
+| 4.1a | Create `comparison/` package with config-vs-config, run-vs-run, and temporal diff logic. (#144) | Neo | Large |
+| 4.1b | Add `hyoka compare` command for CLI-based comparison. (#145) | Tank | Medium |
+| 4.1c | Expose comparison data via serve API for the dashboard. (#146) | Trinity | Medium |
 
 ### 4.2 — Serve Site Evolution
 
@@ -413,9 +426,9 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 4.2a | Design dashboard API endpoints for comparison, trends, and drill-down. | Trinity | Medium |
-| 4.2b | Implement dynamic comparison UI with filter controls. | Trinity | Large |
-| 4.2c | Add pairwise impact visualization (tool heatmap, contribution charts). | Trinity | Large |
+| 4.2a | Design dashboard API endpoints for comparison, trends, and drill-down. (#147) | Trinity | Medium |
+| 4.2b | Implement dynamic comparison UI with filter controls. (#148) | Trinity | Large |
+| 4.2c | Add pairwise impact visualization (tool heatmap, contribution charts). (#149) | Trinity | Large |
 
 ### 4.3 — Enhanced Trends
 
@@ -427,8 +440,8 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 4.3a | Add property-based trend slicing (trend by language, by service, by tool config). | Neo | Medium |
-| 4.3b | Add automatic regression detection with configurable thresholds. | Neo | Medium |
+| 4.3a | Add property-based trend slicing (trend by language, by service, by tool config). (#150) | Neo | Medium |
+| 4.3b | Add automatic regression detection with configurable thresholds. (#151) | Neo | Medium |
 
 ---
 
@@ -457,9 +470,9 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 5.1a | Add `hyoka init` command that scaffolds `.hyoka/` directory with subdirs and gitignore. | Tank | Medium |
-| 5.1b | Auto-discover `.hyoka/` in current directory and ancestors. Merge with CLI flags. | Tank | Medium |
-| 5.1c | Update all path resolution to check `.hyoka/` first, then fall back to repo root paths. | Tank | Medium |
+| 5.1a | Add `hyoka init` command that scaffolds `.hyoka/` directory with subdirs and gitignore. (#152) | Tank | Medium |
+| 5.1b | Auto-discover `.hyoka/` in current directory and ancestors. Merge with CLI flags. (#153) | Tank | Medium |
+| 5.1c | Update all path resolution to check `.hyoka/` first, then fall back to repo root paths. (#154) | Tank | Medium |
 
 ### 5.2 — Tool Marketplace / Repos
 
@@ -469,9 +482,9 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 5.2a | Design tool registry format (YAML catalog of MCP server configs, skills). | Morpheus | Medium |
-| 5.2b | Implement `hyoka tools list` and `hyoka tools add` commands. | Tank | Medium |
-| 5.2c | Support remote tool registries (GitHub repos as tool catalogs). | Neo | Medium |
+| 5.2a | Design tool registry format (YAML catalog of MCP server configs, skills). (#155) | Morpheus | Medium |
+| 5.2b | Implement `hyoka tools list` and `hyoka tools add` commands. (#156) | Tank | Medium |
+| 5.2c | Support remote tool registries (GitHub repos as tool catalogs). (#157) | Neo | Medium |
 
 ### 5.3 — Test Infrastructure
 
@@ -479,10 +492,10 @@ type GraderResult struct {
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 5.3a | Add pidfile tests (zero tests today, only untested package). | Switch | Medium |
-| 5.3b | Add stub-based integration test (StubEvaluator + StubReviewer → engine.Run() → verify report). | Switch | Medium |
-| 5.3c | Increase review package coverage (5 tests for 732 lines currently). | Switch | Medium |
-| 5.3d | Add serve handler tests (path traversal for `runID`, functional endpoint tests). | Switch | Medium |
+| 5.3a | Add pidfile tests (zero tests today, only untested package). (#158) | Switch | Medium |
+| 5.3b | Add stub-based integration test (StubEvaluator + StubReviewer → engine.Run() → verify report). (#159) | Switch | Medium |
+| 5.3c | Increase review package coverage (5 tests for 732 lines currently). (#160) | Switch | Medium |
+| 5.3d | Add serve handler tests (path traversal for `runID`, functional endpoint tests). (#161) | Switch | Medium |
 
 ### 5.4 — Skills
 
@@ -493,6 +506,8 @@ type GraderResult struct {
 - Working Patterns (4): testing-patterns, cli-patterns, report-generation, logging-conventions
 - Human Developer (2): contributor-guide, prompt-conventions
 - Evolution Support (3): property-migration, process-lifecycle, serve-patterns
+
+**Task:** (#162) Implement all 14 skills
 
 ---
 
