@@ -428,8 +428,7 @@ func runCmd() *cobra.Command {
 
 			// Select evaluator and reviewer
 			var evaluator eval.CopilotEvaluator
-			var reviewer review.Reviewer
-			var panelReviewer *review.PanelReviewer
+			var reviewerFactory eval.ReviewerFactory
 
 			// Parse session-timeout flag early — needed for reviewer setup.
 			sessionTimeout, err := time.ParseDuration(f.sessionTimeout)
@@ -441,7 +440,6 @@ func runCmd() *cobra.Command {
 				slog.Info("Using stub evaluator", "reason", "--stub flag")
 				fmt.Println("Using stub evaluator (--stub flag)")
 				evaluator = &eval.StubEvaluator{}
-				reviewer = &review.StubReviewer{}
 			} else {
 				// Try to create a real Copilot SDK evaluator
 				sdkEval := eval.NewCopilotSDKEvaluator(eval.CopilotEvalOptions{
@@ -459,7 +457,6 @@ func runCmd() *cobra.Command {
 					slog.Warn("Copilot SDK unavailable, falling back to stub", "error", err)
 					fmt.Printf("⚠️  Copilot SDK unavailable (%v), falling back to stub evaluator\n", err)
 					evaluator = &eval.StubEvaluator{}
-					reviewer = &review.StubReviewer{}
 				} else {
 					defer client.Stop() // #65: ensure cleanup on any exit path
 					slog.Info("Using Copilot SDK evaluator")
@@ -475,43 +472,36 @@ func runCmd() *cobra.Command {
 					// Wire skills directories separately for generator and reviewer
 					generatorSkillsDirs, reviewerSkillsDirs := resolveSkillsDirs(f.prompts)
 
-					// Create reviewer(s) — use panel if reviewer_models list configured
-					var reviewerModels []string
-					for _, c := range configs {
-						if models := c.EffectiveReviewerModels(); len(models) > 0 {
-							reviewerModels = models
-							break
+					// Create reviewer factory that builds a reviewer per config (#92)
+					reviewerFactory = func(cfg *config.ToolConfig) (review.Reviewer, *review.PanelReviewer, error) {
+						reviewerModels := cfg.EffectiveReviewerModels()
+						if len(reviewerModels) == 0 {
+							return nil, nil, nil
 						}
-					}
 
-					if len(reviewerModels) > 1 {
-						// Multi-model panel
-						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
-						panelReviewer.SetSessionTimeout(sessionTimeout)
-						if len(reviewerSkillsDirs) > 0 {
-							panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
+						if len(reviewerModels) > 1 {
+							// Multi-model panel
+							panelReviewer := review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
+							panelReviewer.SetSessionTimeout(sessionTimeout)
+							if len(reviewerSkillsDirs) > 0 {
+								panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
+							}
+							slog.Debug("Created review panel for config", "config", cfg.Name, "models", reviewerModels)
+							return nil, panelReviewer, nil
 						}
-						fmt.Printf("Using review panel: %v\n", reviewerModels)
-						slog.Info("Review panel configured", "models", reviewerModels)
-					} else {
-						// Single reviewer (backward compat)
+
+						// Single reviewer
 						reviewClient := copilot.NewClient(clientOpts)
 						if err := reviewClient.Start(context.Background()); err != nil {
-							slog.Warn("Could not start reviewer client, reviews will be skipped", "error", err)
-							fmt.Printf("⚠️  Could not start reviewer client: %v, reviews will be skipped\n", err)
-						} else {
-							reviewerModel := f.model
-							if len(reviewerModels) == 1 {
-								reviewerModel = reviewerModels[0]
-							}
-							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions)
-							copilotReviewer.SetSessionTimeout(sessionTimeout)
-							if len(reviewerSkillsDirs) > 0 {
-								copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
-							}
-							reviewer = copilotReviewer
-							defer reviewClient.Stop()
+							return nil, nil, fmt.Errorf("could not start reviewer client: %w", err)
 						}
+						copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModels[0], f.maxSessionActions)
+						copilotReviewer.SetSessionTimeout(sessionTimeout)
+						if len(reviewerSkillsDirs) > 0 {
+							copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
+						}
+						slog.Debug("Created single reviewer for config", "config", cfg.Name, "model", reviewerModels[0])
+						return copilotReviewer, nil, nil
 					}
 
 					// Override generator config's skill directories with generator-specific ones
@@ -520,7 +510,7 @@ func runCmd() *cobra.Command {
 			}
 
 			if f.skipReview {
-				reviewer = nil
+				reviewerFactory = nil
 			}
 
 			// Parse max-output-size flag (#35)
@@ -541,7 +531,7 @@ func runCmd() *cobra.Command {
 				}
 			}
 
-			engine := eval.NewEngineWithReviewer(evaluator, reviewer, eval.EngineOptions{
+			engine := eval.NewEngineWithReviewerFactory(evaluator, reviewerFactory, eval.EngineOptions{
 				Workers:           f.workers,
 				MaxSessions:       f.maxSessions,
 				OutputDir:         f.output,
@@ -560,9 +550,6 @@ func runCmd() *cobra.Command {
 				ExcludeDirs:       excludeDirs,
 				SessionTimeout:    sessionTimeout,
 			})
-			if panelReviewer != nil && !f.skipReview {
-				engine.SetPanelReviewer(panelReviewer)
-			}
 
 			summary, err := engine.Run(context.Background(), filtered, configs)
 			if err != nil {

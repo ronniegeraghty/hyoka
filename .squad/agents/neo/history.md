@@ -19,6 +19,33 @@ Agent Neo initialized as Core Dev for hyoka. Owns the evaluation engine, review 
 
 ## Learnings
 
+### Issue #92: Per-Task Reviewer Panel Creation (2025-01-19)
+**Branch:** `ronniegeraghty/issue-92-reviewer-model-bug`  
+**PR:** [#170](https://github.com/ronniegeraghty/hyoka/pull/170)  
+**Status:** ✅ Complete
+
+Fixed critical bug where multi-config evaluations reused the reviewer panel from the FIRST config for ALL configs, causing every evaluation to use incorrect reviewer models.
+
+**Implementation:**
+- Introduced `ReviewerFactory` function type that creates reviewers per-config
+- Replaced `Engine.reviewer/panelReviewer` fields with `reviewerFactory` field
+- Moved reviewer creation from main.go into `runSingleEval()` using `task.Config`
+- Each config now gets its own reviewer panel with correct models
+- Added `NewEngineWithReviewerFactory()` constructor
+- Maintained backward compatibility with deprecated `NewEngineWithReviewer()`
+
+**Testing:**
+- Created `reviewer_factory_test.go` with 3 tests verifying correct behavior
+- All existing tests pass
+- Build and vet clean
+
+**Learnings:**
+1. **Reviewer Factory Pattern**: When multiple configs need different reviewer settings, create reviewers lazily per-task rather than once at engine creation. Use a factory function that closes over shared resources (clientOpts) but creates instances based on task.Config.
+
+2. **Backward Compatibility**: When refactoring constructors, wrap deprecated APIs to call new implementation. Preserves existing call sites while enabling new patterns.
+
+3. **Testing Concurrent Tasks**: Don't assert on execution order. Use maps to track outcomes by task ID when testing engines with concurrent workers.
+
 Initial setup complete. Architecture is sound. Main engineering focus should be: (1) fix reviewer model bug, (2) refactor main.go into cmd/ package, (3) add integration tests.
 
 ### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
