@@ -33,6 +33,44 @@
 
 **Why:** User request — skills improve agent effectiveness and developer onboarding. Captured as Phase 5 research task in the evolution plan.
 
+#### 2026-04-04T00:28:37Z: User directive — skill philosophy
+
+**What:** Project-specific skills should be advisory, not prescriptive. They should NOT say "the core eval process should always work like this" because the project is evolving and we may want to change things. Instead, consider a skill that captures core principles and warns when work goes against them — a guardrail, not a cage.
+
+**Why:** User request — the project is in active evolution (hardening + product vision). Rigid skills would block progress.
+
+#### 2026-04-04T00:46:08Z: Ronnie's answers to evolution plan open questions
+
+**By:** Ronnie Geraghty (via Copilot)
+
+**Q1 — Tier 1 Criteria:** Option A. Remove entirely. Prompts/configs must supply their own criteria.
+
+**Q2 — System Prompt:** Super minimal. Only isolation-related rules. Hardcoded guardrails (in code) are better than system prompt guardrails. If isolation can be achieved through SDK session config alone, don't put it in the system prompt at all. Make agent configs very transparent — keep them in a config file that gets loaded in.
+
+**Q3 — Pairwise Testing:** `--pairwise` / `-pw` flag on the `run` command. When passed, it expands one config into the full set of pairwise eval variants. In the config YAML, tools should have an option to mark "not part of pairwise testing, always on" — so some tools are exempt from toggling.
+
+**Q4 — Property Migration:** Big-bang. Update all prompts to the new format. No backward compatibility for old fields.
+
+**Q5 — .hyoka Directory:** `.hyoka` only, project-scoped. Structured like a `.agents` dir with specific subdirs: `configs/`, `prompts/`, `criteria/`, etc. No global install mode.
+
+**Q6 — Response Type:** This is something to specify in a config-specific system prompt. Look at microsoft/waza for how they handle agent eval system prompts. For text responses, need to think about how they get passed to review agents.
+
+**NEW REQUIREMENT — Starter Files:** Core feature: ability to start the agent attempting the prompt in an environment with files already existing. Example: "I get an error when I try to build my code, can you fix it" — and we give the agent the failing code. This means prompts need a way to reference starter files that get placed in the agent's working directory before the session begins.
+
+**Why:** User decisions on evolution plan open questions — these are binding direction for Phase 1+ implementation.
+
+#### 2026-04-04T00:49:46Z: User directive — zero system prompt for agent sessions
+
+**What:** Follow Waza's approach: zero system prompt for agent evaluation sessions. All configuration (working directory, tools, isolation) handled through SDK SessionConfig, not prompt injection. Config-specific custom system prompts remain an option in config YAML for users who want them, but the default is empty.
+
+**Why:** User decision — system prompt biases agent behavior. The whole point of hyoka is measuring what agents do naturally with different tools. Injecting 15 rules defeats that purpose. Waza proves it works with zero system prompt.
+
+#### 2026-04-04T00:52:00Z: User directive — plan directory for evolution docs
+
+**What:** Create a `plan/` directory for documents related to the decisions and choices made during this hardening/evolution session. Existing `docs/` is documentation on how the tool currently works and should stay as-is. The plan dir captures the forward-looking vision, decisions, principles, and requirements.
+
+**Why:** Separation of concerns — `docs/` = current state, `plan/` = future state. The evolution plan, core principles, PRD, and engineering standards belong in plan/ since they describe what hyoka is becoming, not what it is today.
+
 ---
 
 ### Decision: Recommended Skills for hyoka (2026-04-04)
