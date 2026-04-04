@@ -81,17 +81,23 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	// Copy starter project if configured
 	var starterFiles []string
 	if p.StarterProject != "" {
-		starterDir := p.StarterProject
-		if !filepath.IsAbs(starterDir) && p.FilePath != "" {
-			starterDir = filepath.Join(filepath.Dir(p.FilePath), starterDir)
+		starterDir := resolveStarterDir(p)
+		info, err := os.Stat(starterDir)
+		if err != nil {
+			return nil, fmt.Errorf("starter project %q: %w", p.StarterProject, err)
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf("starter project %q is not a directory", p.StarterProject)
 		}
 		if err := copyDir(starterDir, workDir); err != nil {
 			return nil, fmt.Errorf("copying starter project: %w", err)
 		}
-		var listErr error
-		starterFiles, listErr = listFiles(workDir)
-		if listErr != nil {
-			slog.Warn("Failed to list starter files", "dir", workDir, "error", listErr)
+		starterFiles, err = listFiles(workDir)
+		if err != nil {
+			return nil, fmt.Errorf("listing starter files: %w", err)
+		}
+		if len(starterFiles) == 0 {
+			slog.Warn("Starter project directory contains no files", "dir", starterDir)
 		}
 	}
 
@@ -846,4 +852,15 @@ func toolArgSummary(event copilot.SessionEvent) string {
 		}
 	}
 	return ""
+}
+
+
+// resolveStarterDir returns the absolute path to a prompt's starter project directory.
+// If StarterProject is relative, it is resolved relative to the prompt file's directory.
+func resolveStarterDir(p *prompt.Prompt) string {
+	dir := p.StarterProject
+	if !filepath.IsAbs(dir) && p.FilePath != "" {
+		dir = filepath.Join(filepath.Dir(p.FilePath), dir)
+	}
+	return dir
 }

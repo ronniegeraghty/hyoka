@@ -269,3 +269,121 @@ if err == nil {
 t.Fatal("expected error for nonexistent directory")
 }
 }
+
+func TestValidateStarterProjectMissing(t *testing.T) {
+dir := t.TempDir()
+content := "---\nid: storage-dp-dotnet-starter\nservice: storage\nplane: data-plane\nlanguage: dotnet\ncategory: crud\ndifficulty: basic\ndescription: \"Test starter\"\ncreated: \"2024-01-15\"\nauthor: test\nstarter_project: ./nonexistent-starter/\n---\n\n# Starter Test\n\n## Prompt\n\nWrite code.\n"
+writePromptFile(t, dir, "starter.prompt.md", content)
+
+result, err := Validate(dir)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if result.OK() {
+t.Fatal("expected validation errors for missing starter_project")
+}
+found := false
+for _, e := range result.Errors {
+if strings.Contains(e.Message, "starter_project") && strings.Contains(e.Message, "does not exist") {
+found = true
+}
+}
+if !found {
+t.Errorf("expected starter_project does not exist error, got: %v", result.Errors)
+}
+}
+
+func TestValidateStarterProjectNotADir(t *testing.T) {
+dir := t.TempDir()
+os.WriteFile(filepath.Join(dir, "starter"), []byte("not a directory"), 0644)
+
+content := "---\nid: storage-dp-dotnet-starter\nservice: storage\nplane: data-plane\nlanguage: dotnet\ncategory: crud\ndifficulty: basic\ndescription: \"Test starter\"\ncreated: \"2024-01-15\"\nauthor: test\nstarter_project: ./starter\n---\n\n# Starter Test\n\n## Prompt\n\nWrite code.\n"
+writePromptFile(t, dir, "starter.prompt.md", content)
+
+result, err := Validate(dir)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if result.OK() {
+t.Fatal("expected validation errors for file-not-dir starter_project")
+}
+found := false
+for _, e := range result.Errors {
+if strings.Contains(e.Message, "starter_project") && strings.Contains(e.Message, "not a directory") {
+found = true
+}
+}
+if !found {
+t.Errorf("expected not a directory error, got: %v", result.Errors)
+}
+}
+
+func TestValidateStarterProjectEmpty(t *testing.T) {
+dir := t.TempDir()
+os.MkdirAll(filepath.Join(dir, "starter"), 0755)
+
+content := "---\nid: storage-dp-dotnet-starter\nservice: storage\nplane: data-plane\nlanguage: dotnet\ncategory: crud\ndifficulty: basic\ndescription: \"Test starter\"\ncreated: \"2024-01-15\"\nauthor: test\nstarter_project: ./starter\n---\n\n# Starter Test\n\n## Prompt\n\nWrite code.\n"
+writePromptFile(t, dir, "starter.prompt.md", content)
+
+result, err := Validate(dir)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if result.OK() {
+t.Fatal("expected validation errors for empty starter_project")
+}
+found := false
+for _, e := range result.Errors {
+if strings.Contains(e.Message, "starter_project") && strings.Contains(e.Message, "empty") {
+found = true
+}
+}
+if !found {
+t.Errorf("expected directory is empty error, got: %v", result.Errors)
+}
+}
+
+func TestValidateStarterProjectValid(t *testing.T) {
+dir := t.TempDir()
+starterDir := filepath.Join(dir, "starter")
+os.MkdirAll(starterDir, 0755)
+os.WriteFile(filepath.Join(starterDir, "main.py"), []byte("# starter"), 0644)
+
+content := "---\nid: storage-dp-dotnet-starter\nservice: storage\nplane: data-plane\nlanguage: dotnet\ncategory: crud\ndifficulty: basic\ndescription: \"Test starter\"\ncreated: \"2024-01-15\"\nauthor: test\nstarter_project: ./starter\n---\n\n# Starter Test\n\n## Prompt\n\nWrite code.\n"
+writePromptFile(t, dir, "starter.prompt.md", content)
+
+result, err := Validate(dir)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if !result.OK() {
+t.Errorf("expected validation to pass, got errors: %v", result.Errors)
+}
+}
+
+func TestValidateStarterProjectOnlyHiddenFiles(t *testing.T) {
+dir := t.TempDir()
+starterDir := filepath.Join(dir, "starter")
+os.MkdirAll(starterDir, 0755)
+os.WriteFile(filepath.Join(starterDir, ".gitkeep"), []byte(""), 0644)
+
+content := "---\nid: storage-dp-dotnet-starter\nservice: storage\nplane: data-plane\nlanguage: dotnet\ncategory: crud\ndifficulty: basic\ndescription: \"Test starter\"\ncreated: \"2024-01-15\"\nauthor: test\nstarter_project: ./starter\n---\n\n# Starter Test\n\n## Prompt\n\nWrite code.\n"
+writePromptFile(t, dir, "starter.prompt.md", content)
+
+result, err := Validate(dir)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+if result.OK() {
+t.Fatal("expected validation errors for hidden-only starter dir")
+}
+found := false
+for _, e := range result.Errors {
+if strings.Contains(e.Message, "starter_project") && strings.Contains(e.Message, "empty") {
+found = true
+}
+}
+if !found {
+t.Errorf("expected directory is empty error, got: %v", result.Errors)
+}
+}
