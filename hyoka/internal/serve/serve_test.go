@@ -206,6 +206,32 @@ func TestAPIEvalTraversalBlocked(t *testing.T) {
 	}
 }
 
+func TestAPIRunIDTraversalBlocked(t *testing.T) {
+	dir := setupTestReports(t)
+	mux := buildMux(Options{ReportsDir: dir})
+
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"dotdot in runID", "/api/runs/../../etc/passwd"},
+		{"dotdot runID with eval", "/api/runs/../../../etc/eval?path=report.json"},
+		{"dotdot runID summary", "/api/runs/.."},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tc.path, nil)
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code == http.StatusOK {
+				t.Errorf("expected non-200 for traversal path %q, got %d", tc.path, rec.Code)
+			}
+		})
+	}
+}
+
 func TestAPIDocsEndpoint(t *testing.T) {
 	docsDir := setupTestDocs(t)
 	mux := buildMux(Options{ReportsDir: t.TempDir(), DocsDir: docsDir})

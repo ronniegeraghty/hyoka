@@ -170,6 +170,12 @@ func handleAPIRunDetail(w http.ResponseWriter, r *http.Request, reportsDir strin
 	parts := strings.SplitN(rest, "/", 2)
 	runID := parts[0]
 
+	// Prevent directory traversal via runID
+	if strings.Contains(runID, "..") || strings.Contains(runID, "/") || strings.Contains(runID, string(filepath.Separator)) {
+		http.Error(w, "invalid run ID", http.StatusBadRequest)
+		return
+	}
+
 	// /api/runs/{runId}/eval?path=...
 	if len(parts) == 2 && parts[1] == "eval" {
 		handleAPIEval(w, r, reportsDir, runID)
