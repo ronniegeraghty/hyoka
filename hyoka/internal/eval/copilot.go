@@ -88,7 +88,11 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		if err := copyDir(starterDir, workDir); err != nil {
 			return nil, fmt.Errorf("copying starter project: %w", err)
 		}
-		starterFiles, _ = listFiles(workDir)
+		var listErr error
+		starterFiles, listErr = listFiles(workDir)
+		if listErr != nil {
+			slog.Warn("Failed to list starter files", "dir", workDir, "error", listErr)
+		}
 	}
 
 	// Create Copilot client
@@ -534,7 +538,10 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		// post-generation guardrail in engine.go can mark the eval as failed
 		// with a proper reason instead of treating it as an SDK error.
 		if actionLimitHit {
-			generatedFiles, _ := listFiles(workDir)
+			generatedFiles, listErr := listFiles(workDir)
+			if listErr != nil {
+				lg.Warn("Failed to list generated files after action-limit", "dir", workDir, "error", listErr)
+			}
 			lg.Warn("Returning partial results after action-limit cancellation",
 				"actions", actionCounter, "files", len(generatedFiles))
 			return &EvalResult{
@@ -564,7 +571,10 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	copy(capturedRecords, sessionRecords)
 	mu.Unlock()
 
-	generatedFiles, _ := listFiles(workDir)
+	generatedFiles, listErr := listFiles(workDir)
+	if listErr != nil {
+		lg.Warn("Failed to list generated files", "dir", workDir, "error", listErr)
+	}
 	toolCalls := extractToolCalls(capturedEvents)
 	hasError := hasSessionError(capturedEvents)
 

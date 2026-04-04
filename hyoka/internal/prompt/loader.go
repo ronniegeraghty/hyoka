@@ -74,7 +74,7 @@ func ScanNearMisses(dir string) []string {
 	var nearMisses []string
 	seen := make(map[string]bool)
 
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	if walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -85,7 +85,10 @@ func ScanNearMisses(dir string) []string {
 			return nil
 		}
 
-		rel, _ := filepath.Rel(dir, path)
+		rel, relErr := filepath.Rel(dir, path)
+		if relErr != nil {
+			slog.Warn("Failed to compute relative path", "dir", dir, "path", path, "error", relErr)
+		}
 		if rel == "" {
 			rel = name
 		}
@@ -121,7 +124,9 @@ func ScanNearMisses(dir string) []string {
 		}
 
 		return nil
-	})
+	}); walkErr != nil {
+		slog.Warn("Failed to walk directory for near-miss prompts", "dir", dir, "error", walkErr)
+	}
 
 	return nearMisses
 }

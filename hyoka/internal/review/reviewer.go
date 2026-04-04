@@ -336,7 +336,11 @@ func (p *PanelReviewer) ReviewPanel(ctx context.Context, originalPrompt string, 
 
 	var referenceFiles map[string]string
 	if referenceDir != "" {
-		referenceFiles, _ = utils.ReadDirFiles(referenceDir)
+		var readErr error
+		referenceFiles, readErr = utils.ReadDirFiles(referenceDir)
+		if readErr != nil {
+			slog.Warn("Failed to read reference files", "dir", referenceDir, "error", readErr)
+		}
 	}
 
 	reviewPrompt := BuildReviewPrompt(originalPrompt, generatedFiles, referenceFiles, evaluationCriteria)
