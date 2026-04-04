@@ -2,24 +2,18 @@
 package utils
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// ReadDirFiles reads all files in a directory (non-recursive, skipping hidden/binary).
-// Returns a map of relative path -> content.
+// ReadDirFiles reads all files in a directory recursively, skipping hidden
+// files, build artifact directories, and binary/large files (>1 MB per file,
+// 10 MB total). Returns a map of relative path -> content.
 func ReadDirFiles(dir string) (map[string]string, error) {
-	return ReadDirFilesFiltered(dir, nil)
-}
-
-// ReadDirFilesFiltered reads all files in a directory, skipping hidden files,
-// binary/large files (>1MB), and any directories whose name appears in skipDirs.
-// Pass nil for skipDirs to skip no directories (same behavior as ReadDirFiles).
-func ReadDirFilesFiltered(dir string, skipDirs map[string]bool) (map[string]string, error) {
 	files := make(map[string]string)
-	skipped := 0
+	var totalSize int64
+	const maxTotalSize = 10 << 20 // 10 MB total cap for review prompt safety
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip unreadable
@@ -29,14 +23,17 @@ func ReadDirFilesFiltered(dir string, skipDirs map[string]bool) (map[string]stri
 			if strings.HasPrefix(name, ".") && path != dir {
 				return filepath.SkipDir
 			}
-			if len(skipDirs) > 0 && skipDirs[name] && path != dir {
-				skipped++
+			if IsBuildArtifactDir(name) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		// Skip binary/large files (limit 1MB)
 		if info.Size() > 1<<20 {
+			return nil
+		}
+		// Enforce total size cap
+		if totalSize+info.Size() > maxTotalSize {
 			return nil
 		}
 		rel, err := filepath.Rel(dir, path)
@@ -51,12 +48,31 @@ func ReadDirFilesFiltered(dir string, skipDirs map[string]bool) (map[string]stri
 			return nil
 		}
 		files[rel] = string(data)
+		totalSize += info.Size()
 		return nil
 	})
-	if skipped > 0 {
-		slog.Debug("ReadDirFilesFiltered skipped directories", "dir", dir, "skipped_dirs", skipped)
-	}
 	return files, err
+}
+
+// IsBuildArtifactDir returns true for well-known build artifact directory
+// names that should be excluded from file listings, copies, and review prompts.
+func IsBuildArtifactDir(name string) bool {
+	switch name {
+	case "target", // Rust/Cargo
+		"node_modules",  // Node.js/npm
+		"__pycache__",   // Python
+		".venv", "venv", // Python virtual envs
+		"bin", "obj", // .NET
+		"build", "dist", // general build output
+		"out",              // Java/Gradle
+		"vendor",           // Go/PHP
+		"packages",         // NuGet
+		".gradle",          // Gradle cache
+		".cargo",           // Cargo cache
+		"debug", "release": // Rust profile subdirs
+		return true
+	}
+	return false
 }
 
 // ExtractJSON finds the first JSON object in the text, stripping markdown code fences.

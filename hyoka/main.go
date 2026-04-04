@@ -21,8 +21,8 @@ import (
 	"github.com/ronniegeraghty/hyoka/internal/logging"
 	"github.com/ronniegeraghty/hyoka/internal/plugin"
 	"github.com/ronniegeraghty/hyoka/internal/prompt"
-	"github.com/ronniegeraghty/hyoka/internal/rerender"
 	"github.com/ronniegeraghty/hyoka/internal/report"
+	"github.com/ronniegeraghty/hyoka/internal/rerender"
 	"github.com/ronniegeraghty/hyoka/internal/review"
 	"github.com/ronniegeraghty/hyoka/internal/serve"
 	"github.com/ronniegeraghty/hyoka/internal/trends"
@@ -159,6 +159,8 @@ type runFlags struct {
 	criteriaDir string
 	// Directory exclusion (#63)
 	excludeDirs string
+	// Session timeout
+	sessionTimeout string
 }
 
 func addFilterFlags(cmd *cobra.Command, f *runFlags) {
@@ -201,6 +203,8 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.criteriaDir, "criteria-dir", "", "Directory containing attribute-matched criteria YAML files (e.g., criteria/)")
 	// Directory exclusion (#63)
 	cmd.Flags().StringVar(&f.excludeDirs, "exclude-dirs", "", "Comma-separated directories to exclude from generated_files output (e.g., node_modules,target,dist)")
+	// Session timeout
+	cmd.Flags().StringVar(&f.sessionTimeout, "session-timeout", "10m", "Maximum duration for a single generation or review session (e.g., 10m, 30m, 1h)")
 }
 
 // resolveSkillsDirs finds the skills directory relative to the prompts directory.
@@ -427,6 +431,12 @@ func runCmd() *cobra.Command {
 			var reviewer review.Reviewer
 			var panelReviewer *review.PanelReviewer
 
+			// Parse session-timeout flag early — needed for reviewer setup.
+			sessionTimeout, err := time.ParseDuration(f.sessionTimeout)
+			if err != nil {
+				return fmt.Errorf("invalid --session-timeout %q: %w", f.sessionTimeout, err)
+			}
+
 			if f.useStub {
 				slog.Info("Using stub evaluator", "reason", "--stub flag")
 				fmt.Println("Using stub evaluator (--stub flag)")
@@ -438,6 +448,7 @@ func runCmd() *cobra.Command {
 					AllowCloud:        f.allowCloud,
 					MaxSessionActions: f.maxSessionActions,
 				})
+				sdkEval.SetSessionTimeout(sessionTimeout)
 				evaluator = sdkEval
 
 				// Verify Copilot CLI is available
@@ -475,7 +486,8 @@ func runCmd() *cobra.Command {
 
 					if len(reviewerModels) > 1 {
 						// Multi-model panel
-						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions, "", "")
+						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
+						panelReviewer.SetSessionTimeout(sessionTimeout)
 						if len(reviewerSkillsDirs) > 0 {
 							panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}
@@ -492,7 +504,8 @@ func runCmd() *cobra.Command {
 							if len(reviewerModels) == 1 {
 								reviewerModel = reviewerModels[0]
 							}
-							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions, "", "")
+							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions)
+							copilotReviewer.SetSessionTimeout(sessionTimeout)
 							if len(reviewerSkillsDirs) > 0 {
 								copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
 							}
@@ -528,23 +541,6 @@ func runCmd() *cobra.Command {
 				}
 			}
 
-			// Build merged ignore list: defaults + user-specified excludes (#75)
-			reviewIgnoreDirs := make(map[string]bool, len(eval.DefaultIgnoreDirs)+len(excludeDirs))
-			for k, v := range eval.DefaultIgnoreDirs {
-				reviewIgnoreDirs[k] = v
-			}
-			for _, d := range excludeDirs {
-				reviewIgnoreDirs[strings.TrimRight(d, "/")] = true
-			}
-			if panelReviewer != nil {
-				panelReviewer.SetIgnoreDirs(reviewIgnoreDirs)
-			}
-			if reviewer != nil {
-				if cr, ok := reviewer.(*review.CopilotReviewer); ok {
-					cr.SetIgnoreDirs(reviewIgnoreDirs)
-				}
-			}
-
 			engine := eval.NewEngineWithReviewer(evaluator, reviewer, eval.EngineOptions{
 				Workers:           f.workers,
 				MaxSessions:       f.maxSessions,
@@ -562,6 +558,7 @@ func runCmd() *cobra.Command {
 				StrictCleanup:     f.strictCleanup,
 				CriteriaDir:       f.criteriaDir,
 				ExcludeDirs:       excludeDirs,
+				SessionTimeout:    sessionTimeout,
 			})
 			if panelReviewer != nil && !f.skipReview {
 				engine.SetPanelReviewer(panelReviewer)
@@ -963,9 +960,6 @@ func reportCmd() *cobra.Command {
 func serveCmd() *cobra.Command {
 	var port int
 	var reportsDir string
-	var docsDir string
-	var siteDir string
-	var promptsDir string
 
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -973,37 +967,8 @@ func serveCmd() *cobra.Command {
 		Long:  "Starts an HTTP server that provides a web UI for browsing past evaluation runs, viewing summaries, and individual report pages.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reportsDir = resolveOutputFile(cmd, []string{"./reports", "../reports"})
-
-			if !cmd.Flags().Changed("docs-dir") {
-				for _, c := range []string{"./docs", "../docs"} {
-					if _, err := os.Stat(c); err == nil {
-						docsDir = c
-						break
-					}
-				}
-			}
-			if !cmd.Flags().Changed("site-dir") {
-				for _, c := range []string{"./site/dist", "../site/dist"} {
-					if _, err := os.Stat(c); err == nil {
-						siteDir = c
-						break
-					}
-				}
-			}
-			if !cmd.Flags().Changed("prompts-dir") {
-				for _, c := range []string{"./prompts", "../prompts"} {
-					if _, err := os.Stat(c); err == nil {
-						promptsDir = c
-						break
-					}
-				}
-			}
-
 			return serve.Start(serve.Options{
 				ReportsDir: reportsDir,
-				DocsDir:    docsDir,
-				SiteDir:    siteDir,
-				PromptsDir: promptsDir,
 				Port:       port,
 			})
 		},
@@ -1011,9 +976,6 @@ func serveCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&port, "port", 8080, "Port to serve on")
 	cmd.Flags().StringVar(&reportsDir, "output", "./reports", "Directory containing evaluation reports")
-	cmd.Flags().StringVar(&docsDir, "docs-dir", "./docs", "Directory containing documentation markdown files")
-	cmd.Flags().StringVar(&siteDir, "site-dir", "./site/dist", "Directory containing the built React site")
-	cmd.Flags().StringVar(&promptsDir, "prompts-dir", "./prompts", "Directory containing evaluation prompts")
 
 	return cmd
 }

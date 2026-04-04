@@ -22,15 +22,23 @@ import (
 
 // CopilotSDKEvaluator uses the Copilot SDK to run real evaluations.
 type CopilotSDKEvaluator struct {
-	clientOpts *copilot.ClientOptions
-	allowCloud bool
+	clientOpts        *copilot.ClientOptions
+	allowCloud        bool
 	maxSessionActions int
-	progressFn progress.ProgressFunc
+	sessionTimeout    time.Duration
+	progressFn        progress.ProgressFunc
 }
 
 // SetProgressFunc registers a callback for live progress updates.
 func (e *CopilotSDKEvaluator) SetProgressFunc(fn progress.ProgressFunc) {
 	e.progressFn = fn
+}
+
+// SetSessionTimeout configures the maximum duration for a single generation
+// SendAndWait call. Zero means use the default (10 minutes). Per-prompt
+// Timeout frontmatter still overrides this value.
+func (e *CopilotSDKEvaluator) SetSessionTimeout(d time.Duration) {
+	e.sessionTimeout = d
 }
 
 // CopilotEvalOptions configures the CopilotSDKEvaluator.
@@ -62,8 +70,8 @@ func NewCopilotSDKEvaluator(opts CopilotEvalOptions) *CopilotSDKEvaluator {
 	// Tag SDK-spawned processes with HYOKA_SESSION env var (#70).
 	clientOpts.Env = HyokaBaseEnv()
 	return &CopilotSDKEvaluator{
-		clientOpts: clientOpts,
-		allowCloud: opts.AllowCloud,
+		clientOpts:        clientOpts,
+		allowCloud:        opts.AllowCloud,
 		maxSessionActions: opts.MaxSessionActions,
 	}
 }
@@ -157,7 +165,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	var mu sync.Mutex
 	debugPrefix := p.ID + "/" + cfg.Name
 	// Structured logger for this eval session (#42)
-	lg := logging.GeneratorLogger(p.ID, cfg.Name, cfg.EffectiveModel(), 0)
+	lg := logging.EvalLogger(p.ID, cfg.Name, "generation", 0)
 
 	// Capture turn counter for expanded events
 	var turnCounter int
@@ -165,7 +173,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 
 	// Mid-generation action limit. Create a cancellable child context
 	// so the OnEvent callback can stop runaway sessions in real time.
-	genCtx, genCancel := context.WithTimeout(ctx, 5*time.Minute)
+	genCtx, genCancel := context.WithCancel(ctx)
 	defer genCancel()
 	var actionLimitHit bool
 
@@ -465,16 +473,16 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		case copilot.SessionEventTypeSubagentCompleted, copilot.SessionEventTypeSubagentFailed:
 			lg.Debug("Subagent event", "type", string(event.Type))
 		default:
-			// Only log unhandled event types that carry content; skip
-			// noisy infrastructure events (hooks, permissions, session
-			// metadata) that have no actionable information.
-			if event.Data.Content != nil && *event.Data.Content != "" {
-				lg.Debug("SDK event", "type", string(event.Type), "content", truncateStr(*event.Data.Content, 100))
+			content := ""
+			if event.Data.Content != nil {
+				content = truncateStr(*event.Data.Content, 100)
 			}
+			lg.Debug("SDK event", "type", string(event.Type), "content", content)
 		}
 	}
 
-	lg.Info("Creating Copilot session",
+	slog.Info("Creating Copilot session",
+		"model", cfg.EffectiveModel(),
 		"skills", len(sessionCfg.SkillDirectories),
 		"mcp_servers", len(sessionCfg.MCPServers),
 		"work_dir", workDir,
@@ -496,8 +504,22 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 			Message: fmt.Sprintf("Sending prompt (%d chars)...", len(p.PromptText)),
 		})
 	}
-	lg.Debug("Sending prompt", "chars", len(p.PromptText))
-	_, err = session.SendAndWait(genCtx, copilot.MessageOptions{
+	// Apply an explicit deadline so the SDK does not fall back to its
+	// hard-coded 60-second default (see copilot-sdk session.go).
+	// Honour per-prompt Timeout (seconds) if set; otherwise use configured
+	// session timeout (default 10 min).
+	promptTimeout := 10 * time.Minute
+	if e.sessionTimeout > 0 {
+		promptTimeout = e.sessionTimeout
+	}
+	if p.Timeout > 0 {
+		promptTimeout = time.Duration(p.Timeout) * time.Second
+	}
+	sendCtx, sendCancel := context.WithTimeout(genCtx, promptTimeout)
+	defer sendCancel()
+
+	lg.Debug("Sending prompt", "chars", len(p.PromptText), "timeout", promptTimeout)
+	_, err = session.SendAndWait(sendCtx, copilot.MessageOptions{
 		Prompt: p.PromptText,
 	})
 	if err != nil {
