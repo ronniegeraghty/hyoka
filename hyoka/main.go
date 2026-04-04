@@ -1169,7 +1169,7 @@ TODO: Why this prompt matters.
 			fmt.Printf("   Prompt ID: %s\n", id)
 			fmt.Println("\nNext steps:")
 			fmt.Println("  1. Edit the file to add your prompt text")
-			fmt.Println("  2. Run: go run ./tool/cmd/hyoka validate")
+			fmt.Println("  2. Run: go run ./hyoka validate")
 			return nil
 		},
 	}
