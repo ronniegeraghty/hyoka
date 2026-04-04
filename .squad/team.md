@@ -13,7 +13,7 @@
 | Name | Role | Charter | Status |
 |------|------|---------|--------|
 | Morpheus 🕶️ | Lead | `.squad/agents/morpheus/charter.md` | 🏗️ Lead |
-| Neo 💊 | Core Eval Framework | `.squad/agents/neo/charter.md` | ⚡ Core Eval |
+| Neo 💊 | Core Eval Framework | `.squad/agents/neo/charter.md` | 🔧 Core Eval |
 | Tank 📡 | CLI Dev | `.squad/agents/tank/charter.md` | ⌨️ CLI Dev |
 | Trinity 🖤 | Frontend Dev | `.squad/agents/trinity/charter.md` | ⚛️ Frontend |
 | Switch 🤍 | Testing | `.squad/agents/switch/charter.md` | 🧪 Testing |

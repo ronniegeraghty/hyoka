@@ -133,6 +133,18 @@ Good skills warn when work goes against established principles. They don't preve
 
 ---
 
+## 11. Deterministic Where Possible
+
+**Use deterministic checks instead of LLMs when the answer is objective.**
+
+If you can answer a question with a file system check, a build command, or a schema validator — do that instead of asking an LLM. File existence is binary, not probabilistic. Build success has a definitive exit code. Schema validation is exact. LLM review should be reserved for subjective judgments that genuinely require reasoning: code quality, design patterns, SDK best practices.
+
+This principle drives the grader architecture: `file` graders check existence, `program` graders run linters and compilers, `behavior` graders check action logs — only `prompt` graders use LLMs.
+
+*Implication:* Prefer typed, deterministic graders for objective checks. Reserve `prompt` graders for subjective evaluation. This reduces cost, eliminates variance on factual checks, and makes results reproducible.
+
+---
+
 ## How to Use These Principles
 
 These principles resolve ambiguity in design decisions. When choosing between approaches:

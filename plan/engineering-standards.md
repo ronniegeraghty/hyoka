@@ -153,11 +153,11 @@ func TestParsePrompt(t *testing.T) {
 
 ### Rules
 
-- **`Normalize()` is idempotent** — Config normalization can be called multiple times with the same result. This is critical for legacy migration.
-- **`Effective*()` getters** — When a config field has defaults or fallbacks, use `Effective*()` methods (e.g., `EffectiveModel()`) that resolve the final value.
-- **Validate post-parse** — Validation runs after YAML parsing and normalization, not during. This separates parsing concerns from business rules.
+- **Direct field access** — Access config fields directly: `tc.Generator.Model`, `tc.Reviewer.Models`. No indirection layers or getter methods for standard fields.
+- **Validate post-parse** — Validation runs after YAML parsing, not during. This separates parsing concerns from business rules.
 - **`KnownFields(true)`** — Use strict YAML parsing to catch field typos. Unknown fields cause parse errors.
 - **No silent shadowing** — Duplicate config names, duplicate prompt IDs, and ambiguous references must produce errors, not silent behavior.
+- **No legacy fields** — Config files use the canonical `Generator`/`Reviewer` sub-struct format. Legacy fields (`Model`, `ReviewerModel`, etc.) have been removed (D-AR2). No `Normalize()` or `Effective*()` indirection.
 
 ### Config Structure
 
@@ -174,6 +174,19 @@ configs:
       models: [...]                # Multi-model panel
       system_prompt: ""            # Optional — default empty
       skills: [...]
+    graders:                        # Evaluation checks (replaces criteria)
+      - kind: file
+        name: "main_file_exists"
+        config: { path: "main.py" }
+        weight: 1.0
+      - kind: program
+        name: "builds_successfully"
+        config: { command: "python -m py_compile main.py" }
+      - kind: prompt
+        name: "code_quality"
+        config: { model: "claude-opus-4.6", rubric: "..." }
+        weight: 0.5
+        when: { language: python }
 ```
 
 ---
@@ -195,9 +208,9 @@ configs:
 
 ### Rules
 
-- **Packages by domain** — Each package represents a domain concept: `eval`, `review`, `config`, `prompt`, `report`, `serve`, `criteria`, `skills`, `trends`, `clean`, `progress`.
-- **Interfaces at boundaries** — Package boundaries use interfaces (`CopilotEvaluator`, `Reviewer`). Concrete types are internal to packages.
-- **Acyclic dependency graph** — Package imports must not form cycles. The dependency direction flows: `main → eval → review → report`.
+- **Packages by domain** — Each package represents a domain concept: `eval`, `graders`, `config`, `prompt`, `report`, `serve`, `skills`, `trends`, `clean`, `progress`.
+- **Interfaces at boundaries** — Package boundaries use interfaces (`CopilotEvaluator`, `Grader`). Concrete types are internal to packages.
+- **Acyclic dependency graph** — Package imports must not form cycles. The dependency direction flows: `main → eval → graders → report`.
 - **One concern per package** — Don't mix config parsing with CLI flag handling, or report generation with trend analysis.
 - **Internal only** — All packages live under `hyoka/internal/`. Nothing is exported outside the module.
 
@@ -275,6 +288,7 @@ The Azure SDK team's production agent evaluation tool. Key patterns to follow:
 - **`ResourceFile` pattern** — Starter files placed in workspace before session starts
 - **Config-driven everything** — System prompts, tools, limits all in config YAML
 - **Session config–based isolation** — Working directory, tool availability, permissions set via SDK
+- **Pluggable grader architecture** — 12 grader types with typed outputs, composable weights, deterministic where possible
 
 ### Go Standard Patterns
 
@@ -282,3 +296,31 @@ The Azure SDK team's production agent evaluation tool. Key patterns to follow:
 - **Functional options** — For complex constructors, use `With*` option functions
 - **Error wrapping chain** — Each layer adds context: `"run eval: create session: open config: %w"`
 - **Graceful shutdown** — `signal.NotifyContext` + two-phase SIGTERM/SIGKILL
+
+---
+
+## 11. Grader Interface Pattern
+
+### Rules
+
+- **One concern per grader** — Each grader checks exactly one thing. Don't combine file existence + build check + LLM review into one grader.
+- **`Grader` interface** — All graders implement `Kind() string`, `Name() string`, `Grade(ctx, input) (GraderResult, error)`.
+- **Typed results** — `GraderResult` has a common envelope (kind, name, score, weight, pass) plus typed `Details` per grader kind.
+- **Deterministic first** — Use `file`, `program`, `behavior` graders for objective checks. Reserve `prompt` graders for subjective evaluation. See Core Principle §11.
+- **Weight-based aggregation** — Final score is a weighted average of grader scores. Weights defined in grader config YAML.
+- **`when:` conditions** — Graders use `when: map[string]string` for property-based applicability. No hardcoded matching fields.
+
+### Grader Types
+
+| Kind | Purpose | Deterministic? |
+|------|---------|----------------|
+| `file` | Check file existence, content patterns | Yes |
+| `program` | Run external command (linter, compiler, tests) | Yes |
+| `prompt` | LLM-as-judge with rubric | No |
+| `behavior` | Check agent action log (tool usage, turns) | Yes |
+| `action_sequence` | Verify expected action patterns | Yes |
+| `tool_constraint` | Verify tool usage constraints | Yes |
+
+### Report Types
+
+Reports center on `[]GraderResult` rather than a monolithic `ReviewResult`. Each grader result carries its own typed details — a `program` result has build output, a `prompt` result has LLM reasoning, a `file` result has existence checks. The `EvalReport` struct should be lean, with grader results carrying the detail.

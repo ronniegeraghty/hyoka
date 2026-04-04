@@ -192,3 +192,56 @@ This document records all decisions made during the October 2026 hardening and e
 | D13 | Waza reference architecture | §5 | Architectural direction |
 | D14 | Skills are guardrails not cages | §7 | Philosophy |
 | D15 | plan/ directory for vision docs | §8 | Project organization |
+| D-AR1 | Grader architecture pivot | §9 | Core architectural redesign |
+| D-AR2 | Config big-bang migration | §9 | Config system simplification |
+| D-AR3 | Run spec files as future enhancement | §9 | CLI evolution note |
+| D-AUTO | Coordinator autonomous decisions | §9 | Process improvement |
+
+---
+
+## 9. Anchoring Review Pivots (2026-10-15)
+
+**Participants:** Ronnie Geraghty (approval), Morpheus (analysis)  
+**Source:** `plan/anchoring-review.md` — review of plan documents for anchoring bias
+
+### D-AR1: Grader Architecture Pivot
+
+**Decision:** Replace the monolithic `Reviewer`/`PanelReviewer` pattern with a pluggable `Grader` interface and typed implementations, following Waza's grader model.
+
+**What changes:**
+- `hyoka/internal/review/` → phased replacement by `hyoka/internal/graders/`
+- Current LLM reviewer becomes `prompt` grader type
+- New grader types: `file`, `program`, `behavior`, `action_sequence`, `tool_constraint`
+- Criteria become grader configs with `kind:`, `name:`, `config:`, `when:`, `weight:` (Finding #5 absorbed)
+- Properties become sole representation with convenience getters (Finding #3 absorbed)
+- `MergeCriteria()`, `FormatCriteria()` deleted — graders are naturally composable
+- FR-05 (Transparent Review Panel) absorbed — grader results are inherently transparent
+- FR-14 (Criteria Filters) absorbed — grader `when:` conditions
+- FR-17 (Reviewer Tools) absorbed — `program` grader type
+
+**Rationale:** The current review system stuffs everything into one LLM prompt and parses JSON. This works for simple cases but limits what evaluation can do. Graders make review deterministic where possible, composable, and transparent by design.
+
+### D-AR2: Config Big-Bang Migration
+
+**Decision:** Big-bang migrate all 8 config files to `Generator`/`Reviewer` sub-struct format. Delete all legacy fields, `Normalize()`, and 7 `Effective*()` getters.
+
+**What changes:**
+- ~130 lines of backward-compat code removed (35% of config.go)
+- All `tc.EffectiveModel()` calls become `tc.Generator.Model`
+- `Normalize()` deleted
+- Engineering standards §5 updated — no more Normalize() rule
+- Phase 0 gains task 0.6 for config migration
+
+**Rationale:** The plan already decided big-bang for 87 prompts. Applying the same logic to 8 config files removes 35% of config.go complexity with minimal migration effort.
+
+### D-AR3: Run Spec Files as Future Enhancement
+
+**Decision:** Add a future-looking note about `hyoka run eval.yaml` pattern but don't block current CLI work on it.
+
+**Rationale:** The current 40+ flag `run` command is unwieldy. A declarative run spec file (like Waza's eval specs) would absorb most flags. But this should be explored after the `cmd/` split (§1.5), not instead of it.
+
+### D-AUTO: Coordinator Autonomous Decisions
+
+**Decision:** The coordinator (Morpheus) should make more decisions autonomously — lower the bar for what gets escalated to Ronnie.
+
+**Rationale:** Operational decisions (task ordering, implementation approach, file organization) can be made by the coordinator without blocking on human approval. Reserve escalation for architectural pivots, scope changes, and philosophical direction.

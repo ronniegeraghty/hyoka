@@ -84,19 +84,19 @@
 
 ---
 
-## FR-05: Transparent Review Panel
+## FR-05: Transparent Review Panel → Grader Result Transparency
 
-**Description:** Expose the full reasoning, scores, and criteria evaluation from each individual reviewer in the review panel. Show how individual scores are consolidated into final scores.
+**Description:** ~~Expose the full reasoning, scores, and criteria evaluation from each individual reviewer in the review panel.~~ **Absorbed into grader architecture (D-AR1).** With pluggable graders, transparency is inherent — each grader produces typed, structured output. A `program` grader shows command + exit code + output. A `prompt` grader shows model + rubric + reasoning. A `file` grader shows which files were checked.
 
-**User Story:** As an evaluator, I want to see what each reviewer thought and how the final score was calculated so that I can trust the review process and identify disagreements.
+**User Story:** As an evaluator, I want to see exactly what each grader checked and how it scored so that I can trust the evaluation and identify which checks passed or failed.
 
 **Acceptance Criteria:**
-- [ ] Per-reviewer full response included in report output (not just aggregated scores)
-- [ ] Consolidation algorithm visible — weights, method, tie-breaking rules
-- [ ] Reviewer disagreements highlighted (e.g., when one reviewer gives 3/10 and another gives 8/10)
-- [ ] Each reviewer identified by model name
+- [ ] Each grader result includes kind, name, score, weight, pass/fail, and typed details
+- [ ] HTML reports render each grader type with an appropriate display component
+- [ ] Weighted score aggregation formula visible in report
+- [ ] No "black box" — every evaluation check is individually inspectable
 
-**Dependencies:** None
+**Dependencies:** FR-19 (Grader Architecture)
 
 **Phase:** 3
 
@@ -216,19 +216,20 @@
 
 ---
 
-## FR-12: Customizable Prompt Properties
+## FR-12: Customizable Prompt Properties (Sole Representation)
 
-**Description:** Replace hardcoded prompt struct fields with a generic `Properties map[string]string` that supports arbitrary key-value metadata.
+**Description:** Replace hardcoded prompt struct fields with `Properties map[string]string` as THE representation. Drop typed struct fields entirely. Add convenience getter methods (`Language()`, `Service()`, etc.) that read from the properties map.
 
-**User Story:** As a non-Azure team, I want to add custom metadata to my prompts (e.g., `framework: django`, `complexity: high`) so that I can filter and match criteria using my own taxonomy.
+**User Story:** As a non-Azure team, I want to add custom metadata to my prompts (e.g., `framework: django`, `complexity: high`) so that I can filter and match graders using my own taxonomy.
 
 **Acceptance Criteria:**
-- [ ] `Prompt` struct has `Properties map[string]string` field
-- [ ] All filter flags (`--service`, `--language`, etc.) query properties map
-- [ ] Existing Azure-specific fields (`Service`, `Plane`, etc.) become convenience accessors reading from properties
-- [ ] All 87 existing prompts migrated to properties format (big-bang, no backward compat)
+- [ ] `Prompt` struct uses `Properties map[string]string` as sole data store for metadata
+- [ ] Typed fields (`Service`, `Language`, `Plane`, etc.) removed from struct — replaced by getter methods
+- [ ] All filter flags (`--service`, `--language`, etc.) query properties map via getter methods
+- [ ] `Filter` struct redesigned as `map[string]string` with support for generic `--filter key=value`
+- [ ] All 87 existing prompts migrated to nested `properties:` format (big-bang, no backward compat)
 - [ ] Migration script provided and validated
-- [ ] `KnownFields(true)` relaxed for properties section of frontmatter
+- [ ] Prompt frontmatter uses `properties:` key with nested key-value pairs
 
 **Dependencies:** None (foundational — many other features depend on this)
 
@@ -255,20 +256,21 @@
 
 ---
 
-## FR-14: Criteria Filters (Property-Based with Exclude)
+## FR-14: Criteria → Grader Configs
 
-**Description:** Replace hardcoded `MatchCondition` fields with property-based include/exclude matching. Remove Tier 1 (built-in default) criteria entirely.
+**Description:** ~~Replace hardcoded `MatchCondition` fields with property-based include/exclude matching. Remove Tier 1 criteria.~~ **Absorbed into grader architecture (D-AR1).** Criteria become grader configurations — no tier system, no `MergeCriteria()`. Each grader is defined in YAML with `kind:`, `name:`, `config:`, `when:`, `weight:`. Property-based `when:` conditions replace `MatchCondition`.
 
-**User Story:** As a team lead, I want to write criteria that apply to specific prompt categories and explicitly exclude others so that I have fine-grained control over evaluation standards.
+**User Story:** As a team lead, I want to define evaluation checks as composable graders with typed configs so that I can mix deterministic checks (file existence, build success) with LLM-based review, each weighted appropriately.
 
 **Acceptance Criteria:**
-- [ ] `MatchCondition` replaced with `map[string]string` include/exclude matching
+- [ ] Grader config YAML format defined with `kind:`, `name:`, `config:`, `when:`, `weight:`
+- [ ] `MatchCondition` replaced with `when: map[string]string` property matching
 - [ ] Tier 1 criteria removed — no built-in defaults
-- [ ] Criteria YAML supports `match` (include) and `exclude` property conditions
-- [ ] When no criteria match a prompt, evaluation still runs but reports "no criteria matched"
-- [ ] Existing criteria files migrated to property-based format
+- [ ] `MergeCriteria()` and `FormatCriteria()` deleted
+- [ ] Existing criteria files migrated to grader config format
+- [ ] Graders without `when:` always apply; graders with `when:` are property-matched
 
-**Dependencies:** FR-12 (customizable properties — criteria reference properties)
+**Dependencies:** FR-12 (customizable properties — `when:` conditions reference properties), FR-19 (Grader Architecture)
 
 **Phase:** 1
 
@@ -314,22 +316,22 @@
 
 ---
 
-## FR-17: Reviewer Tool Environments
+## FR-17: Reviewer Tools → `program` Grader Type
 
-**Description:** Configurable tool environments for review panel agents. Reviewers can have access to linters, style checkers, documentation references, and other evaluation tooling.
+**Description:** ~~Configurable tool environments for review panel agents.~~ **Absorbed into grader architecture (D-AR1).** The concept of "reviewer tools" becomes the `program` grader type — a grader that runs an external command (linter, compiler, test suite, style checker) and scores based on the result. No separate "reviewer tools" concept needed; a `program` grader IS a tool.
 
-**User Story:** As an evaluator, I want review agents to use a Python linter when reviewing Python code so that the review catches style and correctness issues that pure LLM review might miss.
+**User Story:** As an evaluator, I want to run linters and build checks as part of evaluation so that I get deterministic quality signals alongside LLM-based review.
 
 **Acceptance Criteria:**
-- [ ] Config YAML supports `reviewer.tools` section (MCP servers, skills for reviewers)
-- [ ] Reviewer tool environment is separate from generator tool environment
-- [ ] Each reviewer model can have different tool configurations
-- [ ] Reviewer tools are reflected in the review session config
-- [ ] Review reports indicate which tools each reviewer had available
+- [ ] `program` grader type runs external commands with configurable args
+- [ ] Exit code determines pass/fail; stdout/stderr captured in grader result
+- [ ] Multiple `program` graders can run per evaluation (linter + compiler + tests)
+- [ ] `program` grader config specifies command, args, working directory, timeout
+- [ ] Results include full command output for debugging
 
-**Dependencies:** FR-05 (transparent review panel — tool availability is part of transparency)
+**Dependencies:** FR-19 (Grader Architecture)
 
-**Phase:** 3
+**Phase:** 2
 
 ---
 
@@ -354,14 +356,40 @@
 
 ---
 
+## FR-19: Grader Architecture
+
+**Description:** Replace the monolithic `Reviewer`/`PanelReviewer` pattern with a pluggable `Grader` interface. Each grader is focused (one concern), typed (specific input/output), composable (weighted list), and deterministic where possible. The current LLM reviewer becomes the `prompt` grader type. New grader types enable deterministic checks that don't require LLMs.
+
+**User Story:** As an evaluator, I want evaluation to use deterministic checks (file existence, build success, schema validation) alongside LLM review so that objective criteria are checked reliably without LLM variance.
+
+**Acceptance Criteria:**
+- [ ] `Grader` interface defined in `hyoka/internal/graders/` with `Kind()`, `Name()`, `Grade()` methods
+- [ ] `GraderResult` type with kind, name, score, weight, pass/fail, and typed details
+- [ ] Initial grader types: `file`, `program`, `prompt`, `behavior`, `action_sequence`, `tool_constraint`
+- [ ] Current LLM reviewer wrapped as `prompt` grader (one rubric per grader instance)
+- [ ] Graders defined in config YAML with `kind:`, `name:`, `config:`, `when:`, `weight:`
+- [ ] Eval engine collects applicable graders, runs all, aggregates weighted scores
+- [ ] Reports center on `[]GraderResult` — each grader's output individually visible
+- [ ] `program` grader runs external commands — enables linters, compilers, test suites as evaluation checks
+
+**Dependencies:** FR-12 (customizable properties — grader `when:` conditions reference properties)
+
+**Phase:** 2
+
+---
+
 ## Feature Dependency Map
 
 ```
-FR-12 (Properties) ──┬── FR-14 (Criteria Filters)
+FR-12 (Properties) ──┬── FR-14 (Grader Configs)
                       ├── FR-11 (Tool Filters) ──── FR-15 (Pairwise)
                       ├── FR-02 (Config Tools) ──── FR-15 (Pairwise)
                       ├── FR-04 (.hyoka Dir)
-                      └── FR-13 (YAML Format)
+                      ├── FR-13 (YAML Format)
+                      └── FR-19 (Grader Architecture)
+
+FR-19 (Graders) ──┬── FR-05 (Grader Transparency)
+                   └── FR-17 (program grader)
 
 FR-18 (System Prompts) ── FR-03 (Zero System Prompt)
                        └── FR-01 (Action History)
@@ -370,8 +398,6 @@ FR-16 (Starter Files) ── FR-10 (Isolation)
 
 FR-15 (Pairwise) ─┬── FR-07 (Comparison)
 FR-01 (History)  ──┘
-
-FR-05 (Review Panel) ── FR-17 (Reviewer Tools)
 ```
 
 ---
@@ -383,16 +409,17 @@ FR-05 (Review Panel) ── FR-17 (Reviewer Tools)
 | 1 | FR-12 Properties | Foundation — everything depends on this |
 | 2 | FR-18 System Prompts | Unblocks zero system prompt and action history |
 | 3 | FR-03 Zero System Prompt | Core principle — unbiased measurement |
-| 4 | FR-14 Criteria Filters | Needed for general use |
+| 4 | FR-14 Grader Configs | Needed for composable evaluation |
 | 5 | FR-11 Tool Filters | Needed for pairwise |
 | 6 | FR-16 Starter Files | Enables new prompt categories |
 | 7 | FR-13 YAML Format | Enables programmatic prompt creation |
 | 8 | FR-02 Config Tools | Foundation for pairwise |
-| 9 | FR-08 Session Limits | Low effort, high value |
-| 10 | FR-15 Pairwise | Core differentiator |
-| 11 | FR-01 Action History | Core transparency |
-| 12 | FR-05 Review Panel | Core transparency |
-| 13 | FR-17 Reviewer Tools | Extends review quality |
+| 9 | FR-19 Grader Architecture | Core evaluator redesign |
+| 10 | FR-08 Session Limits | Low effort, high value |
+| 11 | FR-15 Pairwise | Core differentiator |
+| 12 | FR-01 Action History | Core transparency |
+| 13 | FR-05 Grader Transparency | Inherent from grader design |
+| 14 | FR-17 program grader | Extends eval with deterministic checks |
 | 14 | FR-10 Isolation | Production readiness |
 | 15 | FR-09 Resource Efficiency | Production readiness |
 | 16 | FR-07 Comparison | Primary insights output |

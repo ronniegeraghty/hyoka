@@ -52,9 +52,10 @@ The core question hyoka answers: **Which tools help agents write better code, an
 | 0.3 | **Fix stale path in new-prompt** — `main.go:1276` says `go run ./tool/cmd/hyoka validate`, should be `go run ./hyoka validate`. | Tank | Small | — |
 | 0.4 | **Add generator model validation** — Empty `Generator.Model` passes validation but fails at runtime (`config.go:256-287`). | Tank | Small | — |
 | 0.5 | **Detect duplicate config names** — Two configs with the same name silently shadow. Second config becomes inaccessible. | Tank | Small | — |
-| 0.6 | **Log discarded errors** — `reviewer.go:352`, `copilot.go:83`, `main.go:219,263,270,286`, `fetcher.go:68,82,88,120`. | Neo | Small | — |
-| 0.7 | **Fix Go version in docs** — 4 files say Go 1.24.5+, go.mod requires 1.26.1. | Oracle | Small | — |
-| 0.8 | **Fix flaky resourcemonitor tests** — Replace `time.Sleep` assertions with event-driven checks. | Switch | Small | — |
+| 0.6 | **Big-bang migrate config files** — Migrate all 8 config files to `Generator`/`Reviewer` sub-struct format. Delete all legacy fields, `Normalize()`, and 7 `Effective*()` getters (~130 lines / 35% of config.go). Direct field access replaces `tc.EffectiveModel()` → `tc.Generator.Model`. | Tank | Medium | — |
+| 0.7 | **Log discarded errors** — `reviewer.go:352`, `copilot.go:83`, `main.go:219,263,270,286`, `fetcher.go:68,82,88,120`. | Neo | Small | — |
+| 0.8 | **Fix Go version in docs** — 4 files say Go 1.24.5+, go.mod requires 1.26.1. | Oracle | Small | — |
+| 0.9 | **Fix flaky resourcemonitor tests** — Replace `time.Sleep` assertions with event-driven checks. | Switch | Small | — |
 
 ---
 
@@ -64,37 +65,82 @@ The core question hyoka answers: **Which tools help agents write better code, an
 
 **Duration:** 2-3 sprints
 
-### 1.1 — Generic Prompt Properties
+### 1.1 — Generic Prompt Properties (Properties as Sole Representation)
 
 **Current:** `Prompt` struct (`prompt/types.go:4-32`) has 12+ hardcoded fields: `Service`, `Plane`, `Language`, `Category`, `Difficulty`, `SDKPackage`, `DocURL`, etc.
 
-**Target:** Add `Properties map[string]string` field. All filtering, matching, and criteria selection works against properties. Existing fields become convenience accessors that read from the properties map.
+**Target:** `Properties map[string]string` is THE representation, not a bolt-on. Drop all typed struct fields (`Service`, `Language`, etc.) entirely. Add convenience getter methods that read from the map: `p.Language()` returns `p.Properties["language"]`. The `Filter` struct also becomes property-based: `Filters map[string]string` instead of typed fields.
 
-**Migration strategy:** Big-bang. Update all 87 prompts to the new format. No backward compatibility for old fields. Write a migration script that reads existing frontmatter and converts to properties format.
+Prompt frontmatter becomes:
+```yaml
+id: key-vault-dp-python-crud
+properties:
+  service: key-vault
+  plane: data-plane
+  language: python
+  category: crud
+  difficulty: medium
+  sdk_package: azure-keyvault-secrets
+```
 
-**Tasks:**
-
-| Task | Description | Owner | Size |
-|------|-------------|-------|------|
-| 1.1a | Add `Properties map[string]string` to `Prompt` struct. Update parser to populate properties from frontmatter. | Neo | Medium |
-| 1.1b | Write migration script to convert all 87 prompts from fixed fields to properties. | Tank | Medium |
-| 1.1c | Update all filter flags (`--service`, `--language`, `--plane`, `--category`) to query properties map instead of struct fields. | Tank | Medium |
-
-### 1.2 — Criteria Filters (Property-Based with Exclude)
-
-**Current:** `MatchCondition` struct (`criteria/criteria.go:28-34`) has 5 hardcoded fields: `Language`, `Service`, `Plane`, `Category`, `SDK`.
-
-**Target:** Replace with property-based matching. Support both include and exclude filters. Remove Tier 1 criteria entirely — prompts/configs must supply their own criteria.
-
-**Decision (Q1):** Remove Tier 1 entirely. No built-in default criteria.
+**Migration strategy:** Big-bang. Update all 87 prompts to nested `properties:` format. No backward compatibility. Write a migration script that reads existing frontmatter and converts to the new shape.
 
 **Tasks:**
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 1.2a | Replace `MatchCondition` with `map[string]string` include/exclude property matching. | Neo | Medium |
-| 1.2b | Remove Tier 1 criteria system. Update all code paths that reference default criteria. | Neo | Small |
-| 1.2c | Update criteria YAML format to use property-based conditions. Migrate existing criteria files. | Tank | Medium |
+| 1.1a | Redesign `Prompt` struct: replace typed fields with `Properties map[string]string`. Add convenience getter methods (`Language()`, `Service()`, etc.). Update parser for nested `properties:` key. | Neo | Medium |
+| 1.1b | Write migration script to convert all 87 prompts from flat typed fields to nested `properties:` format. | Tank | Medium |
+| 1.1c | Update all filter flags (`--service`, `--language`, `--plane`, `--category`) to query properties map. Redesign `Filter` struct as `map[string]string`. Support generic `--filter key=value` alongside legacy aliases. | Tank | Medium |
+
+### 1.2 — Criteria → Grader Configs
+
+**Current:** `MatchCondition` struct (`criteria/criteria.go:28-34`) has 5 hardcoded fields: `Language`, `Service`, `Plane`, `Category`, `SDK`. Criteria are text blobs merged via `MergeCriteria()` and injected into a single LLM review prompt. Tier 1/2/3 system.
+
+**Target:** Criteria become **grader configurations** — no tier system, no `MergeCriteria()`, no `FormatCriteria()`. Each grader is defined in YAML with typed fields:
+
+```yaml
+graders:
+  - kind: file
+    name: "main_file_exists"
+    config:
+      path: "main.py"
+    weight: 1.0
+
+  - kind: program
+    name: "builds_successfully"
+    config:
+      command: "python -m py_compile main.py"
+    weight: 1.0
+
+  - kind: prompt
+    name: "code_quality"
+    config:
+      model: "claude-opus-4.6"
+      rubric: "Evaluate the code for correctness, style, and SDK usage..."
+    weight: 0.5
+    when:
+      language: python
+
+  - kind: behavior
+    name: "used_mcp_tools"
+    config:
+      required_tools: ["azure-mcp"]
+    when:
+      service: key-vault
+```
+
+Grader applicability uses property-based `when:` conditions instead of `MatchCondition`. Graders without `when:` always apply. The system collects all applicable graders into a list — no merging logic needed. Criteria YAML files become grader config files.
+
+**Decision (Q1, anchoring review):** Remove Tier 1 entirely. Replace tier system with composable grader configs. Absorb FR-14 and FR-17 into grader architecture.
+
+**Tasks:**
+
+| Task | Description | Owner | Size |
+|------|-------------|-------|------|
+| 1.2a | Design grader config YAML schema (`kind:`, `name:`, `config:`, `when:`, `weight:`). Define initial grader types: `file`, `program`, `prompt`, `behavior`, `action_sequence`, `tool_constraint`. | Morpheus | Medium |
+| 1.2b | Replace `MatchCondition` with `when: map[string]string` property matching on grader configs. Delete `MergeCriteria()` and `FormatCriteria()`. | Neo | Medium |
+| 1.2c | Migrate existing criteria YAML files to grader config format. Remove Tier 1 system. | Tank | Medium |
 
 ### 1.3 — Tool Filters (Property-Based)
 
@@ -234,6 +280,59 @@ The core question hyoka answers: **Which tools help agents write better code, an
 | 2.4a | Audit goroutine lifecycle across eval/review pipeline. Ensure all goroutines terminate on context cancellation. | Neo | Medium |
 | 2.4b | Add memory bounds for in-flight report data. Stream large reports to disk. | Trinity | Medium |
 
+### 2.5 — Grader Architecture
+
+**Current:** Review system uses a monolithic `Reviewer` interface — one Copilot session reads all files, scores all criteria, returns one JSON blob. `PanelReviewer` runs multiple models doing the same monolithic review and consolidates. Everything goes through `BuildReviewPrompt()` → LLM → parse JSON.
+
+**Target:** Replace `Reviewer`/`PanelReviewer` with a pluggable `Grader` interface and typed implementations. Create new `hyoka/internal/graders/` package. The current LLM review becomes one grader type (`prompt`) among many:
+
+```go
+type Grader interface {
+    Kind() string
+    Name() string
+    Grade(ctx context.Context, input GraderInput) (GraderResult, error)
+}
+
+type GraderResult struct {
+    Kind    string      // "file", "program", "prompt", "behavior", etc.
+    Name    string      // Human-readable name
+    Score   float64     // 0.0–1.0 normalized score
+    Weight  float64     // Weight for aggregation
+    Pass    bool        // Binary pass/fail
+    Details interface{} // Typed details per grader kind
+}
+```
+
+**Grader types (initial set):**
+- `file` — Check file existence, content patterns, structure
+- `program` — Run a command (linter, compiler, test suite), pass/fail on exit code
+- `prompt` — LLM-as-judge (current reviewer behavior), one rubric per grader
+- `behavior` — Check agent behavior from action log (tool usage, turn count, etc.)
+- `action_sequence` — Verify agent followed expected action patterns
+- `tool_constraint` — Verify tool usage constraints (required/forbidden tools)
+
+**Architectural impact:**
+- `hyoka/internal/review/` → phased replacement by `hyoka/internal/graders/`
+- `criteria/` → grader config files with `when:` conditions (see §1.2)
+- `report/types.go` → `ReviewResult` evolves to `[]GraderResult`
+- FR-05 (Transparent Review Panel) absorbed — grader results ARE transparent by design
+- FR-17 (Reviewer Tools) absorbed — `program` grader IS a tool
+- FR-14 (Criteria Filters) absorbed — grader `when:` conditions
+
+**Decision (anchoring review):** Adopt Waza's grader model. This is the single highest-impact architectural change.
+
+**Tasks:**
+
+| Task | Description | Owner | Size |
+|------|-------------|-------|------|
+| 2.5a | Define `Grader` interface and `GraderResult` type in `hyoka/internal/graders/`. | Morpheus | Medium |
+| 2.5b | Implement `file` grader (file existence, content pattern checks). | Neo | Medium |
+| 2.5c | Implement `program` grader (run command, pass/fail on exit code, capture output). | Neo | Medium |
+| 2.5d | Implement `prompt` grader (wrap current LLM reviewer as a grader — one rubric per grader instance, structured output). | Neo | Large |
+| 2.5e | Implement `behavior`, `action_sequence`, and `tool_constraint` graders. | Neo | Medium |
+| 2.5f | Wire grader execution into eval engine — collect applicable graders, run all, aggregate results. | Neo | Large |
+| 2.5g | Update report types — `EvalReport` centers on `[]GraderResult` instead of monolithic `ReviewResult`. | Trinity | Medium |
+
 ---
 
 ## Phase 3: Transparency
@@ -258,19 +357,23 @@ The core question hyoka answers: **Which tools help agents write better code, an
 | 3.1c | Include full action timeline in JSON report output. | Trinity | Medium |
 | 3.1d | Render action timeline in HTML reports (expandable, searchable). | Trinity | Large |
 
-### 3.2 — Transparent Review Panel
+### 3.2 — Grader Result Transparency
 
 **Current:** Review panel submits scores. Individual reviewer reasoning is captured but not prominently displayed.
 
-**Target:** Each reviewer's full reasoning, scores, and criteria evaluation is visible. The consolidation logic (how individual scores become final scores) is explicit.
+**Target:** With the grader architecture (§2.5), transparency is inherent — each grader produces typed, structured output. A `program` grader result includes the command run, exit code, and stdout/stderr. A `prompt` grader result includes the model name, rubric, and full LLM reasoning. A `file` grader result includes which files were checked and their status. No special "transparency layer" needed — the grader results ARE the transparent view.
+
+**What changes from the original plan:**
+- Per-reviewer reasoning display → replaced by per-grader result display (more granular)
+- Consolidation algorithm display → replaced by weighted aggregation of grader scores (simpler, explicit)
+- Reviewer tool environments (FR-17) → absorbed into `program` grader type
 
 **Tasks:**
 
 | Task | Description | Owner | Size |
 |------|-------------|-------|------|
-| 3.2a | Include per-reviewer full response in report output (not just scores). | Neo | Medium |
-| 3.2b | Show consolidation algorithm and weights in report. | Trinity | Small |
-| 3.2c | Add reviewer tool environments — configurable tools for review agents (linters, style checkers, doc references). | Neo | Medium |
+| 3.2a | Render per-grader results in HTML reports — each grader type gets a typed display component (build output for `program`, LLM reasoning for `prompt`, check results for `file`). | Trinity | Large |
+| 3.2b | Show weighted score aggregation formula and per-grader contributions in report. | Trinity | Small |
 
 ---
 
@@ -279,13 +382,13 @@ The core question hyoka answers: **Which tools help agents write better code, an
 **Goal:** Make hyoka's primary output actionable data comparison, not just pass/fail grades.
 
 **Duration:** 2 sprints  
-**Depends on:** Phase 2 (pairwise testing), Phase 3 (action history)
+**Depends on:** Phase 2 (pairwise testing, grader architecture), Phase 3 (action history)
 
 ### 4.1 — Comparison Engine
 
 **Current:** Trends package (`trends/trends.go`, 857 lines) does cross-run analysis but it's static and batch-oriented.
 
-**Target:** Dynamic comparison engine that can diff any two configs, runs, or time periods. Answer questions like "How did adding the Azure MCP server change scores for Python prompts?"
+**Target:** Dynamic comparison engine that can diff any two configs, runs, or time periods. Works on `[]GraderResult` — comparison is per-grader, not monolithic. Answer questions like "How did adding the Azure MCP server change the `builds_successfully` grader score for Python prompts?"
 
 **Tasks:**
 
@@ -402,13 +505,14 @@ Phase 0 (Foundation)
   ├── 0.3 Fix stale path                       │
   ├── 0.4 Generator model validation            │
   ├── 0.5 Duplicate config detection            │
-  ├── 0.6 Log discarded errors                  │
-  ├── 0.7 Fix Go version in docs               │
-  └── 0.8 Fix flaky tests                      │
+  ├── 0.6 Config file migration (delete legacy) │
+  ├── 0.7 Log discarded errors                  │
+  ├── 0.8 Fix Go version in docs               │
+  └── 0.9 Fix flaky tests                      │
                                                 │
 Phase 1 (Core Model) ──── requires 0.1 ────────┘
-  ├── 1.1 Generic Properties ──────────────────┐
-  │     └── 1.2 Criteria Filters ──────────────┤ (requires 1.1)
+  ├── 1.1 Generic Properties (sole repr.) ─────┐
+  │     └── 1.2 Grader Configs ────────────────┤ (requires 1.1)
   │     └── 1.3 Tool Filters ─────────────────┤ (requires 1.1)
   ├── 1.4 YAML Prompt Format                    │
   ├── 1.5 Split main.go                        │
@@ -419,14 +523,15 @@ Phase 2 (Eval Engine) ── requires 1.1-1.3 ─────┘
   ├── 2.1 Pairwise Testing ──── requires 1.3 Tool Filters
   ├── 2.2 Session Limits
   ├── 2.3 Isolated Environment
-  └── 2.4 Resource Efficiency
+  ├── 2.4 Resource Efficiency
+  └── 2.5 Grader Architecture ── requires 1.2 Grader Configs
                                                 
-Phase 3 (Transparency) ── requires 1.6
+Phase 3 (Transparency) ── requires 1.6, 2.5
   ├── 3.1 Full Action History
-  └── 3.2 Transparent Review Panel
+  └── 3.2 Grader Result Transparency ── requires 2.5
                                                 
-Phase 4 (Insights) ── requires 2.1, 3.1
-  ├── 4.1 Comparison Engine
+Phase 4 (Insights) ── requires 2.1, 2.5, 3.1
+  ├── 4.1 Comparison Engine (on []GraderResult)
   ├── 4.2 Serve Site Evolution ── requires 4.1
   └── 4.3 Enhanced Trends
                                                 
@@ -437,44 +542,51 @@ Phase 5 (Ecosystem) ── requires 1.1, 1.4
   └── 5.4 Skills (can start anytime)
 ```
 
-**Critical path:** CI (0.1) → Generic Properties (1.1) → Tool Filters (1.3) → Pairwise Testing (2.1) → Comparison Engine (4.1)
+**Critical path:** CI (0.1) → Generic Properties (1.1) → Grader Configs (1.2) → Grader Architecture (2.5) → Comparison Engine (4.1)
 
-Generic Properties is the single most important model change because criteria filters, tool filters, comparison engine, and `.hyoka` portability all depend on prompts having arbitrary properties.
+Generic Properties is the single most important model change because grader configs, tool filters, comparison engine, and `.hyoka` portability all depend on prompts having arbitrary properties. The Grader Architecture is the single most important structural change because it replaces the monolithic reviewer with composable, typed graders.
+
+---
+
+## Future Enhancement: Run Spec Files
+
+> **Note (anchoring review, approved):** The current `hyoka run` command has 40+ flags. Consider a future `hyoka run eval.yaml` pattern where a run specification file absorbs most flags into a declarative spec (similar to Waza's eval spec files). This doesn't block the current CLI work (§1.5 split) but should be explored as the next evolution of the CLI surface after the split is complete.
 
 ---
 
 ## Team Assignments
 
-### Neo (Eval Engine, Review Pipeline)
-- Phase 0: Reviewer model bug (0.2), log discarded errors (0.6)
-- Phase 1: Generic properties (1.1a), criteria filters (1.2a-b), tool filter wiring (1.3c), system prompt removal (1.6b-c), starter files (1.7b)
-- Phase 2: Pairwise package (2.1a), session limits wiring (2.2b), isolation (2.3a-c), resource audit (2.4a)
-- Phase 3: Action history capture (3.1b), review panel transparency (3.2a, 3.2c)
+### Neo (Eval Engine, Review Pipeline, Graders)
+- Phase 0: Reviewer model bug (0.2), log discarded errors (0.7)
+- Phase 1: Generic properties (1.1a), grader configs (1.2b), tool filter wiring (1.3c), system prompt removal (1.6b-c), starter files (1.7b)
+- Phase 2: Pairwise package (2.1a), session limits wiring (2.2b), isolation (2.3a-c), resource audit (2.4a), grader implementations (2.5b-f)
+- Phase 3: Action history capture (3.1b)
 - Phase 4: Comparison engine (4.1a), trend slicing (4.3a-b)
 
 ### Tank (CLI, Config, Environment)
-- Phase 0: CI pipeline (0.1), stale path (0.3), generator validation (0.4), duplicate configs (0.5)
-- Phase 1: Property migration script (1.1b), filter flag updates (1.1c), criteria migration (1.2c), tool filter schema (1.3b), main.go split (1.5a-c), config system prompt field (1.6a)
+- Phase 0: CI pipeline (0.1), stale path (0.3), generator validation (0.4), duplicate configs (0.5), config file migration (0.6)
+- Phase 1: Property migration script (1.1b), filter flag updates (1.1c), grader config migration (1.2c), tool filter schema (1.3b), main.go split (1.5a-c), config system prompt field (1.6a)
 - Phase 2: Pairwise flag (2.1b), always_on field (2.1c), session limit config (2.2a)
 - Phase 4: Compare command (4.1b)
 - Phase 5: .hyoka init (5.1a-c), tool marketplace CLI (5.2b)
 
 ### Trinity (Reports, Templates, Serve)
-- Phase 2: Pairwise report (2.1d), memory bounds (2.4b)
-- Phase 3: Action timeline in reports (3.1c-d), consolidation display (3.2b)
+- Phase 2: Pairwise report (2.1d), memory bounds (2.4b), grader report types (2.5g)
+- Phase 3: Action timeline in reports (3.1c-d), grader result display (3.2a-b)
 - Phase 4: Serve API (4.2a), comparison UI (4.2b), pairwise visualization (4.2c)
 
 ### Switch (Testing, Quality)
-- Phase 0: Flaky test fix (0.8)
+- Phase 0: Flaky test fix (0.9)
 - Phase 1: Starter file validation (1.7c)
 - Phase 5: pidfile tests (5.3a), integration test (5.3b), review coverage (5.3c), serve tests (5.3d)
 
 ### Oracle (Documentation)
-- Phase 0: Go version docs (0.7)
+- Phase 0: Go version docs (0.8)
 - All phases: Keep docs/ updated as features land
 
 ### Morpheus (Architecture, Design)
-- Phase 1: Tool filter schema design (1.3a), starter file format design (1.7a)
+- Phase 1: Grader config schema design (1.2a), tool filter schema design (1.3a), starter file format design (1.7a)
+- Phase 2: Grader interface design (2.5a)
 - Phase 3: Action event schema (3.1a)
 - Phase 5: Tool registry format (5.2a)
 - All phases: Architecture review, decision arbitration
@@ -515,3 +627,4 @@ Generic Properties is the single most important model change because criteria fi
 - `ResourceFile` pattern for starter files
 - Session config–based isolation (working directory, tools, permissions)
 - Config-level system prompt override for teams that want one
+- **Pluggable grader architecture** — 12 grader types (code, prompt, file, program, behavior, action_sequence, etc.) with typed outputs and composable weights

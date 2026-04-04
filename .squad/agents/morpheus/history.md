@@ -139,3 +139,16 @@ Initial setup complete.
 **Key learning:** Anchoring bias is most visible in "improve existing X" proposals. Ask "would someone designing this from scratch do it this way?" For hyoka, the review system is the clearest case — the plan proposes transparency and tools for the existing reviewer, but the right move is replacing it with a grader architecture that makes those features emergent.
 
 **Output:** `plan/anchoring-review.md` — 6 findings, prioritized recommendations, plan section impact analysis, 3 open questions for Ronnie.
+
+### Anchoring Review Pivot Integration (2026-10-15)
+
+**Task:** Ronnie approved all 3 anchoring review pivots (grader architecture, config cleanup, run spec files) plus directed that properties-as-sole-representation (Finding #3) and criteria-tiers-to-grader-config (Finding #5) be absorbed into the grader decision. Updated all 5 plan documents.
+
+**Changes made across 5 files:**
+1. `plan/evolution-plan.md` — Added Phase 0 task 0.6 (config migration), renumbered 0.6-0.8→0.7-0.9. Rewrote §1.1 (Properties as sole repr.), §1.2 (Criteria→Grader Configs). Added §2.5 (Grader Architecture). Rewrote §3.2 (Grader Result Transparency). Updated Phase 4 for `[]GraderResult`. Added run spec future note. Updated dependency graph and all team assignments.
+2. `plan/PRD.md` — Updated FR-05 (absorbed into graders), FR-12 (sole representation), FR-14 (grader configs), FR-17 (program grader). Added FR-19 (Grader Architecture). Updated dependency map and priority table.
+3. `plan/core-principles.md` — Added Principle §11: "Deterministic Where Possible."
+4. `plan/engineering-standards.md` — Rewrote §5 (Configuration): removed Normalize()/Effective*() rules, added direct field access and grader config to schema. Added §11 (Grader Interface Pattern) with rules, grader type table, and report types note. Updated §7 package list and interface references.
+5. `plan/decisions-log.md` — Added D-AR1 (grader pivot), D-AR2 (config cleanup), D-AR3 (run spec future), D-AUTO (coordinator autonomy). Updated decision index.
+
+**Key learning:** When a human approves architectural pivots, the ripple across documentation is significant — 5 files, ~30 edits. Having a structured plan directory with clear section numbering makes these updates tractable. The alternative (unstructured docs) would make this kind of cross-cutting update error-prone.
