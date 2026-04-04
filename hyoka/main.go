@@ -129,6 +129,7 @@ type runFlags struct {
 	category     string
 	tags         string
 	promptID     string
+	filter       []string
 	configName   string
 	configFile   string
 	configDir    string
@@ -165,12 +166,13 @@ type runFlags struct {
 
 func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.prompts, "prompts", "./prompts", "Path to prompt library directory")
-	cmd.Flags().StringVar(&f.service, "service", "", "Filter by Azure service")
-	cmd.Flags().StringVar(&f.language, "language", "", "Filter by programming language")
-	cmd.Flags().StringVar(&f.plane, "plane", "", "Filter by data-plane/management-plane")
-	cmd.Flags().StringVar(&f.category, "category", "", "Filter by use-case category")
+	cmd.Flags().StringVar(&f.service, "service", "", "Filter by Azure service (shorthand for --filter service=VALUE)")
+	cmd.Flags().StringVar(&f.language, "language", "", "Filter by programming language (shorthand for --filter language=VALUE)")
+	cmd.Flags().StringVar(&f.plane, "plane", "", "Filter by data-plane/management-plane (shorthand for --filter plane=VALUE)")
+	cmd.Flags().StringVar(&f.category, "category", "", "Filter by use-case category (shorthand for --filter category=VALUE)")
 	cmd.Flags().StringVar(&f.tags, "tags", "", "Filter by tags (comma-separated)")
 	cmd.Flags().StringVar(&f.promptID, "prompt-id", "", "Run a single prompt by ID")
+	cmd.Flags().StringArrayVar(&f.filter, "filter", nil, "Filter by arbitrary property (key=value, repeatable)")
 	cmd.Flags().StringVar(&f.configName, "config", "", "Config name(s) from config file (comma-separated)")
 	cmd.Flags().StringVar(&f.configFile, "config-file", "", "Path to a specific configuration YAML file (default: load all from configs/)")
 	cmd.Flags().StringVar(&f.configDir, "config-dir", "./configs", "Directory containing configuration YAML files")
@@ -253,11 +255,27 @@ func buildFilter(f *runFlags) prompt.Filter {
 			tags[i] = strings.TrimSpace(tags[i])
 		}
 	}
+	filters := make(map[string]string)
+	if f.service != "" {
+		filters["service"] = f.service
+	}
+	if f.plane != "" {
+		filters["plane"] = f.plane
+	}
+	if f.language != "" {
+		filters["language"] = f.language
+	}
+	if f.category != "" {
+		filters["category"] = f.category
+	}
+	for _, kv := range f.filter {
+		k, v, ok := strings.Cut(kv, "=")
+		if ok && k != "" {
+			filters[k] = v
+		}
+	}
 	return prompt.Filter{
-		Service:  f.service,
-		Plane:    f.plane,
-		Language: f.language,
-		Category: f.category,
+		Filters:  filters,
 		Tags:     tags,
 		PromptID: f.promptID,
 	}
