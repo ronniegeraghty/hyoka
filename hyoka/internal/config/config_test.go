@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -540,6 +541,59 @@ _, err := Parse(data)
 if err == nil {
 t.Fatal("expected error for remote skill without repo")
 }
+}
+
+func TestParseDuplicateConfigNamesRejected(t *testing.T) {
+	data := []byte(`
+configs:
+  - name: same-name
+    description: "First"
+    generator:
+      model: "gpt-4"
+  - name: same-name
+    description: "Second"
+    generator:
+      model: "claude-sonnet-4.5"
+`)
+	_, err := Parse(data)
+	if err == nil {
+		t.Fatal("expected error for duplicate config names within a file")
+	}
+	if got := err.Error(); !strings.Contains(got, "duplicate config name") {
+		t.Errorf("expected duplicate config name error, got: %v", err)
+	}
+}
+
+func TestLoadDirDuplicateConfigNamesAcrossFiles(t *testing.T) {
+	dir := t.TempDir()
+	file1 := []byte(`
+configs:
+  - name: shared-name
+    description: "In file1"
+    generator:
+      model: "gpt-4"
+`)
+	file2 := []byte(`
+configs:
+  - name: shared-name
+    description: "In file2"
+    generator:
+      model: "claude-sonnet-4.5"
+`)
+	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), file1, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), file2, 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadDir(dir)
+	if err == nil {
+		t.Fatal("expected error for duplicate config names across files")
+	}
+	got := err.Error()
+	if !strings.Contains(got, "duplicate config name") || !strings.Contains(got, "a.yaml") || !strings.Contains(got, "b.yaml") {
+		t.Errorf("expected error mentioning duplicate name and both files, got: %v", err)
+	}
 }
 
 func TestGeneratorModelDirectAccess(t *testing.T) {
