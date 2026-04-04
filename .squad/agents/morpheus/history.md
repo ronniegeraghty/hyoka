@@ -92,3 +92,19 @@ Initial setup complete.
 4. Properties migration strategy — big-bang script or gradual backward-compat?
 5. `.hyoka` vs global install — project-scoped only or both?
 6. Response type — files only or text responses valid?
+
+### Skills Investigation (2026-10-14)
+
+**Finding:** `.squad/skills/` directory does not exist — zero project-specific skills. 29 generic template skills exist in `.squad/templates/skills/` but none encode hyoka's architecture, Go patterns, or domain knowledge. The `prompt-authoring` project skill at repo root covers prompt creation but not schema details.
+
+**Recommended 14 skills across 4 categories:**
+- Core Architecture (5): eval-pipeline, error-handling, config-system, copilot-sdk-integration, criteria-system
+- Working Patterns (4): testing-patterns, cli-patterns, report-generation, logging-conventions
+- Human Developer (2): contributor-guide, prompt-conventions
+- Evolution Support (3): property-migration, process-lifecycle, serve-patterns
+
+**Key insight:** The three highest-priority skills are `hyoka-eval-pipeline` (pipeline literacy prevents cross-package wiring bugs), `hyoka-error-handling` (strict %w wrapping convention is non-obvious to new agents), and `hyoka-contributor-guide` (reduces new-contributor ramp-up from hours to minutes).
+
+**Template skills to copy/customize:** test-discipline, ci-validation-gates, reviewer-protocol, secret-handling (copy as-is); git-workflow (fork — hyoka uses `{username}/issue-{N}-{desc}` not `squad/{N}-{slug}`); project-conventions (replace with hyoka-contributor-guide).
+
+**Recommendations written to:** `.squad/decisions/inbox/morpheus-skills-recommendations.md` with full details, priority matrix, and 3 open questions.

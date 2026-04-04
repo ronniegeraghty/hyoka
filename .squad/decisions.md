@@ -35,6 +35,45 @@
 
 ---
 
+### Decision: Recommended Skills for hyoka (2026-04-04)
+
+**Date:** 2026-04-04  
+**Author:** Morpheus 🕶️  
+**Status:** Proposed  
+**Summary:** 14 skills recommended across 4 categories to encode hyoka's architecture, Go patterns, domain conventions, and operational knowledge.
+
+#### Skill Categories & Names
+
+**Category 1: Core Architecture (All Agents + Human Devs)**
+- `hyoka-eval-pipeline` — generate→review→report orchestration
+- `hyoka-error-handling` — error wrapping, propagation, non-fatal logging
+- `hyoka-config-system` — YAML loading, normalization, validation
+- `copilot-sdk-integration` — session lifecycle, event handling, resource cleanup
+
+**Category 2: Go Patterns & Conventions**
+- `hyoka-criteria-system` — tiered evaluation, multi-level scoring
+- `hyoka-testing-patterns` — test structure, table-driven tests, mocks
+
+**Category 3: Subsystem Expertise (6 skills)**
+- `hyoka-cli-patterns` — Cobra commands, flags, safety boundaries
+- `hyoka-report-generation` — JSON/HTML/MD output, templates
+- `hyoka-logging-conventions` — slog structured logging
+- `hyoka-contributor-guide` — workflow, testing, iteration
+- `hyoka-prompt-conventions` — frontmatter, validation, categorization
+- `hyoka-property-migration` — legacy fields, idempotent normalization
+
+**Category 4: Operational Knowledge**
+- `hyoka-process-lifecycle` — session management, PID files, cleanup
+- `hyoka-serve-patterns` — web handlers, path safety, report serving
+
+#### Rationale
+
+Each skill encodes patterns discovered during comprehensive codebase audits. Skills prevent agents from rediscovering architectural knowledge, Go conventions, and domain patterns during each task. All 14 should be created and published to `.squad/skills/` to enable effective asynchronous collaboration on hardening and evolution work.
+
+**Full recommendations:** See `.squad/orchestration-log/2026-04-04T00-12-morpheus-skills.md` (orchestration log with detailed rationale, audiences, file references for each skill).
+
+---
+
 ### Decision: Hardening Audit — October 2026 (Integrated)
 
 **Date:** 2026-10-14  
