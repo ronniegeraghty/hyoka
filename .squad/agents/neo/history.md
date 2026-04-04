@@ -20,3 +20,7 @@ Agent Neo initialized as Core Dev for hyoka. Owns the evaluation engine, review 
 ## Learnings
 
 Initial setup complete. Architecture is sound. Main engineering focus should be: (1) fix reviewer model bug, (2) refactor main.go into cmd/ package, (3) add integration tests.
+
+### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
+
+Evolution plan assigns you Phase 1 core model changes (generic properties, criteria filters, tool filters) and Phase 2 pairwise testing. Read `.squad/decisions.md` for full plan. Also assigned: reviewer model bug (P0), discarded error logging, early auth check.

@@ -20,3 +20,7 @@ Agent Switch initialized as Tester for hyoka. Guardrail defaults to test: max tu
 ## Learnings
 
 Initial setup complete. Coverage is good across packages except pidfile. Integration test gap is highest priority for catching regressions.
+
+### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
+
+Evolution plan assigns you pidfile tests, review package tests, integration test, flaky test fixes. Read `.squad/decisions.md` for full plan.

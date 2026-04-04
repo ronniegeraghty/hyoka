@@ -67,3 +67,28 @@ Initial setup complete.
 **Full hardening plan written to:** `.squad/decisions/inbox/morpheus-hardening-plan.md` with 20 prioritized tasks (3 P0, 10 P1, 7 P2).
 
 **Decision:** CI is the single biggest hardening priority. Without it, every other fix can regress silently.
+
+### Evolution Plan (2026-10-14)
+
+**Scope:** Integrated hardening + product vision plan mapping Ronnie's 15 requirements against current architecture. Deep-dived into all 6 major subsystems: config, prompt, eval engine, review/criteria, serve/report, skills.
+
+**Key architectural findings for the vision:**
+- `Prompt` struct has 12 hardcoded fields + `KnownFields(true)` — blocks any non-Azure use. Must add `Properties map[string]string` and relax strict parsing.
+- `MatchCondition` in criteria has 5 hardcoded fields (language, service, plane, category, sdk) — must generalize to property-based matching to support tool filters and criteria filters.
+- System prompt (`copilot.go:628-655`) has 15 rules — many are bias, not operational. Must be reduced for "minimal system prompt" requirement.
+- Pairwise testing is entirely new — needs new `pairwise/` package generating N+1 config variants per tool set.
+- Comparison/insights capability partially exists (dashboard, trends) but is static — needs API-driven dynamic comparison engine.
+- Per-project `.hyoka` directory is entirely new — needs auto-discovery and `hyoka init` command.
+- YAML prompt format is entirely new — needs `ParsePromptYAML()` alongside existing markdown parser.
+
+**Critical dependency chain:** CI (0.1) → Generic Properties (1.1) → Everything else. Properties are the single biggest model change because criteria filters, tool filters, comparison engine, and `.hyoka` portability all depend on prompts having arbitrary properties.
+
+**Plan written to:** `.squad/decisions/inbox/morpheus-evolution-plan.md` with 5 phases, 25+ tasks, 6 open questions for Ronnie, risk assessment, and ~4-5 month timeline.
+
+**6 open questions identified for Ronnie's input:**
+1. Tier 1 criteria removal — keep as opt-in default or remove entirely?
+2. System prompt scope — how minimal is "minimal"?
+3. Pairwise testing granularity — full combinatorial or MCP-server-only?
+4. Properties migration strategy — big-bang script or gradual backward-compat?
+5. `.hyoka` vs global install — project-scoped only or both?
+6. Response type — files only or text responses valid?

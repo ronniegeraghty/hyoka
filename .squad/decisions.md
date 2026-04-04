@@ -2,6 +2,39 @@
 
 ## Active Decisions
 
+### Decision: Hyoka Evolution Plan — Hardening + Product Vision
+
+**Date:** 2026-04-04  
+**Author:** Morpheus 🕶️  
+**Status:** Proposed  
+**Summary:** Integrated 5-phase plan combining October 2026 audit P0–P2 fixes with product vision to evolve hyoka into a general-purpose AI agent benchmarking platform. Covers 25+ tasks across 5 squad members, includes dependency graph, and identifies 6 open questions for team consensus.
+
+**Full Plan:** See `.squad/decisions/inbox/morpheus-evolution-plan.md` (39 KB, 5 phases, dependency graph, open questions)
+
+---
+
+### Decision: User Directives (2026-04-04)
+
+**Date:** 2026-04-04  
+**By:** Ronnie Geraghty (via Copilot)  
+**Status:** Captured
+
+#### 2026-04-04T00:08:37Z: Reviewer tools & configurable system prompts
+
+**What:**
+1. Review panel agents should be able to have tools added to their environments as well — not just the generation agent. This allows reviewers to reference specific evaluation tooling (e.g., linters, style checkers, documentation references).
+2. The system prompt for BOTH the agent attempting the prompt AND the review agents should be configurable in the config YAML files. Users should control what system prompt is used, supporting the "minimal to no system prompt bias" goal.
+
+**Why:** User request — additions to the hyoka product vision for the hardening/evolution effort. Integrated into Morpheus's Phase 3 work.
+
+#### 2026-04-04T00:12:40Z: Skills investigation
+
+**What:** Morpheus should investigate what agent skills we may want in the repo to help each squad member and human devs working on the project.
+
+**Why:** User request — skills improve agent effectiveness and developer onboarding. Captured as Phase 5 research task in the evolution plan.
+
+---
+
 ### Decision: Hardening Audit — October 2026 (Integrated)
 
 **Date:** 2026-10-14  

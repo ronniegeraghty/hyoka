@@ -10,3 +10,7 @@
 ## Learnings
 
 (New agent — no learnings yet.)
+
+### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
+
+Evolution plan assigns you Phase 3 serve site evolution, comparison engine, transparent review panel UI, enhanced trends. Read `.squad/decisions.md` for full plan. Also assigned: runID validation in serve handler, HTML template extraction.

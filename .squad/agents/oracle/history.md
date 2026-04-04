@@ -10,3 +10,7 @@
 ## Learnings
 
 (New agent — no learnings yet.)
+
+### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
+
+Evolution plan assigns you Go version doc fixes and documentation for all new features across phases. Read `.squad/decisions.md` for full plan.

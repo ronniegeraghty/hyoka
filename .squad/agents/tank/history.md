@@ -20,3 +20,7 @@ Agent Tank initialized as Platform Dev for hyoka. Owns CLI, config, build, repor
 ## Learnings
 
 Initial setup complete. Platform is well-structured. Quick wins: fix stale path, plan main.go refactor.
+
+### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
+
+Evolution plan assigns you Phase 0 CI pipeline (P0), main.go split, YAML prompts, session limits, .hyoka directory. Read `.squad/decisions.md` for full plan. Also assigned: config validation, duplicate detection, stale path fixes.
