@@ -389,3 +389,19 @@ The codebase is in surprisingly good shape for its maturity stage. The architect
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
+
+---
+
+### Decision: Anchoring Review Decisions + Autonomy Directive (2026-04-04T02:48:44Z)
+
+**By:** Ronnie Geraghty (via Copilot)  
+**Status:** Binding
+
+**What:**
+
+1. **AUTONOMY:** Squad coordinator should have a lower bar for what decisions require Ronnie's input. Make good decisions autonomously — don't be too eager to ask.
+2. **Q1 (Grader architecture):** YES — adopt Waza's pluggable grader model. Replace Reviewer/PanelReviewer with Grader interface and typed grader implementations.
+3. **Q2 (Config cleanup timing):** YES — big-bang migrate configs in Phase 0 alongside CI. Delete Normalize() and Effective*() getters.
+4. **Q3 (Run spec files):** YES — explore `hyoka run eval.yaml` pattern as future enhancement. Don't block current work on it.
+
+**Why:** User decisions on anchoring review findings. These are binding architectural pivots.
