@@ -26,12 +26,16 @@ func TestWriteReport(t *testing.T) {
 	}
 
 	p := &prompt.Prompt{
-		ID:       "test-prompt",
-		Service:  "storage",
-		Plane:    "data-plane",
-		Language: "dotnet",
-		Category: "authentication",
+		ID:         "test-prompt",
+		Properties: map[string]string{"service": "storage", "plane": "data-plane", "language": "dotnet", "category": "authentication"},
 	}
+
+
+
+
+
+
+
 
 	reportPath, err := WriteReport(r, dir, "20240115-100000", p)
 	if err != nil {
@@ -109,7 +113,7 @@ func TestWriteSummary(t *testing.T) {
 
 func TestWriteReportInvalidDir(t *testing.T) {
 	r := &EvalReport{PromptID: "test", ConfigName: "cfg"}
-	p := &prompt.Prompt{ID: "test", Service: "svc", Plane: "plane", Language: "lang", Category: "cat"}
+	p := &prompt.Prompt{ID: "test", Properties: map[string]string{"service": "svc", "plane": "plane", "language": "lang", "category": "cat"}}
 
 	// Use a path containing characters that are invalid on both Unix and Windows.
 	// On Windows, /nonexistent is treated as drive-relative and MkdirAll may succeed.

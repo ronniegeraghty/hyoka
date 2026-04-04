@@ -606,9 +606,9 @@ func listCmd() *cobra.Command {
 
 			fmt.Printf("Found %d prompt(s):\n\n", len(filtered))
 			for _, p := range filtered {
-				fmt.Printf("  %-30s %s/%s/%s [%s]\n", p.ID, p.Service, p.Plane, p.Language, p.Category)
-				if p.Description != "" {
-					fmt.Printf("  %-30s %s\n", "", p.Description)
+				fmt.Printf("  %-30s %s/%s/%s [%s]\n", p.ID, p.Service(), p.Plane(), p.Language(), p.Category())
+				if p.Description() != "" {
+					fmt.Printf("  %-30s %s\n", "", p.Description())
 				}
 			}
 			return nil

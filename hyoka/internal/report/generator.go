@@ -17,7 +17,7 @@ import (
 func ReportDir(outputDir string, runID string, p *prompt.Prompt) string {
 	return filepath.Join(
 		outputDir, runID, "results",
-		p.Service, p.Plane, p.Language, p.Category, p.ID,
+		p.Service(), p.Plane(), p.Language(), p.Category(), p.ID,
 	)
 }
 

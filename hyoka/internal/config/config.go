@@ -38,6 +38,7 @@ type GeneratorConfig struct {
 	MCPServers     map[string]*MCPServer `yaml:"mcp_servers,omitempty" json:"mcp_servers,omitempty"`
 	AvailableTools []string              `yaml:"available_tools,omitempty" json:"available_tools,omitempty"`
 	ExcludedTools  []string              `yaml:"excluded_tools,omitempty" json:"excluded_tools,omitempty"`
+	Tools          []ToolEntry           `yaml:"tools,omitempty" json:"tools,omitempty"`
 }
 
 // ReviewerConfig holds all configuration for the review/grading plane.
@@ -146,6 +147,11 @@ func (cf *ConfigFile) Validate() error {
 			for _, s := range c.Generator.Skills {
 				if err := validateSkill(s); err != nil {
 					return fmt.Errorf("config %q generator skill: %w", c.Name, err)
+				}
+			}
+			for j, te := range c.Generator.Tools {
+				if err := validateToolEntry(te, c.Name, j); err != nil {
+					return err
 				}
 			}
 		}

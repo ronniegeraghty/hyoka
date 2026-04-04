@@ -51,13 +51,10 @@ func TestReviewerFactoryPerConfig(t *testing.T) {
 	// Create a single prompt
 	prompts := []*prompt.Prompt{
 		{
-			ID:                  "test-prompt",
-			Language:            "python",
-			Service:             "identity",
-			Plane:               "data-plane",
-			Category:            "auth",
-			PromptText:          "Create a test file",
-			EvaluationCriteria:  "Must work",
+			ID:                 "test-prompt",
+			Properties:         map[string]string{"language": "python", "service": "identity", "plane": "data-plane", "category": "auth"},
+			PromptText:         "Create a test file",
+			EvaluationCriteria: "Must work",
 		},
 	}
 
@@ -144,7 +141,7 @@ func TestReviewerFactoryNilWhenSkipReview(t *testing.T) {
 		ProgressMode: "off",
 	}))
 
-	prompts := []*prompt.Prompt{{ID: "test", Language: "python", PromptText: "test"}}
+	prompts := []*prompt.Prompt{{ID: "test", Properties: map[string]string{"language": "python"}, PromptText: "test"}}
 	configs := []config.ToolConfig{{Name: "test-config", Generator: &config.GeneratorConfig{Model: "gpt-4"}}}
 
 	_, err := engine.Run(context.Background(), prompts, configs)
