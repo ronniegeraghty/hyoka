@@ -19,6 +19,11 @@ Agent Tank initialized as Platform Dev for hyoka. Owns CLI, config, build, repor
 
 ## Learnings
 
+- **Config migration pattern**: When removing backward compatibility code, the best approach is to update all configs first (all 8 YAML files), then delete legacy struct fields, then remove helper methods (Normalize, Effective*), then update all call sites. This ensures compiler errors guide you to every place that needs updating.
+- **Test-driven refactoring**: Large structural changes benefit from running tests after each phase (struct changes, method deletions, call site updates). The test failures become a checklist of what still needs updating.
+- **Unused function cleanup**: After removing legacy fields, helper functions like resolveSkillsDirs() that worked with those fields become unused. The compiler catches these with "declared and not used" errors.
+
+
 Initial setup complete. Platform is well-structured. Quick wins: fix stale path, plan main.go refactor.
 
 ### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
