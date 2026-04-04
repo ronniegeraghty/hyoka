@@ -2,8 +2,10 @@
 configs:
   - name: baseline/claude-opus-4.6
     description: "Baseline — raw Copilot with Claude Opus 4.6"
-    model: "claude-opus-4.6"
-    reviewer_models:
-      - "claude-opus-4.6"
-      - "gemini-3-pro-preview"
-      - "gpt-4.1"
+    generator:
+      model: "claude-opus-4.6"
+    reviewer:
+      models:
+        - "claude-opus-4.6"
+        - "gemini-3-pro-preview"
+        - "gpt-4.1"
