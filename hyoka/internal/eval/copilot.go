@@ -657,45 +657,12 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 		}
 	}
 
-	// System message ensures the agent creates actual code files in the workspace
-	// rather than responding with inline text or writing files to the wrong directory.
-	// The create tool requires an explicit 'path' parameter — without it, files land in ~.
-	// Also constrains bash usage, discourages web_fetch research, and standardizes on python3.
-	systemMsg := fmt.Sprintf(
-		"You are a code generation agent. Your working directory is: %s\n"+
-			"CRITICAL FILE CREATION RULES:\n"+
-			"1. Always write code to files using the create tool — never just explain code in text.\n"+
-			"2. Always create files using the create tool. Never provide code inline in your response.\n"+
-			"3. Every create call MUST include the 'path' parameter with a FULL ABSOLUTE PATH.\n"+
-			"4. Every file path MUST start with: %s/\n"+
-			"5. Example: create with path=\"%s/main.py\"\n"+
-			"6. NEVER omit the path parameter. NEVER use relative paths.\n"+
-			"7. NEVER create files outside your working directory.\n"+
-			"BASH RULES:\n"+
-			"8. When using bash, always cd to %s first. Never run commands from ~ or any directory outside your workspace.\n"+
-			"RESEARCH RULES:\n"+
-			"9. Do not use web_fetch to research documentation. Focus on generating code files based on the prompt.\n"+
-			"PYTHON RULES:\n"+
-			"10. Use python3 (not python) for all Python scripts and commands.",
-		workDir, workDir, workDir, workDir,
-	)
-
-	// Safety boundaries (#36): prevent real Azure resource provisioning unless --allow-cloud is set.
-	if !e.allowCloud {
-		systemMsg += "\n\nSAFETY BOUNDARIES:\n" +
-			"11. Do NOT provision real Azure resources. Do NOT run `az` CLI commands that create, update, or delete resources.\n" +
-			"12. Do NOT use `az group create`, `az storage account create`, `az webapp create`, or any destructive Azure CLI commands.\n" +
-			"13. Use mock data, environment variables, or local emulators (e.g., Azurite for Storage, CosmosDB emulator) for connection strings.\n" +
-			"14. Generate code that can run locally without cloud dependencies. Use placeholder values like `os.Getenv(\"AZURE_STORAGE_CONNECTION_STRING\")` for configuration.\n" +
-			"15. If the prompt asks for infrastructure provisioning, generate Bicep/ARM templates or Terraform files instead of running live commands."
-	}
+	// Use the config-driven system prompt (#115, #116). The default is zero
+	// system prompt — all behavioral instructions belong in the config YAML.
+	systemMsg := cfg.Generator.SystemPrompt
 
 	sc := &copilot.SessionConfig{
 		Model: cfg.Generator.Model,
-		SystemMessage: &copilot.SystemMessageConfig{
-			Mode:    "append",
-			Content: systemMsg,
-		},
 		ConfigDir:           configDir,
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
@@ -743,6 +710,14 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 			},
 		},
 		SkillDirectories: skillDirs,
+	}
+
+	// Only set SystemMessage when a system prompt is configured.
+	if systemMsg != "" {
+		sc.SystemMessage = &copilot.SystemMessageConfig{
+			Mode:    "append",
+			Content: systemMsg,
+		}
 	}
 
 	// Only set AvailableTools/ExcludedTools when non-empty.

@@ -33,6 +33,7 @@ type Skill struct {
 // GeneratorConfig holds all configuration for the code generation agent.
 type GeneratorConfig struct {
 	Model          string                `yaml:"model" json:"model"`
+	SystemPrompt   string                `yaml:"system_prompt,omitempty" json:"system_prompt,omitempty"`
 	Skills         []Skill               `yaml:"skills,omitempty" json:"skills,omitempty"`
 	MCPServers     map[string]*MCPServer `yaml:"mcp_servers,omitempty" json:"mcp_servers,omitempty"`
 	AvailableTools []string              `yaml:"available_tools,omitempty" json:"available_tools,omitempty"`
@@ -41,9 +42,10 @@ type GeneratorConfig struct {
 
 // ReviewerConfig holds all configuration for the review/grading plane.
 type ReviewerConfig struct {
-	Model  string  `yaml:"model,omitempty" json:"model,omitempty"`
-	Models []string `yaml:"models,omitempty" json:"models,omitempty"`
-	Skills []Skill  `yaml:"skills,omitempty" json:"skills,omitempty"`
+	Model        string   `yaml:"model,omitempty" json:"model,omitempty"`
+	Models       []string `yaml:"models,omitempty" json:"models,omitempty"`
+	SystemPrompt string   `yaml:"system_prompt,omitempty" json:"system_prompt,omitempty"`
+	Skills       []Skill  `yaml:"skills,omitempty" json:"skills,omitempty"`
 }
 
 // ToolConfig represents a single evaluation configuration.

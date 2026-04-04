@@ -131,3 +131,42 @@ func TestBuildSessionConfig_MCPServers(t *testing.T) {
 		t.Errorf("expected MCP command 'npx', got %v", azure["command"])
 	}
 }
+
+func TestBuildSessionConfig_CustomSystemPrompt(t *testing.T) {
+	e := &CopilotSDKEvaluator{}
+
+	cfg := &config.ToolConfig{
+		Name: "test",
+		Generator: &config.GeneratorConfig{
+			Model:        "gpt-4",
+			SystemPrompt: "You are a helpful code generator.",
+		},
+	}
+	sc := e.buildSessionConfig(cfg, "/workspace/test", "")
+
+	if sc.SystemMessage == nil {
+		t.Fatal("expected SystemMessage to be set when SystemPrompt is configured")
+	}
+	if sc.SystemMessage.Content != "You are a helpful code generator." {
+		t.Errorf("expected custom system prompt, got %q", sc.SystemMessage.Content)
+	}
+	if sc.SystemMessage.Mode != "append" {
+		t.Errorf("expected mode 'append', got %q", sc.SystemMessage.Mode)
+	}
+}
+
+func TestBuildSessionConfig_EmptySystemPrompt(t *testing.T) {
+	e := &CopilotSDKEvaluator{}
+
+	cfg := &config.ToolConfig{
+		Name: "test",
+		Generator: &config.GeneratorConfig{
+			Model: "gpt-4",
+		},
+	}
+	sc := e.buildSessionConfig(cfg, "/workspace/test", "")
+
+	if sc.SystemMessage != nil {
+		t.Errorf("expected nil SystemMessage when no SystemPrompt configured, got %+v", sc.SystemMessage)
+	}
+}
