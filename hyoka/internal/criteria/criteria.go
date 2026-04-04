@@ -1,102 +1,144 @@
-// Package criteria implements a tiered evaluation criteria system.
+// Package criteria implements a grader-config-based evaluation criteria system.
 //
-// Criteria YAML files use a "when" map to declare which prompts they apply to.
-// All entries in "when" must match the corresponding prompt property
-// (case-insensitive). An empty or absent "when" block matches every prompt.
+// Criteria YAML files define grader configs with:
+//   - when: map[string]string conditions (all must match for the config to apply)
+//   - graders: weighted evaluation rubrics with prompts
+//
+// At eval time, matching grader configs are collected and merged with any
+// prompt-specific criteria to form the final evaluation rubric.
 package criteria
 
 import (
-"bytes"
-"fmt"
-"log/slog"
-"os"
-"path/filepath"
-"strings"
+	"bytes"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
-"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
-// Criterion defines a single evaluation criterion.
-type Criterion struct {
-Name        string `yaml:"name" json:"name"`
-Description string `yaml:"description" json:"description"`
+// GraderEntry defines a single grader with its evaluation prompt and weight.
+type GraderEntry struct {
+	Name   string  `yaml:"name" json:"name"`
+	Weight float64 `yaml:"weight" json:"weight"`
+	Prompt string  `yaml:"prompt" json:"prompt"`
 }
 
-// CriteriaSet is a collection of criteria with conditions for when they apply.
-type CriteriaSet struct {
-When     map[string]string `yaml:"when"`
-Criteria []Criterion       `yaml:"criteria"`
-Source   string            `yaml:"-"` // source file path
+// GraderConfig is a collection of graders with conditions for when they apply.
+// When the When map is empty, the config is unconditionally included.
+// When the When map has entries, all key-value pairs must match the prompt's
+// properties for the graders to be included.
+type GraderConfig struct {
+	When    map[string]string `yaml:"when,omitempty" json:"when,omitempty"`
+	Graders []GraderEntry     `yaml:"graders" json:"graders"`
+	Source  string            `yaml:"-" json:"-"`
 }
 
-// Matches returns true if every entry in When matches the corresponding value
-// in properties (case-insensitive). An empty When matches all prompts.
-func (cs CriteriaSet) Matches(properties map[string]string) bool {
-for k, v := range cs.When {
-if !strings.EqualFold(properties[k], v) {
-return false
-}
-}
-return true
-}
-
-// LoadDir loads all criteria YAML files from a directory tree.
-func LoadDir(dir string) ([]CriteriaSet, error) {
-var sets []CriteriaSet
-
-err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-if err != nil {
-return err
-}
-if info.IsDir() {
-return nil
-}
-ext := filepath.Ext(path)
-if ext != ".yaml" && ext != ".yml" {
-return nil
+// matchesWhen returns true when every key-value pair in when matches the
+// properties map (case-insensitive values). An empty when map always matches.
+func matchesWhen(when map[string]string, props map[string]string) bool {
+	for k, v := range when {
+		if !strings.EqualFold(props[k], v) {
+			return false
+		}
+	}
+	return true
 }
 
-cs, err := loadFile(path)
-if err != nil {
-slog.Warn("Skipping invalid criteria file", "path", path, "error", err)
-return nil
-}
-cs.Source = path
-sets = append(sets, *cs)
-slog.Debug("Loaded criteria set", "path", path, "criteria_count", len(cs.Criteria))
-return nil
-})
-if err != nil {
-return nil, fmt.Errorf("walking criteria directory %s: %w", dir, err)
-}
-return sets, nil
+// LoadDir loads all grader config YAML files from a directory tree.
+func LoadDir(dir string) ([]GraderConfig, error) {
+	var configs []GraderConfig
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+
+		gc, err := loadFile(path)
+		if err != nil {
+			slog.Warn("Skipping invalid grader config file", "path", path, "error", err)
+			return nil
+		}
+		gc.Source = path
+		configs = append(configs, *gc)
+		slog.Debug("Loaded grader config", "path", path, "grader_count", len(gc.Graders))
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walking criteria directory %s: %w", dir, err)
+	}
+	return configs, nil
 }
 
-func loadFile(path string) (*CriteriaSet, error) {
-data, err := os.ReadFile(path)
-if err != nil {
-return nil, err
-}
-var cs CriteriaSet
-dec := yaml.NewDecoder(bytes.NewReader(data))
-dec.KnownFields(true)
-if err := dec.Decode(&cs); err != nil {
-return nil, fmt.Errorf("parsing %s: %w", path, err)
-}
-if len(cs.Criteria) == 0 {
-return nil, fmt.Errorf("%s: no criteria defined", path)
-}
-return &cs, nil
+func loadFile(path string) (*GraderConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var gc GraderConfig
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&gc); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	if len(gc.Graders) == 0 {
+		return nil, fmt.Errorf("%s: no graders defined", path)
+	}
+	return &gc, nil
 }
 
-// MatchingCriteria returns all criteria from sets whose When conditions match
-// the given prompt properties.
-func MatchingCriteria(sets []CriteriaSet, properties map[string]string) []Criterion {
-var matched []Criterion
-for _, s := range sets {
-if s.Matches(properties) {
-matched = append(matched, s.Criteria...)
+// MatchingGraders returns all grader entries from configs whose when-conditions
+// match the given prompt properties.
+func MatchingGraders(configs []GraderConfig, props map[string]string) []GraderEntry {
+	var matched []GraderEntry
+	for _, gc := range configs {
+		if matchesWhen(gc.When, props) {
+			matched = append(matched, gc.Graders...)
+		}
+	}
+	return matched
 }
+
+// FormatGraders formats a list of grader entries as a text block suitable for
+// injection into a review prompt.
+func FormatGraders(graders []GraderEntry) string {
+	if len(graders) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, g := range graders {
+		fmt.Fprintf(&b, "%d. **%s**", i+1, g.Name)
+		if g.Prompt != "" {
+			fmt.Fprintf(&b, " — %s", strings.TrimSpace(g.Prompt))
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
 }
-return matched
+
+// MergeCriteria combines attribute-matched grader entries with prompt-specific
+// criteria text. Returns the merged string suitable for passing to the reviewer.
+func MergeCriteria(graders []GraderEntry, promptCriteria string) string {
+	parts := make([]string, 0, 2)
+
+	formatted := FormatGraders(graders)
+	if formatted != "" {
+		parts = append(parts, "### Attribute-Matched Criteria\n\n"+formatted)
+	}
+
+	promptCriteria = strings.TrimSpace(promptCriteria)
+	if promptCriteria != "" {
+		parts = append(parts, "### Prompt-Specific Criteria\n\n"+promptCriteria)
+	}
+
+	return strings.Join(parts, "\n")
 }

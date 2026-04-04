@@ -102,7 +102,7 @@ type Engine struct {
 	reviewerFactory ReviewerFactory
 	opts            EngineOptions
 	tracker         *ProcessTracker
-	criteriaSets    []criteria.CriteriaSet // Tier 2 attribute-matched criteria (#30)
+	graderConfigs   []criteria.GraderConfig // attribute-matched grader configs (#30)
 }
 
 // NewEngine creates a new Engine with the given evaluator and options.
@@ -174,7 +174,7 @@ func (e *Engine) printf(format string, args ...any) {
 	fmt.Fprintf(e.opts.Stdout, format, args...)
 }
 
-// loadCriteria loads Tier 2 criteria sets if CriteriaDir is configured.
+// loadCriteria loads grader configs if CriteriaDir is configured.
 func (e *Engine) loadCriteria() {
 	if e.opts.CriteriaDir == "" {
 		return
@@ -183,18 +183,18 @@ func (e *Engine) loadCriteria() {
 		slog.Debug("Criteria directory does not exist, skipping", "dir", e.opts.CriteriaDir)
 		return
 	}
-	sets, err := criteria.LoadDir(e.opts.CriteriaDir)
+	configs, err := criteria.LoadDir(e.opts.CriteriaDir)
 	if err != nil {
-		slog.Warn("Failed to load criteria sets", "dir", e.opts.CriteriaDir, "error", err)
+		slog.Warn("Failed to load grader configs", "dir", e.opts.CriteriaDir, "error", err)
 		return
 	}
-	e.criteriaSets = sets
-	slog.Info("Loaded attribute-matched criteria", "sets", len(sets), "dir", e.opts.CriteriaDir)
+	e.graderConfigs = configs
+	slog.Info("Loaded grader configs", "configs", len(configs), "dir", e.opts.CriteriaDir)
 }
 
-// matchedCriteria returns all Tier 2 criteria whose "when" conditions match
-// the prompt's properties.
-func (e *Engine) matchedCriteria(p *prompt.Prompt) []criteria.Criterion {
+// mergedCriteria returns the combined attribute-matched + prompt-specific
+// evaluation criteria text for the given prompt.
+func (e *Engine) mergedCriteria(p *prompt.Prompt) string {
 	props := map[string]string{
 		"language": p.Language(),
 		"service":  p.Service(),
@@ -202,7 +202,12 @@ func (e *Engine) matchedCriteria(p *prompt.Prompt) []criteria.Criterion {
 		"category": p.Category(),
 		"sdk":      p.SDKPackage(),
 	}
-	return criteria.MatchingCriteria(e.criteriaSets, props)
+	matched := criteria.MatchingGraders(e.graderConfigs, props)
+	merged := criteria.MergeCriteria(matched, p.EvaluationCriteria)
+	if merged == "" {
+		return p.EvaluationCriteria
+	}
+	return merged
 }
 
 // SetPanelReviewer configures a multi-model review panel.
@@ -223,7 +228,7 @@ type EvalTask struct {
 
 // Run executes evaluations for the given prompts crossed with configs.
 func (e *Engine) Run(ctx context.Context, prompts []*prompt.Prompt, configs []config.ToolConfig) (*report.RunSummary, error) {
-	// Load tiered criteria sets (#30) if configured.
+	// Load grader configs (#30) if configured.
 	e.loadCriteria()
 
 	// Build task list (cross product: prompts × configs)
@@ -832,24 +837,8 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			referenceDir = task.Prompt.ReferenceAnswer
 		}
 
-		// Collect matching evaluation criteria (#30, #104)
-		matched := e.matchedCriteria(task.Prompt)
-		evalCriteria := task.Prompt.EvaluationCriteria
-		if len(matched) > 0 {
-			var b strings.Builder
-			for i, c := range matched {
-				fmt.Fprintf(&b, "%d. **%s**", i+1, c.Name)
-				if c.Description != "" {
-					fmt.Fprintf(&b, " — %s", strings.TrimSpace(c.Description))
-				}
-				b.WriteString("\n")
-			}
-			if evalCriteria != "" {
-				evalCriteria = b.String() + "\n" + evalCriteria
-			} else {
-				evalCriteria = b.String()
-			}
-		}
+		// Merge evaluation criteria (#30)
+		evalCriteria := e.mergedCriteria(task.Prompt)
 
 		// Create reviewer for this specific config using the factory (#92)
 		var reviewer review.Reviewer

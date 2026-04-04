@@ -664,15 +664,16 @@ func (c *capturingReviewer) Review(_ context.Context, _ string, _ string, _ stri
 }
 
 func TestCriteriaMergedIntoReview(t *testing.T) {
-	// Create criteria directory with a language-matched file
+	// Create criteria directory with a language-matched grader config
 	criteriaDir := t.TempDir()
 	os.MkdirAll(filepath.Join(criteriaDir, "language"), 0755)
 	os.WriteFile(filepath.Join(criteriaDir, "language", "go.yaml"), []byte(`
 when:
   language: go
-criteria:
+graders:
   - name: Uses DefaultAzureCredential
-    description: Must use azidentity.DefaultAzureCredential
+    weight: 1.0
+    prompt: Must use azidentity.DefaultAzureCredential
 `), 0644)
 
 	reviewer := &capturingReviewer{}
@@ -697,10 +698,10 @@ criteria:
 	}
 
 	if !strings.Contains(reviewer.capturedCriteria, "DefaultAzureCredential") {
-		t.Errorf("expected tier 2 criteria in review, got: %s", reviewer.capturedCriteria)
+		t.Errorf("expected grader criteria in review, got: %s", reviewer.capturedCriteria)
 	}
 	if !strings.Contains(reviewer.capturedCriteria, "handle errors properly") {
-		t.Errorf("expected tier 3 criteria in review, got: %s", reviewer.capturedCriteria)
+		t.Errorf("expected prompt criteria in review, got: %s", reviewer.capturedCriteria)
 	}
 }
 
