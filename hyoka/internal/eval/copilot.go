@@ -664,7 +664,7 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 			"BASH RULES:\n"+
 			"8. When using bash, always cd to %s first. Never run commands from ~ or any directory outside your workspace.\n"+
 			"RESEARCH RULES:\n"+
-			"9. Do not use web_fetch to research documentation. Focus on generating code files based on the prompt.\n"+
+			"9. Do not use web_fetch to browse the internet for documentation.\n"+
 			"PYTHON RULES:\n"+
 			"10. Use python3 (not python) for all Python scripts and commands.",
 		workDir, workDir, workDir, workDir,
@@ -751,6 +751,7 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 	mcpServers := cfg.Generator.MCPServers
 	if len(mcpServers) > 0 {
 		sc.MCPServers = make(map[string]copilot.MCPServerConfig, len(mcpServers))
+		var mcpNames []string
 		for name, srv := range mcpServers {
 			mcpCfg := copilot.MCPServerConfig{
 				"type":    srv.Type,
@@ -761,6 +762,7 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 				mcpCfg["tools"] = srv.Tools
 			}
 			sc.MCPServers[name] = mcpCfg
+			mcpNames = append(mcpNames, name)
 			slog.Info("MCP server configured",
 				"name", name,
 				"type", srv.Type,
@@ -769,6 +771,19 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 				"tools", srv.Tools,
 			)
 		}
+		// Instruct the agent to consult MCP tools before generating code.
+		// Without this hint, models tend to rely on built-in knowledge and
+		// never call the available MCP tools.
+		systemMsg += fmt.Sprintf(
+			"\n\nMCP TOOLS:\n"+
+				"You have access to MCP server tools (servers: %s). "+
+				"BEFORE writing any code, use the available MCP tools to look up best practices, "+
+				"API patterns, and latest SDK guidance for the Azure service in the prompt. "+
+				"For example, call get_best_practices or similar tools to get up-to-date information. "+
+				"Then use that information to generate higher-quality code.",
+			strings.Join(mcpNames, ", "),
+		)
+		sc.SystemMessage.Content = systemMsg
 	} else {
 		slog.Debug("No MCP servers configured")
 	}
