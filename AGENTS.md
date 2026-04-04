@@ -58,7 +58,7 @@ go run ./hyoka check-env
 go run ./hyoka clean
 ```
 
-Go version: 1.24.5+ required. Module path: `github.com/ronniegeraghty/hyoka`.
+Go version: 1.26.1+ required. Module path: `github.com/ronniegeraghty/hyoka`.
 
 ## Running Evaluations
 

@@ -6,7 +6,7 @@ A curated library of prompts for evaluating how well AI agents generate Azure SD
 
 ### Prerequisites
 
-- **Go 1.24.5+** — to build and run the tool
+- **Go 1.26.1+** — to build and run the tool
 - **GitHub Copilot CLI** — the SDK communicates with Copilot via the CLI in server mode. Must be installed and authenticated:
   - Install: follow [GitHub Copilot CLI setup](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli)
   - Authenticate: run `copilot` once to complete OAuth device flow, or set `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` env var
