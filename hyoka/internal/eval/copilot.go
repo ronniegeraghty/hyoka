@@ -165,7 +165,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	}
 	defer os.RemoveAll(configDir)
 
-	sessionCfg := e.buildSessionConfig(cfg, workDir, configDir)
+	sessionCfg := e.buildSessionConfig(cfg, workDir, configDir, mergePromptProperties(p))
 
 	// Subscribe to events with detailed capture and debug logging.
 	// This MUST be set before CreateSession — the SDK reads OnEvent during
@@ -652,7 +652,16 @@ func (e *CopilotSDKEvaluator) Client(ctx context.Context, workDir string) (*copi
 	return client, nil
 }
 
-func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir string, configDir string) *copilot.SessionConfig {
+// mergePromptProperties builds a property map from a prompt's metadata fields.
+// This map is used by ResolveTools to evaluate conditional tool entries.
+func mergePromptProperties(p *prompt.Prompt) map[string]string {
+	if p.Properties != nil {
+		return p.Properties
+	}
+	return make(map[string]string)
+}
+
+func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir string, configDir string, promptProps map[string]string) *copilot.SessionConfig {
 	// Build skill directories from the new Generator.Skills list
 	var skillDirs []string
 	if cfg.Generator != nil {
@@ -665,7 +674,6 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 
 	// Use the config-driven system prompt (#115, #116). The default is zero
 	// system prompt — all behavioral instructions belong in the config YAML.
-	systemMsg := cfg.Generator.SystemPrompt
 
 	sc := &copilot.SessionConfig{
 		Model: cfg.Generator.Model,
@@ -718,18 +726,16 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 		SkillDirectories: skillDirs,
 	}
 
-	// Only set SystemMessage when a system prompt is configured.
-	if systemMsg != "" {
-		sc.SystemMessage = &copilot.SystemMessageConfig{
-			Mode:    "append",
-			Content: systemMsg,
-		}
-	}
-
-	// Only set AvailableTools/ExcludedTools when non-empty.
+	// Resolve tools: new conditional format (generator.tools) takes precedence
+	// over legacy flat lists (generator.available_tools / excluded_tools).
 	// An empty slice serializes as JSON [] which tells the CLI "zero tools" —
 	// nil serializes as null which means "all default tools available."
-	availableTools := cfg.Generator.AvailableTools
+	var availableTools []string
+	if len(cfg.Generator.Tools) > 0 {
+		availableTools = config.ResolveTools(cfg.Generator.Tools, promptProps)
+	} else {
+		availableTools = cfg.Generator.AvailableTools
+	}
 	excludedTools := cfg.Generator.ExcludedTools
 	if len(availableTools) > 0 {
 		sc.AvailableTools = availableTools

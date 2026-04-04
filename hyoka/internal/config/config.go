@@ -36,9 +36,9 @@ type GeneratorConfig struct {
 	SystemPrompt   string                `yaml:"system_prompt,omitempty" json:"system_prompt,omitempty"`
 	Skills         []Skill               `yaml:"skills,omitempty" json:"skills,omitempty"`
 	MCPServers     map[string]*MCPServer `yaml:"mcp_servers,omitempty" json:"mcp_servers,omitempty"`
+	Tools          []ToolEntry           `yaml:"tools,omitempty" json:"tools,omitempty"`
 	AvailableTools []string              `yaml:"available_tools,omitempty" json:"available_tools,omitempty"`
 	ExcludedTools  []string              `yaml:"excluded_tools,omitempty" json:"excluded_tools,omitempty"`
-	Tools          []ToolEntry           `yaml:"tools,omitempty" json:"tools,omitempty"`
 }
 
 // ReviewerConfig holds all configuration for the review/grading plane.
