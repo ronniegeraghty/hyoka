@@ -733,6 +733,11 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 	var availableTools []string
 	if len(cfg.Generator.Tools) > 0 {
 		availableTools = config.ResolveTools(cfg.Generator.Tools, promptProps)
+		slog.Debug("Resolved conditional tools",
+			"entries", len(cfg.Generator.Tools),
+			"matched", len(availableTools),
+			"tools", availableTools,
+			"properties", promptProps)
 	} else {
 		availableTools = cfg.Generator.AvailableTools
 	}

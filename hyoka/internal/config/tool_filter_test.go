@@ -177,3 +177,37 @@ if c.Generator.Tools[1].When["language"] != "python" {
 t.Errorf("expected when language=python, got %v", c.Generator.Tools[1].When)
 }
 }
+
+func TestResolveTools_Deduplication(t *testing.T) {
+entries := []ToolEntry{
+{Name: "create"},
+{Name: "create", When: map[string]string{"language": "python"}},
+{Name: "edit"},
+}
+result := ResolveTools(entries, map[string]string{"language": "python"})
+if len(result) != 2 {
+t.Fatalf("expected 2 tools after dedup, got %d: %v", len(result), result)
+}
+if result[0] != "create" || result[1] != "edit" {
+t.Errorf("expected [create edit], got %v", result)
+}
+}
+
+func TestResolveTools_DeduplicationPreservesOrder(t *testing.T) {
+entries := []ToolEntry{
+{Name: "bash"},
+{Name: "create", When: map[string]string{"language": "python"}},
+{Name: "bash", When: map[string]string{"language": "python"}},
+{Name: "edit"},
+}
+result := ResolveTools(entries, map[string]string{"language": "python"})
+want := []string{"bash", "create", "edit"}
+if len(result) != len(want) {
+t.Fatalf("expected %d tools, got %d: %v", len(want), len(result), result)
+}
+for i, name := range want {
+if result[i] != name {
+t.Errorf("result[%d] = %q, want %q", i, result[i], name)
+}
+}
+}

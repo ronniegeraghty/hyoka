@@ -13,14 +13,17 @@ When map[string]string `yaml:"when,omitempty" json:"when,omitempty"`
 
 // ResolveTools evaluates tool entries against prompt properties and returns
 // the names of tools whose conditions are satisfied. An empty entries slice
-// returns nil (meaning "all default tools").
+// returns nil (meaning "all default tools"). Duplicate names are deduplicated
+// while preserving first-seen order.
 func ResolveTools(entries []ToolEntry, properties map[string]string) []string {
 if len(entries) == 0 {
 return nil
 }
+seen := make(map[string]bool, len(entries))
 var resolved []string
 for _, e := range entries {
-if matchesWhen(e.When, properties) {
+if matchesWhen(e.When, properties) && !seen[e.Name] {
+seen[e.Name] = true
 resolved = append(resolved, e.Name)
 }
 }
