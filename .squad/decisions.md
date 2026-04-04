@@ -865,3 +865,93 @@ No explicit questions raised, but the recommendation for 12 documentation tasks 
 **ESC-3 (Branch protection):** Option (a) — Enable immediately once CI (#91) merges. Every subsequent Phase 0 PR benefits.
 
 **ESC-4 (Report migration):** Migrate reports in-place during Phase 2. No dual-format support, no new command. Old JSON gets rewritten to v2 schema as part of grader architecture work. `schema_version` field (DM11) included for future-proofing but only latest version supported. Project is not in stable mode — no backward compatibility obligation.
+
+---
+
+## Decision: Reviewer Factory Pattern for Per-Config Panels
+
+**Date:** 2026-01-19  
+**Author:** Neo 💊  
+**Status:** ✅ Implemented  
+**Issue:** #92  
+**PR:** #170  
+**Section:** Issue Resolution
+
+### Context
+
+Multi-config evaluations were broken. When running:
+```bash
+hyoka run --prompt-id identity-dp-python-default \
+  --config "baseline/claude-opus-4.6,azure-mcp/claude-opus-4.6"
+```
+
+Both configs used the reviewer panel from the FIRST config (baseline), not their own reviewer settings. This was due to lines 479-485 in main.go where the loop broke on first config match.
+
+### Decision
+
+Implement a **ReviewerFactory** pattern that creates reviewers lazily per-task, not once per engine.
+
+### Architecture
+
+- **Eval package:** Define ReviewerFactory function type
+- **Engine:** Store factory instead of concrete reviewers
+- **runSingleEval:** Create reviewer from task.Config at review time
+
+### Main.go Changes
+
+Replaced concrete reviewer creation with a factory that closes over clientOpts and maxActions but creates instances per-task based on task.Config's reviewer settings.
+
+### Testing
+
+Added `reviewer_factory_test.go` with:
+- `TestReviewerFactoryPerConfig`: Verifies each config gets correct models
+- `TestReviewerFactoryBackwardCompat`: Ensures deprecated API works
+- `TestReviewerFactoryNilWhenSkipReview`: Validates skip-review behavior
+
+All existing tests pass. Build and vet clean.
+
+### Lessons Learned
+
+1. **Factory > Singleton**: When different tasks need different configurations, use factories that create instances lazily per-task, not singletons created once.
+
+2. **Closure for Shared State**: Factories can close over shared resources (clientOpts, timeout) while still creating per-task instances with task-specific settings (models, skills).
+
+3. **Test Concurrent Execution**: Don't assert on task execution order. Use maps to track outcomes by task ID.
+
+---
+
+## Decision: Event-Driven Test Pattern for Flaky Test Elimination
+
+**Date:** 2026-04-04  
+**Author:** Switch 🤍  
+**Status:** Implemented  
+**Context:** Issue #99 — Flaky resourcemonitor tests  
+**PR:** #167  
+**Section:** Issue Resolution
+
+### Problem
+
+Tests in `hyoka/internal/eval/resourcemonitor_test.go` were flaky because they used `time.Sleep` to wait for background goroutines to execute. Under `-race` (which slows execution by ~10x), timing assumptions fail intermittently.
+
+### Decision
+
+**Replace all sleep-based assertions with event-driven checks.**
+
+### Implementation
+
+**Changes:**
+1. `TestResourceMonitorStartStop`: Removed 100ms sleep — `Start()` and `Stop()` are synchronous operations
+2. `TestResourceMonitorSampleNoTrackedPIDs`: Call `sample()` directly instead of relying on ticker
+
+**Verification:**
+- `go test -race -count=5 ./hyoka/internal/eval/` — 35 consecutive passes
+- Full test suite with `-race` — all green
+
+### Guidelines for Future Tests
+
+**Assertion sleeps are NEVER acceptable** — always wait for an event or call the method directly. Setup sleeps may be OK if you're waiting for a goroutine to reach a known state, but prefer synchronization primitives (channels, sync.WaitGroup, etc).
+
+### Team Impact
+
+All future tests with background goroutines should follow the event-driven pattern. If a test needs to verify periodic behavior, expose the underlying method (make it public or use a test hook) so tests can call it directly.
+
