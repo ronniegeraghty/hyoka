@@ -24,3 +24,20 @@ Initial setup complete. Coverage is good across packages except pidfile. Integra
 ### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
 
 Evolution plan assigns you pidfile tests, review package tests, integration test, flaky test fixes. Read `.squad/decisions.md` for full plan.
+
+### Session 2026-04-04T19:49 (Phase 0 Execution — Flaky Test Fix)
+
+**Status:** COMPLETE  
+**Issue:** #99  
+**PR:** #167
+
+Fixed flaky resourcemonitor tests by replacing time.Sleep assertions with event-driven sample() calls. Tests now pass reliably under -race detection.
+
+**Key outcome:** Established deterministic test pattern for background goroutines. Verified with go test -race -count=5 — 35 consecutive passes. Full suite all green under -race.
+
+**Cross-agent dependency:** Tank's CI pipeline (#91, PR #168) enables reliable race detection across test suite. Neo's reviewer factory work (#92, PR #170) benefits from stable, race-safe test environment.
+
+**Team impact:** All future background goroutine tests should follow event-driven pattern (direct method calls, never assertion sleeps).
+
+**Files:** resourcemonitor_test.go
+

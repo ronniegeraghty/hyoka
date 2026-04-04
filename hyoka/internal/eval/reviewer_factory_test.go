@@ -17,7 +17,10 @@ func TestReviewerFactoryPerConfig(t *testing.T) {
 	configToModels := make(map[string][]string)
 
 	factory := func(cfg *config.ToolConfig) (review.Reviewer, *review.PanelReviewer, error) {
-		models := cfg.EffectiveReviewerModels()
+		var models []string
+		if cfg.Reviewer != nil {
+			models = cfg.Reviewer.Models
+		}
 		configToModels[cfg.Name] = models
 		// Return a stub reviewer
 		return &review.StubReviewer{}, nil, nil
@@ -26,15 +29,19 @@ func TestReviewerFactoryPerConfig(t *testing.T) {
 	// Create two configs with different reviewer models
 	configs := []config.ToolConfig{
 		{
-			Name:  "config-opus",
-			Model: "claude-opus-4.6",
+			Name: "config-opus",
+			Generator: &config.GeneratorConfig{
+				Model: "claude-opus-4.6",
+			},
 			Reviewer: &config.ReviewerConfig{
 				Models: []string{"claude-opus-4.6"},
 			},
 		},
 		{
-			Name:  "config-sonnet",
-			Model: "claude-sonnet-4.5",
+			Name: "config-sonnet",
+			Generator: &config.GeneratorConfig{
+				Model: "claude-sonnet-4.5",
+			},
 			Reviewer: &config.ReviewerConfig{
 				Models: []string{"claude-sonnet-4.5"},
 			},
@@ -138,7 +145,7 @@ func TestReviewerFactoryNilWhenSkipReview(t *testing.T) {
 	}))
 
 	prompts := []*prompt.Prompt{{ID: "test", Language: "python", PromptText: "test"}}
-	configs := []config.ToolConfig{{Name: "test-config", Model: "gpt-4"}}
+	configs := []config.ToolConfig{{Name: "test-config", Generator: &config.GeneratorConfig{Model: "gpt-4"}}}
 
 	_, err := engine.Run(context.Background(), prompts, configs)
 	if err != nil {

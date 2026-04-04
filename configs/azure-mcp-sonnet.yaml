@@ -2,16 +2,19 @@
 configs:
   - name: azure-mcp/claude-sonnet-4.5
     description: "Azure MCP — Claude Sonnet 4.5"
-    model: "claude-sonnet-4.5"
-    reviewer_models:
-      - "claude-opus-4.6"
-      - "gemini-3-pro-preview"
-      - "gpt-4.1"
-    mcp_servers:
-      azure:
-        type: local
-        command: npx
-        args: ["-y", "@azure/mcp@latest", "server", "start"]
-        tools: ["*"]
-    reviewer_skill_directories:
-      - "./skills/reviewer"
+    generator:
+      model: "claude-sonnet-4.5"
+      mcp_servers:
+        azure:
+          type: local
+          command: npx
+          args: ["-y", "@azure/mcp@latest", "server", "start"]
+          tools: ["*"]
+    reviewer:
+      models:
+        - "claude-opus-4.6"
+        - "gemini-3-pro-preview"
+        - "gpt-4.1"
+      skills:
+        - type: local
+          path: "./skills/reviewer"

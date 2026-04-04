@@ -19,6 +19,11 @@ Agent Tank initialized as Platform Dev for hyoka. Owns CLI, config, build, repor
 
 ## Learnings
 
+- **Config migration pattern**: When removing backward compatibility code, the best approach is to update all configs first (all 8 YAML files), then delete legacy struct fields, then remove helper methods (Normalize, Effective*), then update all call sites. This ensures compiler errors guide you to every place that needs updating.
+- **Test-driven refactoring**: Large structural changes benefit from running tests after each phase (struct changes, method deletions, call site updates). The test failures become a checklist of what still needs updating.
+- **Unused function cleanup**: After removing legacy fields, helper functions like resolveSkillsDirs() that worked with those fields become unused. The compiler catches these with "declared and not used" errors.
+
+
 Initial setup complete. Platform is well-structured. Quick wins: fix stale path, plan main.go refactor.
 
 ### Session 2026-04-04T00-05 (Morpheus Evolution Plan)
@@ -55,3 +60,26 @@ All issues labeled, assigned, and staged for backlog prioritization. Backlog is 
 - Phase 0 keeps it simple: no golangci-lint yet (deferred to Phase 1)
 - File path: `.github/workflows/ci.yml` (34 lines, YAML)
 - **CI verified working:** First run on PR #168 passed in 1m3s (build + vet + test with -race)
+### Session 2026-04-04T19:46–19:47 (Phase 0 Execution — CI + Config Migration)
+
+**Status:** COMPLETE  
+**Tasks:** 2 PRs
+
+**PR #168 — CI Pipeline (#91):**
+- Created .github/workflows/ci.yml with build, vet, test-race
+- ~2-minute timeout for full test suite
+- Race detection enabled to catch data races early
+- CI passed on first run
+
+**Cross-agent impact:** Enables Switch's test reliability work. Combined with Switch's event-driven pattern fix (#99, PR #167), the full test suite now passes consistently under -race detection.
+
+**PR #171 — Config Migration (#96):**
+- Refactored all 8 configs to Generator/Reviewer sub-structs
+- Removed Normalize() and Effective*() getters
+- Updated ~17 call sites atomically
+- Net -178 lines
+
+**Cross-agent impact:** Unblocks Neo's reviewer factory fix (#92, PR #170). Clean Generator/Reviewer schema makes per-config reviewer selection viable. Files: all 8 YAML configs, config/ package, multiple call sites.
+
+**Learnings:** Atomic big-bang migrations work when compiler errors guide all needed updates. Test failures provide a checklist.
+

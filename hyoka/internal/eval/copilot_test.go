@@ -12,10 +12,12 @@ func TestBuildSessionConfig_EmptyAvailableToolsIsNil(t *testing.T) {
 	// When config has an empty available_tools slice (parsed from YAML "available_tools: []"),
 	// the SDK must receive nil — not an empty slice — so the CLI exposes all default tools.
 	cfg := &config.ToolConfig{
-		Name:           "test",
-		Model:          "gpt-4",
-		AvailableTools: []string{},
-		ExcludedTools:  []string{},
+		Name: "test",
+		Generator: &config.GeneratorConfig{
+			Model:          "gpt-4",
+			AvailableTools: []string{},
+			ExcludedTools:  []string{},
+		},
 	}
 	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
@@ -31,8 +33,10 @@ func TestBuildSessionConfig_NilAvailableToolsIsNil(t *testing.T) {
 	e := &CopilotSDKEvaluator{}
 
 	cfg := &config.ToolConfig{
-		Name:  "test",
-		Model: "gpt-4",
+		Name: "test",
+		Generator: &config.GeneratorConfig{
+			Model: "gpt-4",
+		},
 	}
 	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
@@ -48,10 +52,12 @@ func TestBuildSessionConfig_PopulatedAvailableToolsPreserved(t *testing.T) {
 	e := &CopilotSDKEvaluator{}
 
 	cfg := &config.ToolConfig{
-		Name:           "test",
-		Model:          "gpt-4",
-		AvailableTools: []string{"create", "edit", "bash"},
-		ExcludedTools:  []string{"web_fetch"},
+		Name: "test",
+		Generator: &config.GeneratorConfig{
+			Model:          "gpt-4",
+			AvailableTools: []string{"create", "edit", "bash"},
+			ExcludedTools:  []string{"web_fetch"},
+		},
 	}
 	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
@@ -66,7 +72,7 @@ func TestBuildSessionConfig_PopulatedAvailableToolsPreserved(t *testing.T) {
 func TestBuildSessionConfig_WorkingDirectory(t *testing.T) {
 	e := &CopilotSDKEvaluator{}
 
-	cfg := &config.ToolConfig{Name: "test", Model: "gpt-4"}
+	cfg := &config.ToolConfig{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}}
 	sc := e.buildSessionConfig(cfg, "/workspace/eval-123", "")
 
 	if sc.WorkingDirectory != "/workspace/eval-123" {
@@ -77,7 +83,7 @@ func TestBuildSessionConfig_WorkingDirectory(t *testing.T) {
 func TestBuildSessionConfig_ConfigDir(t *testing.T) {
 	e := &CopilotSDKEvaluator{}
 
-	cfg := &config.ToolConfig{Name: "test", Model: "gpt-4"}
+	cfg := &config.ToolConfig{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}}
 	sc := e.buildSessionConfig(cfg, "/workspace/eval-123", "/isolated/config")
 
 	if sc.ConfigDir != "/isolated/config" {
@@ -88,7 +94,7 @@ func TestBuildSessionConfig_ConfigDir(t *testing.T) {
 func TestBuildSessionConfig_PermissionHandler(t *testing.T) {
 	e := &CopilotSDKEvaluator{}
 
-	cfg := &config.ToolConfig{Name: "test", Model: "gpt-4"}
+	cfg := &config.ToolConfig{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}}
 	sc := e.buildSessionConfig(cfg, "/tmp/test", "")
 
 	if sc.OnPermissionRequest == nil {
@@ -100,13 +106,15 @@ func TestBuildSessionConfig_MCPServers(t *testing.T) {
 	e := &CopilotSDKEvaluator{}
 
 	cfg := &config.ToolConfig{
-		Name:  "test",
-		Model: "gpt-4",
-		MCPServers: map[string]*config.MCPServer{
-			"azure": {
-				Type:    "local",
-				Command: "npx",
-				Args:    []string{"-y", "@azure/mcp@latest"},
+		Name: "test",
+		Generator: &config.GeneratorConfig{
+			Model: "gpt-4",
+			MCPServers: map[string]*config.MCPServer{
+				"azure": {
+					Type:    "local",
+					Command: "npx",
+					Args:    []string{"-y", "@azure/mcp@latest"},
+				},
 			},
 		},
 	}
