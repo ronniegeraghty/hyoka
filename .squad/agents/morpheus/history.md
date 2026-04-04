@@ -1,7 +1,7 @@
 # Project Context
 
 - **Project:** hyoka — Go evaluation tool that runs prompts through the Copilot SDK, reviews code via a multi-model panel, produces criteria-based pass/fail reports
-- **Stack:** Go 1.24.5+, GitHub Copilot CLI/SDK, MCP servers (Azure MCP via npx)
+- **Stack:** Go 1.26.1+, GitHub Copilot CLI/SDK, MCP servers (Azure MCP via npx)
 - **User:** Ronnie Geraghty
 - **Created:** 2026-04-03
 - **Repo:** /home/rgeraghty/projects/hyoka
@@ -52,7 +52,7 @@ Initial setup complete.
 
 ### Deep Hardening Audit (2026-10-14)
 
-**Delta from July audit:** Zero structural changes. All 10 issues still open. Reviewer model bug (main.go:469-473) still present. main.go still 1329 lines. pidfile still untested. Go module bumped to 1.26.1 but docs reference 1.24.5+.
+**Delta from July audit:** Zero structural changes. All 10 issues still open. Reviewer model bug (main.go:469-473) still present. main.go still 1329 lines. pidfile still untested. Go module bumped to 1.26.1. All docs now reference 1.26.1+.
 
 **Critical new finding: No CI pipeline.** `.github/workflows/` has only squad orchestration — no `go build`, `go test`, or `go vet` in CI. Any PR can merge broken code.
 

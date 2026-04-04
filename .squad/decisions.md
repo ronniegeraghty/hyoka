@@ -151,7 +151,7 @@ Each skill encodes patterns discovered during comprehensive codebase audits. Ski
 
 #### Executive Summary
 
-The codebase has not changed structurally since the July 2026 audit. All 10 previously identified issues remain open. The reviewer model bug (P0) is still present. main.go is still 1329 lines. pidfile still has zero tests. **No CI pipeline exists for build/test** — only squad orchestration workflows. The Go module has been bumped to 1.26.1 but docs still reference 1.24.5+.
+The codebase has not changed structurally since the July 2026 audit. All 10 previously identified issues remain open. The reviewer model bug (P0) is still present. main.go is still 1329 lines. pidfile still has zero tests. **No CI pipeline exists for build/test** — only squad orchestration workflows. The Go module has been bumped to 1.26.1 and all docs have been updated to reference 1.26.1+.
 
 The good news: build passes clean, go vet clean, all 264 tests pass across 21 packages. Error handling remains excellent with no `fmt.Errorf` missing `%w`, no log-and-return antipatterns, and no panics in production code. The dependency footprint is minimal (3 direct deps). Safety boundaries for cloud access are properly implemented.
 
@@ -257,10 +257,6 @@ The good news: build passes clean, go vet clean, all 264 tests pass across 21 pa
 ##### 8. Documentation — 🟡 Needs Work
 
 **Stale references:**
-- `docs/getting-started.md:9` — says Go 1.24.5+, should be 1.26.1+
-- `docs/contributing.md:5` — says Go 1.24.5+, should be 1.26.1+
-- `README.md:9` — says Go 1.24.5+, should be 1.26.1+
-- `AGENTS.md:61` — says Go 1.24.5+, should be 1.26.1+
 - `main.go:1276` — says `go run ./tool/cmd/hyoka validate`, should be `go run ./hyoka validate`
 
 **Doc completeness:** 9 docs covering architecture, CLI, config, guardrails, contributing, prompt authoring, getting started, eval plan, and cleanup plan. Good breadth.
@@ -366,6 +362,7 @@ The good news: build passes clean, go vet clean, all 264 tests pass across 21 pa
 
 **What changed:**
 - Go module bumped from 1.24.5 to 1.26.1
+- All docs updated from 1.24.5+ to 1.26.1+ (issue #98)
 - Some commits for dependency filtering (#75), strict YAML parsing, action limits refactor, Windows support, process tracking improvements
 - Multiple bug fixes (process scoping, excluded dirs matching, orphan scanning)
 

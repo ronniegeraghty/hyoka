@@ -24,7 +24,7 @@
 ## Project Context
 
 - **Project:** hyoka
-- **Stack:** Go 1.24.5+, GitHub Copilot CLI/SDK, MCP servers (Azure MCP via npx)
+- **Stack:** Go 1.26.1+, GitHub Copilot CLI/SDK, MCP servers (Azure MCP via npx)
 - **Description:** A curated library of prompts for evaluating AI-generated Azure SDK code, with a Go tool that runs prompts through the Copilot SDK, reviews code via a multi-model panel, and produces criteria-based pass/fail reports.
 - **User:** Ronnie Geraghty
 - **Created:** 2026-04-03

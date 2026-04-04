@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - '**'  # All branches
+  push:
+    branches:
+      - main
+      - ronniegeraghty/dev
+
+jobs:
+  build-and-test:
+    name: Build, Vet, and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+          cache: true
+
+      - name: Build
+        run: go build ./hyoka/...
+
+      - name: Vet
+        run: go vet ./hyoka/...
+
+      - name: Test with race detector
+        run: go test -race ./hyoka/... -timeout 2m
