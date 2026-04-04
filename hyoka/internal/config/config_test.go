@@ -553,3 +553,35 @@ func TestGeneratorModelDirectAccess(t *testing.T) {
 		t.Errorf("expected 'new-model', got %q", c.Generator.Model)
 	}
 }
+
+func TestValidateRejectsNilGenerator(t *testing.T) {
+	cf := &ConfigFile{
+		Configs: []ToolConfig{
+			{Name: "no-gen"},
+		},
+	}
+	err := cf.Validate()
+	if err == nil {
+		t.Fatal("expected error for nil generator")
+	}
+	want := `config "no-gen": generator.model is required`
+	if err.Error() != want {
+		t.Errorf("got %q, want %q", err.Error(), want)
+	}
+}
+
+func TestValidateRejectsEmptyGeneratorModel(t *testing.T) {
+	cf := &ConfigFile{
+		Configs: []ToolConfig{
+			{Name: "empty-model", Generator: &GeneratorConfig{Model: ""}},
+		},
+	}
+	err := cf.Validate()
+	if err == nil {
+		t.Fatal("expected error for empty generator model")
+	}
+	want := `config "empty-model": generator.model is required`
+	if err.Error() != want {
+		t.Errorf("got %q, want %q", err.Error(), want)
+	}
+}

@@ -123,6 +123,10 @@ func (cf *ConfigFile) Validate() error {
 		if c.Name == "" {
 			return fmt.Errorf("config at index %d has no name", i)
 		}
+		// Generator with a model is required for every config.
+		if c.Generator == nil || c.Generator.Model == "" {
+			return fmt.Errorf("config %q: generator.model is required", c.Name)
+		}
 		// Validate generator/reviewer skills have correct type
 		if c.Generator != nil {
 			for _, s := range c.Generator.Skills {
