@@ -853,3 +853,18 @@ No explicit questions raised, but the recommendation for 12 documentation tasks 
 | prompt grader | Multi-model unclear | One model per instance, compose for multi-model |
 | Documentation | 1 task | 12+ tasks distributed across phases |
 | Test target | Unspecified | 260 → 350+ by Phase 2, 400+ by Phase 5 |
+
+---
+
+### Decision: Escalated Decisions from Design Meeting (2026-04-04T19:09Z)
+
+**By:** Ronnie Geraghty  
+**Status:** Binding
+
+**ESC-1 (Serve runID path traversal):** Option (b) — Hotfix PR immediately, outside the evolution plan. Security issues don't wait for sprint planning.
+
+**ESC-2 (Run spec file timing):** Option (b) — Keep as "future". Let main.go split and grader config format stabilize first.
+
+**ESC-3 (Branch protection):** Option (a) — Enable immediately once CI (#91) merges. Every subsequent Phase 0 PR benefits.
+
+**ESC-4 (Report migration):** Migrate reports in-place during Phase 2. No dual-format support, no new command. Old JSON gets rewritten to v2 schema as part of grader architecture work. `schema_version` field (DM11) included for future-proofing but only latest version supported. Project is not in stable mode — no backward compatibility obligation.
