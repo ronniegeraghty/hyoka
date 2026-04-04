@@ -121,3 +121,21 @@ Initial setup complete.
 5. `plan/decisions-log.md` (~9K chars) — 15 indexed decisions from the session: hardening priorities, phase structure, Q1-Q6 answers, late additions, Waza reference, zero system prompt, skill philosophy, plan directory structure.
 
 **Key learning:** When creating standalone reference documents, cross-reference specific file paths and line numbers from audit findings. This makes the documents actionable — someone can go straight from a requirement to the code that needs changing.
+
+### Anchoring Bias Review (2026-10-15)
+
+**Task:** Reviewed all 5 plan documents for anchoring bias — places where proposed solutions are shaped by current implementation rather than being the objectively best approach.
+
+**3 significant anchoring biases found:**
+
+1. **Review system** — Plan proposes iterating on the LLM-monolith Reviewer/PanelReviewer pattern. Waza has a pluggable grader architecture (12 types: code, prompt, file, program, behavior, etc.) that is fundamentally better. Current review stuffs everything into one LLM prompt and parses JSON. Should adopt grader architecture where LLM-as-judge is one grader type among many.
+
+2. **Config legacy fields** — Plan does big-bang for 87 prompts but keeps backward compat for 8 config files (10 legacy fields, Normalize(), 7 Effective*() getters = ~130 lines / 35% of config.go). Should big-bang migrate configs too.
+
+3. **Prompt Properties bolt-on** — Plan adds `Properties map[string]string` alongside existing typed fields (Service, Language, etc.), creating two representations. Should make Properties the sole source of truth with convenience getter methods.
+
+**Areas confirmed as NOT anchored (good calls):** Zero system prompt, big-bang migration strategy, starter files/ResourceFile, .hyoka project dir, pairwise testing, isolated workspaces.
+
+**Key learning:** Anchoring bias is most visible in "improve existing X" proposals. Ask "would someone designing this from scratch do it this way?" For hyoka, the review system is the clearest case — the plan proposes transparency and tools for the existing reviewer, but the right move is replacing it with a grader architecture that makes those features emergent.
+
+**Output:** `plan/anchoring-review.md` — 6 findings, prioritized recommendations, plan section impact analysis, 3 open questions for Ronnie.
