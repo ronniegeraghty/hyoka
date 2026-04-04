@@ -89,13 +89,14 @@ Analyze    bool
 
 // Generate scans historical reports and produces a trend report.
 func Generate(opts TrendOptions) (*TrendReport, error) {
-slog.Debug("Scanning reports for trends", "reports_dir", opts.ReportsDir, "prompt_id", opts.PromptID, "service", opts.Service, "language", opts.Language)
+lg := slog.With("role", "trend-analysis")
+lg.Debug("Scanning reports for trends", "reports_dir", opts.ReportsDir, "prompt_id", opts.PromptID, "service", opts.Service, "language", opts.Language)
 entries, err := scanReports(opts.ReportsDir, opts.PromptID, opts.Service, opts.Language)
 if err != nil {
 return nil, fmt.Errorf("scanning reports: %w", err)
 }
 
-slog.Debug("Trend entries found", "count", len(entries))
+lg.Debug("Trend entries found", "count", len(entries))
 
 sort.Slice(entries, func(i, j int) bool {
 return entries[i].Timestamp < entries[j].Timestamp
@@ -114,7 +115,7 @@ RunIDs:       runIDs,
 GeneratedAt:  time.Now().UTC().Format(time.RFC3339),
 }
 
-slog.Info("Trend report generated", "total_runs", tr.TotalRuns, "prompts", len(promptTrends), "run_ids", len(runIDs))
+lg.Info("Trend report generated", "total_runs", tr.TotalRuns, "prompts", len(promptTrends), "run_ids", len(runIDs))
 
 return tr, nil
 }
@@ -274,7 +275,7 @@ writeMarkdownReport(&b, tr)
 if err := os.WriteFile(outPath, []byte(b.String()), 0644); err != nil {
 return "", fmt.Errorf("writing trend markdown: %w", err)
 }
-slog.Debug("Trend markdown written", "path", outPath, "size", b.Len())
+slog.Debug("Trend markdown written", "role", "trend-analysis", "path", outPath, "size", b.Len())
 return outPath, nil
 }
 
@@ -293,7 +294,7 @@ writeHTMLReport(&b, tr)
 if err := os.WriteFile(outPath, []byte(b.String()), 0644); err != nil {
 return "", fmt.Errorf("writing trend HTML: %w", err)
 }
-slog.Debug("Trend HTML written", "path", outPath, "size", b.Len())
+slog.Debug("Trend HTML written", "role", "trend-analysis", "path", outPath, "size", b.Len())
 return outPath, nil
 }
 

@@ -6,6 +6,22 @@ hyoka uses YAML configuration files to define evaluation setups. Each config spe
 
 By default, configs are loaded from `./configs/`. Use `--config-dir` to specify a different location.
 
+## Config Names vs Filenames
+
+The `name` field in a config is what you pass to the `--config` CLI flag. It is **not** the filename. For example, a config file called `azure-mcp-opus.yaml` might define `name: azure-mcp/claude-opus-4.6`. You'd run it with: `--config azure-mcp/claude-opus-4.6`.
+
+Current config names and their filenames:
+
+| Filename | Config Name |
+|----------|-------------|
+| `baseline-sonnet.yaml` | `baseline/claude-sonnet-4.5` |
+| `baseline-opus.yaml` | `baseline/claude-opus-4.6` |
+| `baseline-opus-skills.yaml` | `baseline-skills/claude-opus-4.6` |
+| `baseline-codex.yaml` | `baseline/gpt-5.3-codex` |
+| `azure-mcp-sonnet.yaml` | `azure-mcp/claude-sonnet-4.5` |
+| `azure-mcp-opus.yaml` | `azure-mcp/claude-opus-4.6` |
+| `azure-mcp-codex.yaml` | `azure-mcp/gpt-5.3-codex` |
+
 ## Config File Format
 
 A config file contains one or more named configurations:

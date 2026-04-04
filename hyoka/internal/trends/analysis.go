@@ -15,10 +15,11 @@ copilot "github.com/github/copilot-sdk/go"
 // AnalyzeTrends uses a Copilot SDK session to perform AI-powered trend analysis.
 // It returns the analysis text to be included in the report.
 func AnalyzeTrends(ctx context.Context, tr *TrendReport) (string, error) {
-slog.Info("Starting AI trend analysis", "total_runs", tr.TotalRuns, "prompts", len(tr.PromptTrends))
+lg := slog.With("role", "trend-analysis", "model", "gpt-4.1")
+lg.Info("Starting AI trend analysis", "total_runs", tr.TotalRuns, "prompts", len(tr.PromptTrends))
 prompt := formatTrendPrompt(tr)
 
-slog.Debug("Starting Copilot client for trend analysis")
+lg.Debug("Starting Copilot client")
 client := copilot.NewClient(nil)
 if err := client.Start(ctx); err != nil {
 return "", fmt.Errorf("starting copilot client: %w", err)
@@ -30,7 +31,7 @@ if trendSessionID != "" {
 deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 5*time.Second)
 defer deleteCancel()
 if err := client.DeleteSession(deleteCtx, trendSessionID); err != nil {
-slog.Debug("trend analysis session delete failed", "sessionID", trendSessionID, "error", err)
+lg.Debug("Session delete failed", "sessionID", trendSessionID, "error", err)
 }
 }
 client.Stop()
@@ -44,7 +45,7 @@ return "", fmt.Errorf("creating isolated config dir: %w", err)
 }
 defer os.RemoveAll(configDir)
 
-slog.Debug("Creating trend analysis session", "model", "gpt-4.1")
+lg.Debug("Creating session")
 session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 Model: "gpt-4.1",
 SystemMessage: &copilot.SystemMessageConfig{
@@ -72,7 +73,7 @@ mu.Unlock()
 })
 defer unsub()
 
-slog.Debug("Sending trend analysis prompt", "prompt_chars", len(prompt))
+lg.Debug("Sending trend analysis prompt", "prompt_chars", len(prompt))
 _, err = session.SendAndWait(ctx, copilot.MessageOptions{
 Prompt: prompt,
 })
@@ -84,7 +85,7 @@ mu.Lock()
 result := strings.TrimSpace(assistantContent.String())
 mu.Unlock()
 
-slog.Info("AI trend analysis complete", "result_chars", len(result))
+lg.Info("AI trend analysis complete", "result_chars", len(result))
 
 if result == "" {
 return "", fmt.Errorf("empty analysis response")

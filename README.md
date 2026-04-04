@@ -6,7 +6,7 @@ A curated library of prompts for evaluating how well AI agents generate Azure SD
 
 ### Prerequisites
 
-- **Go 1.24.5+** — to build and run the tool
+- **Go 1.26.1+** — to build and run the tool
 - **GitHub Copilot CLI** — the SDK communicates with Copilot via the CLI in server mode. Must be installed and authenticated:
   - Install: follow [GitHub Copilot CLI setup](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli)
   - Authenticate: run `copilot` once to complete OAuth device flow, or set `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` env var
@@ -61,6 +61,7 @@ Every code-generation session is automatically aborted if it exceeds any of thes
 | Turn count | 25 | `--max-turns` | Prevents runaway conversations |
 | File count | 50 | `--max-files` | Prevents excessive file creation |
 | Output size | 1 MB | `--max-output-size` | Prevents oversized outputs (supports KB, MB suffixes) |
+| Session actions | 50 | `--max-session-actions` | Limits reasoning, response, and tool call actions per session |
 
 When a guardrail trips, the evaluation is marked as failed with a clear reason (e.g., `guardrail: turn count 26 exceeded limit of 25`).
 
@@ -161,9 +162,11 @@ hyoka list --json
 | `--timeout` | `300` | Per-prompt timeout in seconds |
 | `-y` / `--yes` | `false` | Skip confirmation prompt for large runs (>10 evaluations) |
 | `--all-configs` | `false` | Required when running all configs without a `--config` filter |
+| `--config` | | Config name(s) to run — use quotes for multiple: `"name1,name2"` |
 | `--max-turns` | `25` | Maximum conversation turns per generation before aborting |
 | `--max-files` | `50` | Maximum generated files per evaluation before aborting |
 | `--max-output-size` | `1MB` | Maximum total output size per evaluation (supports KB, MB suffixes) |
+| `--max-session-actions` | `50` | Maximum actions per Copilot session (reasoning, response, or tool call each count as 1) |
 | `--allow-cloud` | `false` | Allow generated code to provision real Azure resources |
 | `--sandbox` | `true` | Alias confirming safe/local-only mode (default behavior) |
 | `--criteria-dir` | (none) | Directory with attribute-matched criteria YAML files (e.g., `criteria/`) |
@@ -178,7 +181,7 @@ hyoka list --json
 
 ```bash
 # Skip confirmation for large runs (CI-friendly)
-go run ./hyoka run --prompt-id my-prompt --config baseline -y
+go run ./hyoka run --prompt-id my-prompt --config "baseline/claude-sonnet-4.5" -y
 
 # Run all prompts × all configs (requires --all-configs + -y for non-interactive)
 go run ./hyoka run --all-configs -y
@@ -218,8 +221,11 @@ hyoka run --prompt-id storage-dp-dotnet-auth
 hyoka run --config baseline/claude-sonnet-4.5
 
 # Run multiple configs (produces comparison data)
-hyoka run --config baseline/claude-sonnet-4.5,azure-mcp/claude-sonnet-4.5
+# Note: multiple config names must be quoted and comma-separated
+hyoka run --config "baseline/claude-sonnet-4.5,azure-mcp/claude-sonnet-4.5"
 ```
+
+> ⚠️ **Config names use the `name:` field from your YAML files**, not the filename. Multiple configs must be quoted: `--config "config1,config2"`. See [Configuration Guide](docs/configuration.md) for the full name-to-filename mapping.
 
 #### Custom Configs
 

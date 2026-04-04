@@ -6,7 +6,7 @@ This guide walks you through cloning the repo, running your first evaluation, an
 
 | Tool | Version | Check |
 |------|---------|-------|
-| Go | 1.24.5+ | `go version` |
+| Go | 1.26.1+ | `go version` |
 | GitHub Copilot CLI | Latest | `copilot --version` |
 | Git | Any | `git --version` |
 | Node.js (for Azure MCP config) | 18+ | `node --version` |
@@ -193,7 +193,14 @@ go run ./hyoka run --config baseline
 
 # Both configs for one service
 go run ./hyoka run --service storage
+
+# Run with multiple configs (compare baseline vs azure-mcp):
+go run ./hyoka run --service identity --language python \
+  --config "baseline/claude-opus-4.6,azure-mcp/claude-opus-4.6" \
+  --log-level debug --log-file hyoka-debug.log
 ```
+
+> **Tip:** The `--config` flag takes config *names* (the `name:` field inside the YAML file), not filenames. For example, `configs/azure-mcp-opus.yaml` defines a config named `azure-mcp/claude-opus-4.6`.
 
 ### Adjust guardrails
 
@@ -206,6 +213,22 @@ go run ./hyoka run --allow-cloud
 
 # Limit concurrent sessions on a shared machine
 go run ./hyoka run --max-sessions 4 --workers 2
+```
+
+### Useful Flag Combos
+
+```bash
+# Debug + log file (keeps terminal clean, logs to file)
+go run ./hyoka run --config baseline --log-level debug --log-file hyoka-debug.log
+
+# Monitor resource usage during evaluation
+go run ./hyoka run --config baseline --monitor-resources
+
+# Skip review for quick generation iteration
+go run ./hyoka run --config baseline --skip-review
+
+# Dry run to preview what would be evaluated
+go run ./hyoka run --service storage --dry-run
 ```
 
 ### Re-render reports after template changes

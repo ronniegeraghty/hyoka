@@ -88,6 +88,7 @@ hyoka run --config baseline --dry-run
 | `--max-turns` | 25 | Maximum assistant turns per generation |
 | `--max-files` | 50 | Maximum generated files per evaluation |
 | `--max-output-size` | 1MB | Maximum total output size (e.g., `512KB`, `2MB`) |
+| `--max-session-actions` | 50 | Maximum actions per Copilot session (reasoning, response, or tool call each count as 1) |
 
 #### Criteria Flags
 
@@ -95,6 +96,10 @@ hyoka run --config baseline --dry-run
 |------|---------|-------------|
 | `--criteria-dir` | (none) | Directory with attribute-matched criteria YAML files |
 | `--exclude-dirs` | (none) | Comma-separated directories to exclude from generated_files output |
+
+> **Config Names:** The `--config` flag takes config *names* (the `name:` field inside the YAML config file), not filenames. For example, `configs/azure-mcp-opus.yaml` defines `name: azure-mcp/claude-opus-4.6`. Run it with `--config azure-mcp/claude-opus-4.6`.
+>
+> **Quoting Rules:** When passing multiple comma-separated values to `--config` or `--tags`, wrap the value in quotes: `--config "baseline/claude-opus-4.6,azure-mcp/claude-opus-4.6"`.
 
 ### `hyoka list`
 

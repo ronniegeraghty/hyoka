@@ -58,11 +58,118 @@ go run ./hyoka check-env
 go run ./hyoka clean
 ```
 
-Go version: 1.24.5+ required. Module path: `github.com/ronniegeraghty/hyoka`.
+Go version: 1.26.1+ required. Module path: `github.com/ronniegeraghty/hyoka`.
+
+## Running Evaluations
+
+### Config Naming Convention
+
+Config YAML files live in `configs/`. The `--config` flag takes the `name:` field from **inside** the YAML file, **NOT** the filename.
+
+Example: `configs/azure-mcp-opus.yaml` contains `name: azure-mcp/claude-opus-4.6` → use `--config azure-mcp/claude-opus-4.6`
+
+**All current config names:**
+
+| Config name (`--config` value)       | File                          |
+|--------------------------------------|-------------------------------|
+| `baseline/claude-sonnet-4.5`        | `baseline-sonnet.yaml`        |
+| `baseline/claude-opus-4.6`          | `baseline-opus.yaml`          |
+| `baseline-skills/claude-opus-4.6`   | `baseline-opus-skills.yaml`   |
+| `baseline/gpt-5.3-codex`            | `baseline-codex.yaml`         |
+| `azure-mcp/claude-opus-4.6`         | `azure-mcp-opus.yaml`         |
+| `azure-mcp/claude-sonnet-4.5`       | `azure-mcp-sonnet.yaml`       |
+| `azure-mcp/gpt-5.3-codex`           | `azure-mcp-codex.yaml`        |
+
+### Prompt ID Patterns
+
+- `--prompt-id` accepts a **single** prompt ID (not multiple, not comma-separated)
+- Prompt IDs follow the pattern: `{service}-{plane-abbrev}-{language}-{short-name}`
+  - e.g., `identity-dp-python-default-credential`, `key-vault-dp-python-crud-secrets`
+  - `dp` = data-plane, `mp` = management-plane
+- To run multiple prompts, use filter flags: `--service`, `--language`, `--plane`, `--category`
+
+### Command Examples
+
+```bash
+# Single prompt, single config:
+go run ./hyoka run --prompt-id identity-dp-python-default-credential \
+  --config baseline/claude-opus-4.6
+
+# Single prompt, multiple configs (MUST quote comma-separated values):
+go run ./hyoka run --prompt-id identity-dp-python-default-credential \
+  --config "baseline/claude-opus-4.6,azure-mcp/claude-opus-4.6"
+
+# Filter by service + language (runs ALL matching prompts):
+go run ./hyoka run --service key-vault --language python \
+  --config "baseline/claude-opus-4.6,azure-mcp/claude-opus-4.6"
+
+# Full debug logging with log file:
+go run ./hyoka run --service identity --language python \
+  --config azure-mcp/claude-opus-4.6 \
+  --log-level debug --log-file hyoka-debug.log
+
+# Dry run (list matching prompts without executing):
+go run ./hyoka run --service storage --language dotnet --dry-run
+
+# All configs (requires explicit --all-configs flag):
+go run ./hyoka run --prompt-id identity-dp-python-default-credential --all-configs
+
+# With resource monitoring:
+go run ./hyoka run --service key-vault --language python \
+  --config azure-mcp/claude-opus-4.6 --monitor-resources
+```
+
+### Important Flag Rules
+
+- `--config` values with commas **MUST** be quoted: `--config "config1,config2"`
+- `--prompt-id` is singular — pass **ONE** ID only
+- `--tags` is also comma-separated and must be quoted: `--tags "auth,crud"`
+- Without `--config` or `--all-configs`, the run will fail
+- `--log-level debug` enables verbose logging; pair with `--log-file` to capture to file
+- `--max-session-actions` (default: 50) limits actions per Copilot session
+
+### Available Filter Flags
+
+```
+--service        Azure service (e.g., identity, key-vault, storage, cosmos-db)
+--language       Programming language (e.g., python, dotnet, java, js-ts, go, rust, cpp)
+--plane          data-plane or management-plane
+--category       Use-case category (e.g., auth, crud, pagination)
+--tags           Comma-separated tags (must quote)
+--prompt-id      Single prompt ID
+```
+
+## Testing Changes with Live Runs
+
+When working on hyoka itself, test your changes by running real evaluations:
+
+```bash
+# Run 1 prompt on 1 config (fastest feedback loop — Python prompts finish quickest):
+go run ./hyoka run --prompt-id key-vault-dp-python-crud \
+  --config "baseline/claude-opus-4.6" \
+  --log-level debug --log-file hyoka-debug.log
+
+# After each run, clean up orphaned Copilot sessions:
+go run ./hyoka clean
+
+# Check the log file for role-prefixed output:
+grep "role=" hyoka-debug.log | head -20
+
+# Check the serve command to browse results:
+go run ./hyoka serve
+```
+
+**Guidelines:**
+- Run **1 prompt × 1 config** at a time when iterating — multi-eval runs can take 10+ minutes
+- Always run `hyoka clean` after test runs to ensure no sessions were orphaned
+- Python prompts tend to complete fastest; use them for quick iteration
+- Use `--progress off` when you need clean stderr output (no live display interference)
+- The `--log-file` flag writes to BOTH the file AND stderr, so you see debug output in the console too
+- Compare console output and log file to verify logging changes work end-to-end
 
 ## Git Workflow
 
-- **Branch naming**: `treebeard/issue-{N}-{short-description}` (Treebeard is the primary agent for this repo)
+- **Branch naming**: `{username}/issue-{N}-{short-description}`
 - **Commit trailers**: Always include `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
 - **Git identity**: Use `ronniegeraghty` account (not EMU). Set:
   ```
@@ -92,6 +199,6 @@ Go version: 1.24.5+ required. Module path: `github.com/ronniegeraghty/hyoka`.
 
 Issues are tracked on Azure/projects/424. When starting work:
 1. Set Status → In Progress
-2. Set Squad Member → Treebeard
+2. Set Squad Member → Copilot
 3. Create branch, implement, push, open PR
 4. Set Status → Done when merged

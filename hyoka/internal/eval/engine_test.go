@@ -42,7 +42,7 @@ func (s *slowEvaluator) Evaluate(ctx context.Context, _ *prompt.Prompt, _ *confi
 func TestStubEvaluator(t *testing.T) {
 stub := &StubEvaluator{}
 p := &prompt.Prompt{ID: "test-prompt", Language: "go"}
-cfg := &config.ToolConfig{Name: "test-config", Model: "gpt-4"}
+cfg := &config.ToolConfig{Name: "test-config", Generator: &config.GeneratorConfig{Model: "gpt-4"}}
 
 result, err := stub.Evaluate(context.Background(), p, cfg, t.TempDir())
 if err != nil {
@@ -70,8 +70,8 @@ prompts := []*prompt.Prompt{
 {ID: "p2", Service: "keyvault", Language: "python"},
 }
 configs := []config.ToolConfig{
-{Name: "baseline", Model: "gpt-4"},
-{Name: "azure-mcp", Model: "claude-sonnet-4.5"},
+{Name: "baseline", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
+{Name: "azure-mcp", Generator: &config.GeneratorConfig{Model: "claude-sonnet-4.5"}},
 }
 
 summary, err := engine.Run(context.Background(), prompts, configs)
@@ -103,7 +103,7 @@ prompts := []*prompt.Prompt{
 {ID: "test-prompt", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
 }
 configs := []config.ToolConfig{
-{Name: "test-config", Model: "gpt-4"},
+{Name: "test-config", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 }
 
 summary, err := engine.Run(context.Background(), prompts, configs)
@@ -129,7 +129,7 @@ func TestEngineRunCapturesGeneratedFiles(t *testing.T) {
 		{ID: "filelist-test", Service: "storage", Plane: "data-plane", Language: "python", Category: "crud"},
 	}
 	configs := []config.ToolConfig{
-		{Name: "baseline", Model: "gpt-4"},
+		{Name: "baseline", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 	}
 
 	summary, err := engine.Run(context.Background(), prompts, configs)
@@ -158,7 +158,7 @@ func TestEngineRunTimeoutError(t *testing.T) {
 		{ID: "timeout-test", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
 	}
 	configs := []config.ToolConfig{
-		{Name: "baseline", Model: "gpt-4"},
+		{Name: "baseline", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 	}
 
 	// Use a short-lived context to simulate cancellation
@@ -302,7 +302,7 @@ func TestGuardrailMaxFiles(t *testing.T) {
 		{ID: "guardrail-files", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
 	}
 	configs := []config.ToolConfig{
-		{Name: "test", Model: "gpt-4"},
+		{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 	}
 
 	summary, err := engine.Run(context.Background(), prompts, configs)
@@ -334,7 +334,7 @@ func TestGuardrailMaxTurns(t *testing.T) {
 		{ID: "guardrail-turns", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
 	}
 	configs := []config.ToolConfig{
-		{Name: "test", Model: "gpt-4"},
+		{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 	}
 
 	summary, err := engine.Run(context.Background(), prompts, configs)
@@ -368,7 +368,7 @@ func TestGuardrailMaxOutputSize(t *testing.T) {
 		{ID: "guardrail-size", Service: "storage", Plane: "data-plane", Language: "go", Category: "auth"},
 	}
 	configs := []config.ToolConfig{
-		{Name: "test", Model: "gpt-4"},
+		{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 	}
 
 	summary, err := engine.Run(context.Background(), prompts, configs)
@@ -414,7 +414,7 @@ func TestStubEvalLifecycle(t *testing.T) {
 		{ID: "lifecycle-test", Service: "storage", Plane: "data-plane", Language: "go", Category: "crud"},
 	}
 	configs := []config.ToolConfig{
-		{Name: "baseline", Model: "gpt-4"},
+		{Name: "baseline", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 	}
 
 	summary, err := engine.Run(context.Background(), prompts, configs)
@@ -487,8 +487,8 @@ func TestMultiPromptMultiConfigFanOut(t *testing.T) {
 		{ID: "p3", Service: "cosmos-db", Plane: "data-plane", Language: "java", Category: "query"},
 	}
 	configs := []config.ToolConfig{
-		{Name: "config-a", Model: "gpt-4"},
-		{Name: "config-b", Model: "claude-sonnet-4.5"},
+		{Name: "config-a", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
+		{Name: "config-b", Generator: &config.GeneratorConfig{Model: "claude-sonnet-4.5"}},
 	}
 
 	summary, err := engine.Run(context.Background(), prompts, configs)
@@ -541,7 +541,7 @@ func TestPhaseDurationTracking(t *testing.T) {
 		{ID: "timing-test", Service: "storage", Plane: "data-plane", Language: "go", Category: "crud"},
 	}
 	configs := []config.ToolConfig{
-		{Name: "test", Model: "gpt-4"},
+		{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 	}
 
 	summary, err := engine.Run(context.Background(), prompts, configs)
@@ -583,7 +583,7 @@ func TestLargeRunAutoConfirmBypass(t *testing.T) {
 		})
 	}
 	configs := []config.ToolConfig{
-		{Name: "test", Model: "gpt-4"},
+		{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}},
 	}
 
 	summary, err := engine.Run(context.Background(), prompts, configs)
@@ -625,7 +625,7 @@ func TestLargeRunConfirmAbort(t *testing.T) {
 	w.Close()
 	defer func() { os.Stdin = oldStdin }()
 
-	_, err := engine.Run(context.Background(), prompts, []config.ToolConfig{{Name: "test", Model: "gpt-4"}})
+	_, err := engine.Run(context.Background(), prompts, []config.ToolConfig{{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}}})
 	if err == nil {
 		t.Fatal("expected error for aborted run")
 	}
@@ -673,7 +673,7 @@ criteria:
 			EvaluationCriteria: "- Must handle errors properly",
 		},
 	}
-	configs := []config.ToolConfig{{Name: "test", Model: "gpt-4"}}
+	configs := []config.ToolConfig{{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}}}
 
 	_, err := engine.Run(context.Background(), prompts, configs)
 	if err != nil {
@@ -700,7 +700,7 @@ func TestCriteriaDirNotExist(t *testing.T) {
 	prompts := []*prompt.Prompt{
 		{ID: "dir-test", Service: "storage", Language: "go", Plane: "data-plane", Category: "crud"},
 	}
-	configs := []config.ToolConfig{{Name: "test", Model: "gpt-4"}}
+	configs := []config.ToolConfig{{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}}}
 
 	_, err := engine.Run(context.Background(), prompts, configs)
 	if err != nil {
@@ -724,7 +724,7 @@ func TestCriteriaDirEmpty(t *testing.T) {
 			EvaluationCriteria: "- Prompt specific criterion",
 		},
 	}
-	configs := []config.ToolConfig{{Name: "test", Model: "gpt-4"}}
+	configs := []config.ToolConfig{{Name: "test", Generator: &config.GeneratorConfig{Model: "gpt-4"}}}
 
 	_, err := engine.Run(context.Background(), prompts, configs)
 	if err != nil {

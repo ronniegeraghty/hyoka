@@ -1,10 +1,38 @@
 import { useParams, Link } from "react-router";
-import { generateHistoryReport, mockRuns, computePromptCorrelations, type CorrelationStat } from "../data/mock-data";
-import { useMemo } from "react";
-import { ArrowLeft, CheckCircle2, XCircle, Clock, BarChart3, TrendingUp, Cpu, Wrench, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { fetchPrompt, fetchRuns, type PromptInfo } from "../data/api";
+import type { RunSummary, EvalResult, Environment } from "../data/types";
+import { ArrowLeft, CheckCircle2, XCircle, Clock, BarChart3, TrendingUp, Cpu, Wrench, ArrowUpRight, ArrowDownRight, Minus, Loader2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
+
+interface HistoryEntry {
+  run_id: string;
+  config_name: string;
+  success: boolean;
+  duration: number;
+  file_count: number;
+  score: number;
+}
+
+interface ConfigStat {
+  config: string;
+  runs: number;
+  passed: number;
+  pass_rate: number;
+  avg_duration: number;
+}
+
+interface CorrelationStat {
+  name: string;
+  total: number;
+  passed: number;
+  failed: number;
+  rate: number;
+  avgScore: number;
+  avgDuration: number;
+}
 
 function DeltaIndicator({ rate, baseline }: { rate: number; baseline: number }) {
   const delta = rate - baseline;
@@ -43,7 +71,6 @@ function CorrelationTable({ title, icon: Icon, data, baseline, showDuration }: {
         Overall baseline: <span style={mono}>{baseline}%</span>
       </p>
 
-      {/* Best / Worst callout */}
       {data.length > 1 && (
         <div className="mb-4 flex flex-wrap gap-3">
           <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.05] px-3 py-2">
@@ -113,20 +140,154 @@ function CorrelationTable({ title, icon: Icon, data, baseline, showDuration }: {
   );
 }
 
+// Compute correlation stats by grouping evals using a key function
+function computeGrouped(
+  evals: { result: EvalResult; run: RunSummary }[],
+  keyFn: (result: EvalResult, run: RunSummary) => string[]
+): CorrelationStat[] {
+  const map: Record<string, { total: number; passed: number; scoreSum: number; durationSum: number }> = {};
+  for (const { result, run } of evals) {
+    for (const key of keyFn(result, run)) {
+      if (!key) continue;
+      if (!map[key]) map[key] = { total: 0, passed: 0, scoreSum: 0, durationSum: 0 };
+      map[key].total++;
+      if (result.success) map[key].passed++;
+      map[key].scoreSum += result.review?.overall_score || 0;
+      map[key].durationSum += result.duration_seconds || 0;
+    }
+  }
+  return Object.entries(map)
+    .map(([name, v]) => ({
+      name,
+      total: v.total,
+      passed: v.passed,
+      failed: v.total - v.passed,
+      rate: parseFloat(((v.passed / v.total) * 100).toFixed(1)),
+      avgScore: parseFloat((v.scoreSum / v.total).toFixed(1)),
+      avgDuration: parseFloat((v.durationSum / v.total).toFixed(1)),
+    }))
+    .sort((a, b) => b.rate - a.rate);
+}
+
 export function PromptDetailPage() {
   const { promptId } = useParams();
   const decodedId = decodeURIComponent(promptId || "");
-  const history = useMemo(() => generateHistoryReport(decodedId), [decodedId]);
-  const correlations = useMemo(() => computePromptCorrelations(decodedId), [decodedId]);
+  const [promptInfo, setPromptInfo] = useState<PromptInfo | null>(null);
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Find metadata from any run
-  const metadata = useMemo(() => {
-    for (const run of mockRuns) {
-      const found = run.results.find(r => r.prompt_id === decodedId);
-      if (found) return found.prompt_metadata;
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [prompt, allRuns] = await Promise.all([
+          fetchPrompt(decodedId).catch(() => null),
+          fetchRuns(),
+        ]);
+        if (cancelled) return;
+        setPromptInfo(prompt);
+        setRuns(allRuns);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load data");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-    return null;
+    load();
+    return () => { cancelled = true; };
   }, [decodedId]);
+
+  // Compute history from real run data
+  const { history, correlations } = useMemo(() => {
+    const entries: HistoryEntry[] = [];
+    const evalsWithContext: { result: EvalResult; run: RunSummary }[] = [];
+
+    for (const run of runs) {
+      for (const result of run.results || []) {
+        if (result.prompt_id === decodedId) {
+          entries.push({
+            run_id: run.run_id,
+            config_name: result.config_name,
+            success: result.success,
+            duration: result.duration_seconds || 0,
+            file_count: result.generated_files?.length || 0,
+            score: result.review?.overall_score || 0,
+          });
+          evalsWithContext.push({ result, run });
+        }
+      }
+    }
+
+    const passed = entries.filter(e => e.success).length;
+    const totalRuns = entries.length;
+    const passRate = totalRuns > 0 ? parseFloat(((passed / totalRuns) * 100).toFixed(1)) : 0;
+    const avgDuration = totalRuns > 0 ? parseFloat((entries.reduce((s, e) => s + e.duration, 0) / totalRuns).toFixed(1)) : 0;
+
+    // Config breakdown
+    const configMap: Record<string, { runs: number; passed: number; totalDuration: number }> = {};
+    for (const e of entries) {
+      if (!configMap[e.config_name]) configMap[e.config_name] = { runs: 0, passed: 0, totalDuration: 0 };
+      configMap[e.config_name].runs++;
+      if (e.success) configMap[e.config_name].passed++;
+      configMap[e.config_name].totalDuration += e.duration;
+    }
+    const configs: ConfigStat[] = Object.entries(configMap).map(([config, c]) => ({
+      config,
+      runs: c.runs,
+      passed: c.passed,
+      pass_rate: parseFloat(((c.passed / c.runs) * 100).toFixed(1)),
+      avg_duration: parseFloat((c.totalDuration / c.runs).toFixed(1)),
+    }));
+
+    // Correlations from eval detail data
+    const byModel = computeGrouped(evalsWithContext, (r) => {
+      const model = (r as unknown as { environment?: Environment }).environment?.model;
+      return model ? [model] : [r.config_name];
+    });
+
+    const byTool = computeGrouped(evalsWithContext, (r) => {
+      const tools = (r as unknown as { tool_calls?: string[] }).tool_calls;
+      return tools && tools.length > 0 ? [...new Set(tools)] : [];
+    });
+
+    const overallRate = passRate;
+    const overallAvgScore = totalRuns > 0
+      ? parseFloat((entries.reduce((s, e) => s + e.score, 0) / totalRuns).toFixed(1))
+      : 0;
+
+    return {
+      history: { prompt_id: decodedId, total_runs: totalRuns, passed, pass_rate: passRate, avg_duration_seconds: avgDuration, entries, configs },
+      correlations: { byModel, byTool, overallRate, overallAvgScore },
+    };
+  }, [runs, decodedId]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-6 py-4 text-red-400" style={{ fontSize: 14 }}>
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  const metadata = promptInfo ? {
+    service: promptInfo.service,
+    language: promptInfo.language,
+    difficulty: promptInfo.difficulty,
+    plane: promptInfo.plane,
+    category: promptInfo.category,
+    sdk_package: promptInfo.sdk_package,
+  } : null;
 
   const configChartData = history.configs.map(c => ({
     name: c.config.replace("baseline-", "").replace("copilot-", "cp-"),
@@ -329,7 +490,7 @@ export function PromptDetailPage() {
                     <td className="px-4 py-3 text-white/40" style={{ fontSize: 12 }}>{e.file_count}</td>
                     <td className="px-4 py-3">
                       <Link
-                        to={`/eval/${encodeURIComponent(decodedId)}/${encodeURIComponent(e.config_name)}`}
+                        to={`/runs/${encodeURIComponent(e.run_id)}/eval/${encodeURIComponent(decodedId)}/${encodeURIComponent(e.config_name)}`}
                         className="text-white/30 no-underline transition hover:text-emerald-400"
                         style={{ fontSize: 12 }}
                       >

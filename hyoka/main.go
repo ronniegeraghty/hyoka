@@ -207,76 +207,11 @@ func addFilterFlags(cmd *cobra.Command, f *runFlags) {
 	cmd.Flags().StringVar(&f.sessionTimeout, "session-timeout", "10m", "Maximum duration for a single generation or review session (e.g., 10m, 30m, 1h)")
 }
 
-// resolveSkillsDirs finds the skills directory relative to the prompts directory.
-// It checks multiple candidate paths to work from both repo root and tool/ directory.
-// resolveSkillsDirs resolves skill directories for generator and reviewer sessions.
-// It looks for skills/generator/ and skills/reviewer/ subdirectories.
-// Falls back to the parent skills/ directory for both if subdirs don't exist.
-func resolveSkillsDirs(promptsDir string) (generatorDirs, reviewerDirs []string) {
-	var baseDir string
-	for _, candidate := range []string{
-		filepath.Join(filepath.Dir(promptsDir), "skills"),
-		"./skills",
-		"../skills",
-	} {
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			abs, _ := filepath.Abs(candidate)
-			baseDir = abs
-			break
-		}
-	}
-	if baseDir == "" {
-		return nil, nil
-	}
-
-	genDir := filepath.Join(baseDir, "generator")
-	revDir := filepath.Join(baseDir, "reviewer")
-
-	if info, err := os.Stat(genDir); err == nil && info.IsDir() {
-		generatorDirs = []string{genDir}
-	}
-	if info, err := os.Stat(revDir); err == nil && info.IsDir() {
-		reviewerDirs = []string{revDir}
-	}
-
-	// If neither subdir exists, fall back to the base skills dir for both
-	if generatorDirs == nil && reviewerDirs == nil {
-		return []string{baseDir}, []string{baseDir}
-	}
-	return generatorDirs, reviewerDirs
-}
 
 // resolveConfigSkillDirs resolves relative skill_directories in loaded configs
 // to absolute paths so they work regardless of which directory the tool is invoked from.
 // Handles both legacy top-level fields and new Generator/Reviewer sub-struct skills.
 func resolveConfigSkillDirs(configs []config.ToolConfig, promptsDir string) {
-	resolve := func(dirs []string) []string {
-		resolved := make([]string, 0, len(dirs))
-		for _, dir := range dirs {
-			if filepath.IsAbs(dir) {
-				resolved = append(resolved, dir)
-				continue
-			}
-			candidates := []string{
-				dir,
-				filepath.Join(filepath.Dir(promptsDir), dir),
-			}
-			found := false
-			for _, c := range candidates {
-				if info, err := os.Stat(c); err == nil && info.IsDir() {
-					abs, _ := filepath.Abs(c)
-					resolved = append(resolved, abs)
-					found = true
-					break
-				}
-			}
-			if !found {
-				abs, _ := filepath.Abs(dir)
-				resolved = append(resolved, abs)
-			}
-		}
-		return resolved
-	}
 
 	resolveSkills := func(skills []config.Skill) {
 		for j := range skills {
@@ -297,11 +232,6 @@ func resolveConfigSkillDirs(configs []config.ToolConfig, promptsDir string) {
 	}
 
 	for i := range configs {
-		// Resolve legacy top-level fields
-		configs[i].SkillDirectories = resolve(configs[i].SkillDirectories)
-		configs[i].GeneratorSkillDirectories = resolve(configs[i].GeneratorSkillDirectories)
-		configs[i].ReviewerSkillDirectories = resolve(configs[i].ReviewerSkillDirectories)
-
 		// Resolve new sub-struct skill paths
 		if configs[i].Generator != nil {
 			resolveSkills(configs[i].Generator.Skills)
@@ -391,10 +321,10 @@ func runCmd() *cobra.Command {
 			// Override model if specified via CLI flag
 			if f.model != "" {
 				for i := range configs {
-					configs[i].Model = f.model
-					if configs[i].Generator != nil {
-						configs[i].Generator.Model = f.model
+					if configs[i].Generator == nil {
+						configs[i].Generator = &config.GeneratorConfig{}
 					}
+					configs[i].Generator.Model = f.model
 				}
 			}
 
@@ -428,8 +358,7 @@ func runCmd() *cobra.Command {
 
 			// Select evaluator and reviewer
 			var evaluator eval.CopilotEvaluator
-			var reviewer review.Reviewer
-			var panelReviewer *review.PanelReviewer
+			var reviewerFactory eval.ReviewerFactory
 
 			// Parse session-timeout flag early — needed for reviewer setup.
 			sessionTimeout, err := time.ParseDuration(f.sessionTimeout)
@@ -441,7 +370,6 @@ func runCmd() *cobra.Command {
 				slog.Info("Using stub evaluator", "reason", "--stub flag")
 				fmt.Println("Using stub evaluator (--stub flag)")
 				evaluator = &eval.StubEvaluator{}
-				reviewer = &review.StubReviewer{}
 			} else {
 				// Try to create a real Copilot SDK evaluator
 				sdkEval := eval.NewCopilotSDKEvaluator(eval.CopilotEvalOptions{
@@ -459,7 +387,6 @@ func runCmd() *cobra.Command {
 					slog.Warn("Copilot SDK unavailable, falling back to stub", "error", err)
 					fmt.Printf("⚠️  Copilot SDK unavailable (%v), falling back to stub evaluator\n", err)
 					evaluator = &eval.StubEvaluator{}
-					reviewer = &review.StubReviewer{}
 				} else {
 					defer client.Stop() // #65: ensure cleanup on any exit path
 					slog.Info("Using Copilot SDK evaluator")
@@ -472,55 +399,58 @@ func runCmd() *cobra.Command {
 						clientOpts.LogLevel = "debug"
 					}
 
-					// Wire skills directories separately for generator and reviewer
-					generatorSkillsDirs, reviewerSkillsDirs := resolveSkillsDirs(f.prompts)
-
-					// Create reviewer(s) — use panel if reviewer_models list configured
-					var reviewerModels []string
+					// Extract reviewer skill directories from configs
+					var reviewerSkillsDirs []string
 					for _, c := range configs {
-						if models := c.EffectiveReviewerModels(); len(models) > 0 {
-							reviewerModels = models
-							break
+						if c.Reviewer != nil {
+							for _, s := range c.Reviewer.Skills {
+								if s.Type == "local" && s.Path != "" {
+									reviewerSkillsDirs = append(reviewerSkillsDirs, s.Path)
+								}
+							}
 						}
 					}
 
-					if len(reviewerModels) > 1 {
-						// Multi-model panel
-						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
-						panelReviewer.SetSessionTimeout(sessionTimeout)
-						if len(reviewerSkillsDirs) > 0 {
-							panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
+					// Create reviewer factory that builds a reviewer per config (#92)
+					reviewerFactory = func(cfg *config.ToolConfig) (review.Reviewer, *review.PanelReviewer, error) {
+						var reviewerModels []string
+						if cfg.Reviewer != nil && len(cfg.Reviewer.Models) > 0 {
+							reviewerModels = cfg.Reviewer.Models
 						}
-						fmt.Printf("Using review panel: %v\n", reviewerModels)
-						slog.Info("Review panel configured", "models", reviewerModels)
-					} else {
-						// Single reviewer (backward compat)
+						if len(reviewerModels) == 0 {
+							return nil, nil, nil
+						}
+
+						if len(reviewerModels) > 1 {
+							// Multi-model panel
+							panelReviewer := review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
+							panelReviewer.SetSessionTimeout(sessionTimeout)
+							if len(reviewerSkillsDirs) > 0 {
+								panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
+							}
+							slog.Debug("Created review panel for config", "config", cfg.Name, "models", reviewerModels)
+							return nil, panelReviewer, nil
+						}
+
+						// Single reviewer
 						reviewClient := copilot.NewClient(clientOpts)
 						if err := reviewClient.Start(context.Background()); err != nil {
-							slog.Warn("Could not start reviewer client, reviews will be skipped", "error", err)
-							fmt.Printf("⚠️  Could not start reviewer client: %v, reviews will be skipped\n", err)
-						} else {
-							reviewerModel := f.model
-							if len(reviewerModels) == 1 {
-								reviewerModel = reviewerModels[0]
-							}
-							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions)
-							copilotReviewer.SetSessionTimeout(sessionTimeout)
-							if len(reviewerSkillsDirs) > 0 {
-								copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
-							}
-							reviewer = copilotReviewer
-							defer reviewClient.Stop()
+							return nil, nil, fmt.Errorf("could not start reviewer client: %w", err)
 						}
+						copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModels[0], f.maxSessionActions)
+						copilotReviewer.SetSessionTimeout(sessionTimeout)
+						if len(reviewerSkillsDirs) > 0 {
+							copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
+						}
+						slog.Debug("Created single reviewer for config", "config", cfg.Name, "model", reviewerModels[0])
+						return copilotReviewer, nil, nil
 					}
 
-					// Override generator config's skill directories with generator-specific ones
-					_ = generatorSkillsDirs // used below when config skill_directories are resolved
 				}
 			}
 
 			if f.skipReview {
-				reviewer = nil
+				reviewerFactory = nil
 			}
 
 			// Parse max-output-size flag (#35)
@@ -541,7 +471,7 @@ func runCmd() *cobra.Command {
 				}
 			}
 
-			engine := eval.NewEngineWithReviewer(evaluator, reviewer, eval.EngineOptions{
+			engine := eval.NewEngineWithReviewerFactory(evaluator, reviewerFactory, eval.EngineOptions{
 				Workers:           f.workers,
 				MaxSessions:       f.maxSessions,
 				OutputDir:         f.output,
@@ -560,9 +490,6 @@ func runCmd() *cobra.Command {
 				ExcludeDirs:       excludeDirs,
 				SessionTimeout:    sessionTimeout,
 			})
-			if panelReviewer != nil && !f.skipReview {
-				engine.SetPanelReviewer(panelReviewer)
-			}
 
 			summary, err := engine.Run(context.Background(), filtered, configs)
 			if err != nil {
@@ -709,8 +636,15 @@ func configsCmd() *cobra.Command {
 
 			fmt.Printf("Available configurations (%d):\n\n", len(cfgFile.Configs))
 			for _, c := range cfgFile.Configs {
-				fmt.Printf("  %-20s %s (model: %s)\n", c.Name, c.Description, c.EffectiveModel())
-				mcpServers := c.EffectiveMCPServers()
+				model := ""
+				if c.Generator != nil {
+					model = c.Generator.Model
+				}
+				fmt.Printf("  %-20s %s (model: %s)\n", c.Name, c.Description, model)
+				var mcpServers map[string]*config.MCPServer
+				if c.Generator != nil {
+					mcpServers = c.Generator.MCPServers
+				}
 				if len(mcpServers) > 0 {
 					fmt.Printf("  %-20s MCP servers: ", "")
 					var names []string

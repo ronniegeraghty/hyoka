@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/ronniegeraghty/hyoka/internal/review"
 )
 
 // Parsed once at package init for reuse across calls.
@@ -166,14 +168,16 @@ func buildMatrix(s *RunSummary) *MatrixData {
 // ReportTemplateData is the enriched data passed to the individual report template.
 type ReportTemplateData struct {
 	*EvalReport
-	Prompt        string
-	Reasoning     string
-	FinalReply    string
-	ToolActions   []ToolAction
-	TimelineSteps []TimelineStep
-	FileCount     int
-	FileContents  map[string]string // filename → content for expandable display
-	BackPath      string            // relative path from report.html back to summary.html
+	Prompt         string
+	Reasoning      string
+	FinalReply     string
+	ToolActions    []ToolAction
+	TimelineSteps  []TimelineStep
+	ReviewTimeline []TimelineStep            // timeline for consolidated review
+	PanelTimelines map[string][]TimelineStep // model name → timeline for each panel reviewer
+	FileCount      int
+	FileContents   map[string]string // filename → content for expandable display
+	BackPath       string            // relative path from report.html back to summary.html
 }
 
 // ToolAction represents one tool invocation extracted from session events.
@@ -242,46 +246,50 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 		case "assistant.reasoning":
 			if ev.Content != "" {
 				reasoningParts = append(reasoningParts, ev.Content)
-				stepIndex++
-				title := ev.Content
-				if len(title) > 80 {
-					title = title[:80] + "…"
-				}
-				d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
-					Index:    stepIndex,
-					Phase:    "generation",
-					StepType: "reasoning",
-					Icon:     "🤔",
-					Title:    title,
-					Content:  ev.Content,
-				})
 			}
+			stepIndex++
+			title := ev.Content
+			if title == "" {
+				title = "(thinking)"
+			} else if len(title) > 80 {
+				title = title[:80] + "…"
+			}
+			d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+				Index:    stepIndex,
+				Phase:    "generation",
+				StepType: "reasoning",
+				Icon:     "🤔",
+				Title:    title,
+				Content:  ev.Content,
+			})
 		case "tool.execution_start":
-			if ev.ToolName != "" {
-				d.ToolActions = append(d.ToolActions, ToolAction{
-					Index:     len(d.ToolActions) + 1,
-					ToolName:  ev.ToolName,
-					Args:      ev.ToolArgs,
-					MCPServer: ev.MCPServerName,
-				})
-				stepIndex++
-				toolTitle := ev.ToolName
-				if ev.FilePath != "" {
-					toolTitle += " → " + ev.FilePath
-				}
-				step := TimelineStep{
-					Index:     stepIndex,
-					Phase:     "generation",
-					StepType:  "tool_call",
-					Icon:      "🔧",
-					Title:     "Tool call: " + toolTitle,
-					Detail:    ev.ToolArgs,
-					ToolName:  ev.ToolName,
-					MCPServer: ev.MCPServerName,
-				}
-				d.TimelineSteps = append(d.TimelineSteps, step)
-				pendingTools = append(pendingTools, pendingTool{len(d.TimelineSteps) - 1, ev.ToolName})
+			toolName := ev.ToolName
+			if toolName == "" {
+				toolName = "(unknown)"
 			}
+			d.ToolActions = append(d.ToolActions, ToolAction{
+				Index:     len(d.ToolActions) + 1,
+				ToolName:  toolName,
+				Args:      ev.ToolArgs,
+				MCPServer: ev.MCPServerName,
+			})
+			stepIndex++
+			toolTitle := toolName
+			if ev.FilePath != "" {
+				toolTitle += " → " + ev.FilePath
+			}
+			step := TimelineStep{
+				Index:     stepIndex,
+				Phase:     "generation",
+				StepType:  "tool_call",
+				Icon:      "🔧",
+				Title:     "Tool call: " + toolTitle,
+				Detail:    ev.ToolArgs,
+				ToolName:  toolName,
+				MCPServer: ev.MCPServerName,
+			}
+			d.TimelineSteps = append(d.TimelineSteps, step)
+			pendingTools = append(pendingTools, pendingTool{len(d.TimelineSteps) - 1, toolName})
 		case "tool.execution_complete":
 			// Update ToolActions (backward compat)
 			for i := len(d.ToolActions) - 1; i >= 0; i-- {
@@ -310,16 +318,17 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 		case "assistant.message":
 			if ev.Content != "" {
 				messageParts = append(messageParts, ev.Content)
-				stepIndex++
-				d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
-					Index:    stepIndex,
-					Phase:    "generation",
-					StepType: "message",
-					Icon:     "💬",
-					Title:    "Agent reply",
-					Content:  ev.Content,
-				})
 			}
+			stepIndex++
+			title := "Agent reply"
+			d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+				Index:    stepIndex,
+				Phase:    "generation",
+				StepType: "message",
+				Icon:     "💬",
+				Title:    title,
+				Content:  ev.Content,
+			})
 		}
 	}
 
@@ -339,7 +348,113 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 
 	d.Reasoning = strings.Join(reasoningParts, "\n\n")
 	d.FinalReply = strings.Join(messageParts, "\n\n")
+
+	// Build review timelines from review events
+	if r.Review != nil && len(r.Review.Events) > 0 {
+		d.ReviewTimeline = buildReviewTimeline(r.Review.Events)
+	}
+	if len(r.ReviewPanel) > 0 {
+		d.PanelTimelines = make(map[string][]TimelineStep, len(r.ReviewPanel))
+		for _, pr := range r.ReviewPanel {
+			if len(pr.Events) > 0 {
+				d.PanelTimelines[pr.Model] = buildReviewTimeline(pr.Events)
+			}
+		}
+	}
+
 	return d
+}
+
+// buildReviewTimeline converts review events into a chronological timeline
+// matching the generator timeline format.
+func buildReviewTimeline(events []review.ReviewEvent) []TimelineStep {
+	var steps []TimelineStep
+	stepIndex := 0
+
+	type pendingTool struct {
+		stepIdx int
+		name    string
+	}
+	var pendingTools []pendingTool
+
+	for _, ev := range events {
+		switch ev.Type {
+		case "assistant.turn_start":
+			// Skip — implicit from other events
+		case "assistant.reasoning":
+			if ev.Content != "" {
+				stepIndex++
+				title := ev.Content
+				if len(title) > 80 {
+					title = title[:80] + "…"
+				}
+				steps = append(steps, TimelineStep{
+					Index:    stepIndex,
+					Phase:    "review",
+					StepType: "reasoning",
+					Icon:     "🤔",
+					Title:    title,
+					Content:  ev.Content,
+				})
+			}
+		case "tool.execution_start":
+			if ev.ToolName != "" {
+				stepIndex++
+				steps = append(steps, TimelineStep{
+					Index:    stepIndex,
+					Phase:    "review",
+					StepType: "tool_call",
+					Icon:     "🔧",
+					Title:    "Tool call: " + ev.ToolName,
+					Detail:   ev.ToolArgs,
+					ToolName: ev.ToolName,
+				})
+				pendingTools = append(pendingTools, pendingTool{len(steps) - 1, ev.ToolName})
+			}
+		case "tool.execution_complete":
+			matched := false
+			for i := len(pendingTools) - 1; i >= 0; i-- {
+				if pendingTools[i].name == ev.ToolName {
+					idx := pendingTools[i].stepIdx
+					steps[idx].Content = ev.Result
+					steps[idx].Duration = ev.Duration
+					if ev.Error != "" {
+						steps[idx].Error = ev.Error
+					}
+					pendingTools = append(pendingTools[:i], pendingTools[i+1:]...)
+					matched = true
+					break
+				}
+			}
+			if !matched && ev.ToolName != "" {
+				stepIndex++
+				steps = append(steps, TimelineStep{
+					Index:    stepIndex,
+					Phase:    "review",
+					StepType: "tool_call",
+					Icon:     "🔧",
+					Title:    "Tool call: " + ev.ToolName,
+					Content:  ev.Result,
+					Duration: ev.Duration,
+					ToolName: ev.ToolName,
+					Error:    ev.Error,
+				})
+			}
+		case "assistant.message":
+			if ev.Content != "" {
+				stepIndex++
+				steps = append(steps, TimelineStep{
+					Index:    stepIndex,
+					Phase:    "review",
+					StepType: "message",
+					Icon:     "💬",
+					Title:    "Reviewer response",
+					Content:  ev.Content,
+				})
+			}
+		}
+	}
+	return steps
 }
 
 // readFileContents reads file contents from the code directory for display in the HTML report.
@@ -839,29 +954,43 @@ const reportTemplate = `<!DOCTYPE html>
       </div>
     </div>
     {{end}}
-    {{if .Review.Events}}
+    {{if .ReviewTimeline}}
     <div class="tl-step">
       <div class="tl-marker">🔍</div>
       <div class="tl-card">
-        <div class="tl-title">Review Session Activity</div>
-        <details><summary>Show reviewer tool calls and analysis ({{len .Review.Events}} events)</summary>
-        <div style="margin-top:0.5rem">
-        {{range .Review.Events}}
-          {{if eq .Type "tool.execution_complete"}}
-          <div style="margin:0.5rem 0;padding:0.5rem;border-left:3px solid var(--purple);background:#faf5ff;border-radius:0 4px 4px 0">
-            <div style="font-weight:600;font-size:0.85rem;font-family:monospace;color:var(--purple)">🔧 {{.ToolName}}{{if gt .Duration 0.0}} <span style="font-weight:400;color:var(--text-muted)">({{printf "%.0fms" .Duration}})</span>{{end}}</div>
-            {{if .Result}}<pre style="font-size:0.78rem;max-height:200px;overflow-y:auto;margin:0.25rem 0 0 0">{{truncate .Result 2000}}</pre>{{end}}
-            {{if .Error}}<div style="color:var(--red);font-size:0.8rem;margin-top:0.25rem">❌ {{.Error}}</div>{{end}}
+        <div class="tl-title">Review Session Activity ({{len .ReviewTimeline}} steps)</div>
+        <details><summary>Show reviewer actions timeline</summary>
+        <div class="timeline" style="margin-top:0.5rem">
+        {{range .ReviewTimeline}}
+        <div class="tl-step">
+          <div class="tl-marker">{{.Icon}}</div>
+          <div class="tl-card tl-card-{{.StepType}}">
+            <div class="tl-title">
+              <span>{{.Index}}.</span>
+              {{if eq .StepType "tool_call"}}<span class="tool-name">Tool call: {{.ToolName}}</span>{{else}}{{.Title}}{{end}}
+            </div>
+            {{if eq .StepType "tool_call"}}
+            <div class="tl-meta">
+              {{if gt .Duration 0.0}}<span>{{printf "%.0fms" .Duration}}</span>{{end}}
+            </div>
+            {{end}}
+            {{if and (eq .StepType "reasoning") .Content}}
+            <details><summary>Show reasoning</summary><pre>{{truncate .Content 2000}}</pre></details>
+            {{end}}
+            {{if and (eq .StepType "message") .Content}}
+            <details><summary>Show response</summary><pre>{{truncate .Content 2000}}</pre></details>
+            {{end}}
+            {{if eq .StepType "tool_call"}}
+              {{if .Detail}}
+              <details><summary>Show arguments</summary><pre>{{truncate .Detail 2000}}</pre></details>
+              {{end}}
+              {{if .Content}}
+              <details><summary>Show result</summary><pre>{{truncate .Content 2000}}</pre></details>
+              {{end}}
+            {{end}}
+            {{if .Error}}<div class="tl-error">❌ {{.Error}}</div>{{end}}
           </div>
-          {{end}}
-          {{if eq .Type "assistant.message"}}
-          {{if .Content}}
-          <div style="margin:0.5rem 0;padding:0.5rem;border-left:3px solid #93c5fd;background:#eff6ff;border-radius:0 4px 4px 0">
-            <div style="font-size:0.8rem;color:var(--text-muted)">💬 Reviewer</div>
-            <pre style="font-size:0.78rem;max-height:200px;overflow-y:auto;margin:0.25rem 0 0 0">{{truncate .Content 2000}}</pre>
-          </div>
-          {{end}}
-          {{end}}
+        </div>
         {{end}}
         </div>
         </details>
@@ -901,18 +1030,40 @@ const reportTemplate = `<!DOCTYPE html>
       <summary><code>{{.Model}}</code> — {{.Summary}}</summary>
       {{if .Issues}}<p><strong>Issues:</strong></p><ul>{{range .Issues}}<li>{{.}}</li>{{end}}</ul>{{end}}
       {{if .Strengths}}<p><strong>Strengths:</strong></p><ul>{{range .Strengths}}<li>{{.}}</li>{{end}}</ul>{{end}}
-      {{if .Events}}
+      {{with index $.PanelTimelines .Model}}
       <details style="margin-top:0.5rem">
-        <summary>🔍 Reviewer Action Log ({{len .Events}} events)</summary>
-        <div style="margin-top:0.5rem">
-        {{range .Events}}
-          {{if eq .Type "tool.execution_complete"}}
-          <div style="margin:0.5rem 0;padding:0.5rem;border-left:3px solid var(--purple);background:#faf5ff;border-radius:0 4px 4px 0">
-            <div style="font-weight:600;font-size:0.85rem;font-family:monospace;color:var(--purple)">🔧 {{.ToolName}}{{if gt .Duration 0.0}} <span style="font-weight:400;color:var(--text-muted)">({{printf "%.0fms" .Duration}})</span>{{end}}</div>
-            {{if .Result}}<pre style="font-size:0.78rem;max-height:200px;overflow-y:auto;margin:0.25rem 0 0 0">{{truncate .Result 2000}}</pre>{{end}}
-            {{if .Error}}<div style="color:var(--red);font-size:0.8rem;margin-top:0.25rem">❌ {{.Error}}</div>{{end}}
+        <summary>🔍 Reviewer Actions Timeline ({{len .}} steps)</summary>
+        <div class="timeline" style="margin-top:0.5rem">
+        {{range .}}
+        <div class="tl-step">
+          <div class="tl-marker">{{.Icon}}</div>
+          <div class="tl-card tl-card-{{.StepType}}">
+            <div class="tl-title">
+              <span>{{.Index}}.</span>
+              {{if eq .StepType "tool_call"}}<span class="tool-name">Tool call: {{.ToolName}}</span>{{else}}{{.Title}}{{end}}
+            </div>
+            {{if eq .StepType "tool_call"}}
+            <div class="tl-meta">
+              {{if gt .Duration 0.0}}<span>{{printf "%.0fms" .Duration}}</span>{{end}}
+            </div>
+            {{end}}
+            {{if and (eq .StepType "reasoning") .Content}}
+            <details><summary>Show reasoning</summary><pre>{{truncate .Content 2000}}</pre></details>
+            {{end}}
+            {{if and (eq .StepType "message") .Content}}
+            <details><summary>Show response</summary><pre>{{truncate .Content 2000}}</pre></details>
+            {{end}}
+            {{if eq .StepType "tool_call"}}
+              {{if .Detail}}
+              <details><summary>Show arguments</summary><pre>{{truncate .Detail 2000}}</pre></details>
+              {{end}}
+              {{if .Content}}
+              <details><summary>Show result</summary><pre>{{truncate .Content 2000}}</pre></details>
+              {{end}}
+            {{end}}
+            {{if .Error}}<div class="tl-error">❌ {{.Error}}</div>{{end}}
           </div>
-          {{end}}
+        </div>
         {{end}}
         </div>
       </details>
