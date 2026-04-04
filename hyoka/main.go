@@ -475,7 +475,7 @@ func runCmd() *cobra.Command {
 
 					if len(reviewerModels) > 1 {
 						// Multi-model panel
-						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
+						panelReviewer = review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions, "", "")
 						if len(reviewerSkillsDirs) > 0 {
 							panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}
@@ -492,7 +492,7 @@ func runCmd() *cobra.Command {
 							if len(reviewerModels) == 1 {
 								reviewerModel = reviewerModels[0]
 							}
-							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions)
+							copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModel, f.maxSessionActions, "", "")
 							if len(reviewerSkillsDirs) > 0 {
 								copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
 							}
@@ -963,6 +963,9 @@ func reportCmd() *cobra.Command {
 func serveCmd() *cobra.Command {
 	var port int
 	var reportsDir string
+	var docsDir string
+	var siteDir string
+	var promptsDir string
 
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -970,8 +973,37 @@ func serveCmd() *cobra.Command {
 		Long:  "Starts an HTTP server that provides a web UI for browsing past evaluation runs, viewing summaries, and individual report pages.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reportsDir = resolveOutputFile(cmd, []string{"./reports", "../reports"})
+
+			if !cmd.Flags().Changed("docs-dir") {
+				for _, c := range []string{"./docs", "../docs"} {
+					if _, err := os.Stat(c); err == nil {
+						docsDir = c
+						break
+					}
+				}
+			}
+			if !cmd.Flags().Changed("site-dir") {
+				for _, c := range []string{"./site/dist", "../site/dist"} {
+					if _, err := os.Stat(c); err == nil {
+						siteDir = c
+						break
+					}
+				}
+			}
+			if !cmd.Flags().Changed("prompts-dir") {
+				for _, c := range []string{"./prompts", "../prompts"} {
+					if _, err := os.Stat(c); err == nil {
+						promptsDir = c
+						break
+					}
+				}
+			}
+
 			return serve.Start(serve.Options{
 				ReportsDir: reportsDir,
+				DocsDir:    docsDir,
+				SiteDir:    siteDir,
+				PromptsDir: promptsDir,
 				Port:       port,
 			})
 		},
@@ -979,6 +1011,9 @@ func serveCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&port, "port", 8080, "Port to serve on")
 	cmd.Flags().StringVar(&reportsDir, "output", "./reports", "Directory containing evaluation reports")
+	cmd.Flags().StringVar(&docsDir, "docs-dir", "./docs", "Directory containing documentation markdown files")
+	cmd.Flags().StringVar(&siteDir, "site-dir", "./site/dist", "Directory containing the built React site")
+	cmd.Flags().StringVar(&promptsDir, "prompts-dir", "./prompts", "Directory containing evaluation prompts")
 
 	return cmd
 }

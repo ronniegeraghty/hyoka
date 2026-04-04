@@ -1,6 +1,8 @@
 import { Link } from "react-router";
-import { mockRuns } from "../data/mock-data";
-import { CheckCircle2, XCircle, AlertTriangle, Clock, ChevronRight, Activity } from "lucide-react";
+import { useState, useEffect } from "react";
+import { fetchRuns } from "../data/api";
+import type { RunSummary } from "../data/types";
+import { CheckCircle2, XCircle, AlertTriangle, Clock, ChevronRight, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 
 function formatDuration(s: number): string {
@@ -16,6 +18,36 @@ function formatDate(ts: string): string {
 }
 
 export function RunsPage() {
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchRuns()
+      .then(setRuns)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <div className="text-center">
+          <p className="mb-2 text-red-400">Failed to load runs</p>
+          <p className="text-white/40" style={{ fontSize: 13 }}>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] px-4 py-8 sm:px-6" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="mx-auto max-w-5xl">
@@ -28,75 +60,81 @@ export function RunsPage() {
           </p>
         </div>
 
-        <div className="space-y-4">
-          {mockRuns.map((run, i) => {
-            const rate = ((run.passed / run.total_evaluations) * 100).toFixed(1);
-            return (
-              <motion.div
-                key={run.run_id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <Link
-                  to={`/runs/${run.run_id}`}
-                  className="group block rounded-xl border border-white/8 bg-white/[0.03] p-5 no-underline transition hover:border-emerald-500/20 hover:bg-white/[0.05]"
+        {runs.length === 0 ? (
+          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-8 text-center">
+            <p className="text-white/40">No runs found.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {runs.map((run, i) => {
+              const rate = run.total_evaluations > 0 ? ((run.passed / run.total_evaluations) * 100).toFixed(1) : "0.0";
+              return (
+                <motion.div
+                  key={run.run_id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
                 >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      <div className="mb-1 flex items-center gap-3">
-                        <span className="text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15 }}>
-                          {run.run_id}
-                        </span>
-                        <span className="rounded-md bg-white/5 px-2 py-0.5 text-white/30" style={{ fontSize: 11 }}>
-                          {run.total_evaluations} evals
-                        </span>
+                  <Link
+                    to={`/runs/${run.run_id}`}
+                    className="group block rounded-xl border border-white/8 bg-white/[0.03] p-5 no-underline transition hover:border-emerald-500/20 hover:bg-white/[0.05]"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <div className="mb-1 flex items-center gap-3">
+                          <span className="text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15 }}>
+                            {run.run_id}
+                          </span>
+                          <span className="rounded-md bg-white/5 px-2 py-0.5 text-white/30" style={{ fontSize: 11 }}>
+                            {run.total_evaluations} evals
+                          </span>
+                        </div>
+                        <p className="text-white/40" style={{ fontSize: 13 }}>
+                          {formatDate(run.timestamp)}
+                        </p>
                       </div>
-                      <p className="text-white/40" style={{ fontSize: 13 }}>
-                        {formatDate(run.timestamp)} · {run.total_prompts} prompts · {run.total_configs} configs
-                      </p>
-                    </div>
 
-                    <div className="flex items-center gap-5">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                          <span className="text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{run.passed}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <XCircle className="h-3.5 w-3.5 text-red-400" />
-                          <span className="text-red-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{run.failed}</span>
-                        </div>
-                        {run.errors > 0 && (
+                      <div className="flex items-center gap-5">
+                        <div className="flex items-center gap-4">
                           <div className="flex items-center gap-1.5">
-                            <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-                            <span className="text-amber-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{run.errors}</span>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                            <span className="text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{run.passed}</span>
                           </div>
-                        )}
-                      </div>
-
-                      <div className="hidden items-center gap-2 sm:flex">
-                        <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
-                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${rate}%` }} />
+                          <div className="flex items-center gap-1.5">
+                            <XCircle className="h-3.5 w-3.5 text-red-400" />
+                            <span className="text-red-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{run.failed}</span>
+                          </div>
+                          {run.errors > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                              <span className="text-amber-400" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{run.errors}</span>
+                            </div>
+                          )}
                         </div>
-                        <span className="text-white/50" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-                          {rate}%
-                        </span>
-                      </div>
 
-                      <div className="hidden items-center gap-1.5 text-white/30 sm:flex">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span style={{ fontSize: 12 }}>{formatDuration(run.duration_seconds)}</span>
-                      </div>
+                        <div className="hidden items-center gap-2 sm:flex">
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
+                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${rate}%` }} />
+                          </div>
+                          <span className="text-white/50" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                            {rate}%
+                          </span>
+                        </div>
 
-                      <ChevronRight className="h-4 w-4 text-white/20 transition group-hover:text-emerald-400" />
+                        <div className="hidden items-center gap-1.5 text-white/30 sm:flex">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span style={{ fontSize: 12 }}>{formatDuration(run.duration_seconds)}</span>
+                        </div>
+
+                        <ChevronRight className="h-4 w-4 text-white/20 transition group-hover:text-emerald-400" />
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              </motion.div>
-            );
-          })}
-        </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

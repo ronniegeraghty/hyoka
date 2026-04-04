@@ -139,6 +139,34 @@ go run ./hyoka run --service key-vault --language python \
 --prompt-id      Single prompt ID
 ```
 
+## Testing Changes with Live Runs
+
+When working on hyoka itself, test your changes by running real evaluations:
+
+```bash
+# Run 1 prompt on 1 config (fastest feedback loop — Python prompts finish quickest):
+go run ./hyoka run --prompt-id key-vault-dp-python-crud \
+  --config "baseline/claude-opus-4.6" \
+  --log-level debug --log-file hyoka-debug.log
+
+# After each run, clean up orphaned Copilot sessions:
+go run ./hyoka clean
+
+# Check the log file for role-prefixed output:
+grep "role=" hyoka-debug.log | head -20
+
+# Check the serve command to browse results:
+go run ./hyoka serve
+```
+
+**Guidelines:**
+- Run **1 prompt × 1 config** at a time when iterating — multi-eval runs can take 10+ minutes
+- Always run `hyoka clean` after test runs to ensure no sessions were orphaned
+- Python prompts tend to complete fastest; use them for quick iteration
+- Use `--progress off` when you need clean stderr output (no live display interference)
+- The `--log-file` flag writes to BOTH the file AND stderr, so you see debug output in the console too
+- Compare console output and log file to verify logging changes work end-to-end
+
 ## Git Workflow
 
 - **Branch naming**: `{username}/issue-{N}-{short-description}`

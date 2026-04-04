@@ -61,6 +61,7 @@ Every code-generation session is automatically aborted if it exceeds any of thes
 | Turn count | 25 | `--max-turns` | Prevents runaway conversations |
 | File count | 50 | `--max-files` | Prevents excessive file creation |
 | Output size | 1 MB | `--max-output-size` | Prevents oversized outputs (supports KB, MB suffixes) |
+| Session actions | 50 | `--max-session-actions` | Limits reasoning, response, and tool call actions per session |
 
 When a guardrail trips, the evaluation is marked as failed with a clear reason (e.g., `guardrail: turn count 26 exceeded limit of 25`).
 
@@ -165,6 +166,7 @@ hyoka list --json
 | `--max-turns` | `25` | Maximum conversation turns per generation before aborting |
 | `--max-files` | `50` | Maximum generated files per evaluation before aborting |
 | `--max-output-size` | `1MB` | Maximum total output size per evaluation (supports KB, MB suffixes) |
+| `--max-session-actions` | `50` | Maximum actions per Copilot session (reasoning, response, or tool call each count as 1) |
 | `--allow-cloud` | `false` | Allow generated code to provision real Azure resources |
 | `--sandbox` | `true` | Alias confirming safe/local-only mode (default behavior) |
 | `--criteria-dir` | (none) | Directory with attribute-matched criteria YAML files (e.g., `criteria/`) |
@@ -222,6 +224,8 @@ hyoka run --config baseline/claude-sonnet-4.5
 # Note: multiple config names must be quoted and comma-separated
 hyoka run --config "baseline/claude-sonnet-4.5,azure-mcp/claude-sonnet-4.5"
 ```
+
+> ⚠️ **Config names use the `name:` field from your YAML files**, not the filename. Multiple configs must be quoted: `--config "config1,config2"`. See [Configuration Guide](docs/configuration.md) for the full name-to-filename mapping.
 
 #### Custom Configs
 

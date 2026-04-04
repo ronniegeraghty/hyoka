@@ -1,176 +1,64 @@
-import { useState } from "react";
-import { Book, Terminal, Settings, Database, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Book, ChevronRight, Loader2 } from "lucide-react";
+import { fetchDocs, fetchDoc } from "../data/api";
+import type { DocEntry } from "../data/types";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-const sections = [
-  {
-    id: "getting-started",
-    icon: Terminal,
-    title: "Getting Started",
-    content: `## Installation
-
-\`\`\`bash
-go install github.com/azure/hyoka@latest
-\`\`\`
-
-## Quick Start
-
-1. Clone the repository and install dependencies
-2. Configure your AI model credentials in \`config.yaml\`
-3. Define your evaluation prompts in the \`prompts/\` directory
-4. Run your first evaluation:
-
-\`\`\`bash
-hyoka run --config default --prompts prompts/storage-basic.yaml
-\`\`\`
-
-## Project Structure
-
-\`\`\`
-hyoka/
-├── config.yaml          # Model & reviewer configuration
-├── prompts/             # Evaluation prompt definitions
-│   ├── storage-basic.yaml
-│   ├── keyvault-intermediate.yaml
-│   └── cosmosdb-advanced.yaml
-├── results/             # Evaluation output (auto-generated)
-└── analysis/            # AI-generated reports
-\`\`\``,
-  },
-  {
-    id: "configuration",
-    icon: Settings,
-    title: "Configuration",
-    content: `## Config File
-
-The \`config.yaml\` file defines model configurations, reviewer settings, and evaluation parameters.
-
-\`\`\`yaml
-models:
-  - name: gpt-4o
-    provider: openai
-    temperature: 0.2
-    max_tokens: 4096
-  - name: claude-3.5-sonnet
-    provider: anthropic
-    temperature: 0.1
-    max_tokens: 4096
-
-reviewers:
-  count: 3
-  consolidation: weighted_average
-
-languages:
-  - python
-  - go
-  - dotnet
-  - java
-  - javascript
-
-build_verification:
-  enabled: true
-  timeout: 60s
-\`\`\`
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| \`OPENAI_API_KEY\` | OpenAI API key for GPT models |
-| \`ANTHROPIC_API_KEY\` | Anthropic API key for Claude models |
-| \`GITHUB_TOKEN\` | Token for Copilot integration |
-| \`AZURE_SUBSCRIPTION_ID\` | Azure subscription for live validation |`,
-  },
-  {
-    id: "prompts",
-    icon: Book,
-    title: "Writing Prompts",
-    content: `## Prompt Format
-
-Prompts are YAML files describing the code generation task:
-
-\`\`\`yaml
-name: blob-storage-upload
-service: storage
-difficulty: basic
-category: crud
-language: python
-description: >
-  Create a Python function that uploads a file to Azure Blob Storage
-  using the azure-storage-blob SDK. Include proper error handling
-  and connection string configuration.
-
-expected_imports:
-  - azure.storage.blob
-  - azure.core.exceptions
-
-evaluation_criteria:
-  - uses_defaultazurecredential: false
-  - handles_resource_not_found: true
-  - includes_retry_logic: true
-\`\`\`
-
-## Difficulty Levels
-
-- **Basic**: Single-operation tasks with straightforward API usage
-- **Intermediate**: Multi-step workflows, error handling, pagination
-- **Advanced**: Complex scenarios like streaming, transactions, cross-service orchestration
-
-## Categories
-
-\`authentication\` · \`crud\` · \`pagination\` · \`streaming\` · \`error-handling\` · \`configuration\` · \`monitoring\``,
-  },
-  {
-    id: "results",
-    icon: Database,
-    title: "Understanding Results",
-    content: `## Evaluation Output
-
-Each evaluation produces a JSON result file containing:
-
-\`\`\`json
-{
-  "id": "EVL-0042",
-  "prompt": "blob-storage-upload",
-  "config": "gpt-4o-default",
-  "language": "python",
-  "status": "pass",
-  "score": 92,
-  "generation": {
-    "duration_ms": 8300,
-    "files_generated": 3,
-    "tool_calls": 7,
-    "token_usage": { "input": 1240, "output": 3850 }
-  },
-  "build": {
-    "success": true,
-    "duration_ms": 4100
-  },
-  "reviews": [
-    {
-      "reviewer": "reviewer-1",
-      "score": 90,
-      "strengths": ["Correct SDK usage", "Good error handling"],
-      "issues": ["Missing retry configuration"]
-    }
-  ],
-  "consolidated_score": 92,
-  "reasoning_steps": [...]
-}
-\`\`\`
-
-## Metrics Tracked
-
-- **Pass/Fail**: Binary outcome based on consolidated score threshold
-- **Score**: Numeric 0-100 from consolidated reviewer assessments
-- **Durations**: Generation, build, and review times
-- **Token Usage**: Input/output tokens consumed per generation
-- **Tool Calls**: Number and type of tools the AI agent invoked`,
-  },
-];
+const mono = { fontFamily: "'JetBrains Mono', monospace" };
 
 export function DocsPage() {
-  const [active, setActive] = useState("getting-started");
-  const activeSection = sections.find((s) => s.id === active)!;
+  const [docs, setDocs] = useState<DocEntry[]>([]);
+  const [active, setActive] = useState<string>("");
+  const [content, setContent] = useState<string>("");
+  const [activeTitle, setActiveTitle] = useState<string>("");
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDocs()
+      .then(list => {
+        setDocs(list);
+        if (list.length > 0) {
+          setActive(list[0].slug);
+          setActiveTitle(list[0].title);
+        }
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoadingList(false));
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    setLoadingContent(true);
+    fetchDoc(active)
+      .then(doc => {
+        setContent(doc.content);
+        setActiveTitle(doc.title);
+      })
+      .catch(e => setContent(`Error loading document: ${e.message}`))
+      .finally(() => setLoadingContent(false));
+  }, [active]);
+
+  if (loadingList) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <div className="text-center">
+          <p className="mb-2 text-red-400">Failed to load documentation</p>
+          <p className="text-white/40" style={{ fontSize: 13 }}>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f]" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -181,18 +69,18 @@ export function DocsPage() {
             Documentation
           </h2>
           <nav className="flex gap-1 overflow-x-auto md:flex-col">
-            {sections.map((s) => (
+            {docs.map((d) => (
               <button
-                key={s.id}
-                onClick={() => setActive(s.id)}
+                key={d.slug}
+                onClick={() => setActive(d.slug)}
                 className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-left transition ${
-                  active === s.id ? "bg-emerald-500/10 text-emerald-400" : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                  active === d.slug ? "bg-emerald-500/10 text-emerald-400" : "text-white/50 hover:bg-white/5 hover:text-white/70"
                 }`}
                 style={{ fontSize: 14 }}
               >
-                <s.icon className="h-4 w-4 flex-shrink-0" />
-                {s.title}
-                {active === s.id && <ChevronRight className="ml-auto hidden h-3 w-3 md:block" />}
+                <Book className="h-4 w-4 flex-shrink-0" />
+                {d.title}
+                {active === d.slug && <ChevronRight className="ml-auto hidden h-3 w-3 md:block" />}
               </button>
             ))}
           </nav>
@@ -200,55 +88,100 @@ export function DocsPage() {
 
         {/* Content */}
         <main className="flex-1 p-6 md:p-10">
-          <div className="prose-invert max-w-3xl">
+          <div className="max-w-3xl">
             <div className="mb-6 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
-                <activeSection.icon className="h-5 w-5 text-emerald-400" />
+                <Book className="h-5 w-5 text-emerald-400" />
               </div>
-              <h1 className="text-white" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24 }}>
-                {activeSection.title}
+              <h1 className="text-white" style={{ ...mono, fontSize: 24 }}>
+                {activeTitle}
               </h1>
             </div>
-            <div className="text-white/60" style={{ fontSize: 14, lineHeight: 1.8 }}>
-              {activeSection.content.split("\n").map((line, i) => {
-                if (line.startsWith("## ")) {
-                  return <h2 key={i} className="mb-3 mt-8 text-white" style={{ fontSize: 18 }}>{line.replace("## ", "")}</h2>;
-                }
-                if (line.startsWith("- **")) {
-                  const match = line.match(/- \*\*(.+?)\*\*: (.+)/);
-                  if (match) {
-                    return (
-                      <p key={i} className="ml-4 mb-1">
-                        <strong className="text-white/80">{match[1]}</strong>: {match[2]}
-                      </p>
-                    );
-                  }
-                }
-                if (line.startsWith("```")) {
-                  return null; // handled below
-                }
-                if (line.startsWith("| ")) {
-                  return null; // simplified
-                }
-                if (line.trim() === "") return <div key={i} className="h-3" />;
-                return <p key={i} className="mb-1">{line}</p>;
-              })}
 
-              {/* Code blocks */}
-              {activeSection.content.split("```").filter((_, i) => i % 2 === 1).map((block, i) => {
-                const lines = block.split("\n");
-                const lang = lines[0];
-                const code = lines.slice(1).join("\n");
-                return (
-                  <pre key={i} className="my-4 overflow-x-auto rounded-xl border border-white/8 bg-white/[0.04] p-4">
-                    <div className="mb-2 text-emerald-400/50" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{lang}</div>
-                    <code className="text-emerald-300/70" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
-                      {code}
-                    </code>
-                  </pre>
-                );
-              })}
-            </div>
+            {loadingContent ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />
+              </div>
+            ) : (
+              <div className="prose-custom">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 className="mb-4 mt-8 text-white" style={{ ...mono, fontSize: 24 }}>{children}</h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="mb-3 mt-8 text-white" style={{ fontSize: 18 }}>{children}</h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="mb-2 mt-6 text-white/90" style={{ fontSize: 16 }}>{children}</h3>
+                    ),
+                    p: ({ children }) => (
+                      <p className="mb-3 text-white/60" style={{ fontSize: 14, lineHeight: 1.8 }}>{children}</p>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="mb-3 ml-4 list-disc space-y-1">{children}</ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="mb-3 ml-4 list-decimal space-y-1">{children}</ol>
+                    ),
+                    li: ({ children }) => (
+                      <li className="text-white/60" style={{ fontSize: 14, lineHeight: 1.7 }}>{children}</li>
+                    ),
+                    strong: ({ children }) => (
+                      <strong className="text-white/80">{children}</strong>
+                    ),
+                    a: ({ href, children }) => (
+                      <a href={href} className="text-emerald-400 underline decoration-emerald-400/30 transition hover:decoration-emerald-400" target="_blank" rel="noopener noreferrer">{children}</a>
+                    ),
+                    code: ({ className, children }) => {
+                      const isBlock = className?.includes("language-");
+                      if (isBlock) {
+                        return (
+                          <code className="text-emerald-300/70" style={{ ...mono, fontSize: 13 }}>
+                            {children}
+                          </code>
+                        );
+                      }
+                      return (
+                        <code className="rounded bg-white/10 px-1.5 py-0.5 text-emerald-300/80" style={{ ...mono, fontSize: 12 }}>
+                          {children}
+                        </code>
+                      );
+                    },
+                    pre: ({ children }) => (
+                      <pre className="my-4 overflow-x-auto rounded-xl border border-white/8 bg-white/[0.04] p-4">
+                        {children}
+                      </pre>
+                    ),
+                    table: ({ children }) => (
+                      <div className="my-4 overflow-x-auto">
+                        <table className="w-full border-collapse" style={{ fontSize: 13 }}>
+                          {children}
+                        </table>
+                      </div>
+                    ),
+                    thead: ({ children }) => (
+                      <thead className="border-b border-white/10">{children}</thead>
+                    ),
+                    th: ({ children }) => (
+                      <th className="px-3 py-2 text-left text-white/50" style={{ fontSize: 12 }}>{children}</th>
+                    ),
+                    td: ({ children }) => (
+                      <td className="border-t border-white/5 px-3 py-2 text-white/60" style={{ fontSize: 13 }}>{children}</td>
+                    ),
+                    blockquote: ({ children }) => (
+                      <blockquote className="my-3 border-l-2 border-emerald-500/30 pl-4 text-white/50 italic">
+                        {children}
+                      </blockquote>
+                    ),
+                    hr: () => <hr className="my-6 border-white/10" />,
+                  }}
+                >
+                  {content}
+                </ReactMarkdown>
+              </div>
+            )}
           </div>
         </main>
       </div>

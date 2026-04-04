@@ -246,46 +246,50 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 		case "assistant.reasoning":
 			if ev.Content != "" {
 				reasoningParts = append(reasoningParts, ev.Content)
-				stepIndex++
-				title := ev.Content
-				if len(title) > 80 {
-					title = title[:80] + "…"
-				}
-				d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
-					Index:    stepIndex,
-					Phase:    "generation",
-					StepType: "reasoning",
-					Icon:     "🤔",
-					Title:    title,
-					Content:  ev.Content,
-				})
 			}
+			stepIndex++
+			title := ev.Content
+			if title == "" {
+				title = "(thinking)"
+			} else if len(title) > 80 {
+				title = title[:80] + "…"
+			}
+			d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+				Index:    stepIndex,
+				Phase:    "generation",
+				StepType: "reasoning",
+				Icon:     "🤔",
+				Title:    title,
+				Content:  ev.Content,
+			})
 		case "tool.execution_start":
-			if ev.ToolName != "" {
-				d.ToolActions = append(d.ToolActions, ToolAction{
-					Index:     len(d.ToolActions) + 1,
-					ToolName:  ev.ToolName,
-					Args:      ev.ToolArgs,
-					MCPServer: ev.MCPServerName,
-				})
-				stepIndex++
-				toolTitle := ev.ToolName
-				if ev.FilePath != "" {
-					toolTitle += " → " + ev.FilePath
-				}
-				step := TimelineStep{
-					Index:     stepIndex,
-					Phase:     "generation",
-					StepType:  "tool_call",
-					Icon:      "🔧",
-					Title:     "Tool call: " + toolTitle,
-					Detail:    ev.ToolArgs,
-					ToolName:  ev.ToolName,
-					MCPServer: ev.MCPServerName,
-				}
-				d.TimelineSteps = append(d.TimelineSteps, step)
-				pendingTools = append(pendingTools, pendingTool{len(d.TimelineSteps) - 1, ev.ToolName})
+			toolName := ev.ToolName
+			if toolName == "" {
+				toolName = "(unknown)"
 			}
+			d.ToolActions = append(d.ToolActions, ToolAction{
+				Index:     len(d.ToolActions) + 1,
+				ToolName:  toolName,
+				Args:      ev.ToolArgs,
+				MCPServer: ev.MCPServerName,
+			})
+			stepIndex++
+			toolTitle := toolName
+			if ev.FilePath != "" {
+				toolTitle += " → " + ev.FilePath
+			}
+			step := TimelineStep{
+				Index:     stepIndex,
+				Phase:     "generation",
+				StepType:  "tool_call",
+				Icon:      "🔧",
+				Title:     "Tool call: " + toolTitle,
+				Detail:    ev.ToolArgs,
+				ToolName:  toolName,
+				MCPServer: ev.MCPServerName,
+			}
+			d.TimelineSteps = append(d.TimelineSteps, step)
+			pendingTools = append(pendingTools, pendingTool{len(d.TimelineSteps) - 1, toolName})
 		case "tool.execution_complete":
 			// Update ToolActions (backward compat)
 			for i := len(d.ToolActions) - 1; i >= 0; i-- {
@@ -314,16 +318,17 @@ func buildReportData(r *EvalReport) *ReportTemplateData {
 		case "assistant.message":
 			if ev.Content != "" {
 				messageParts = append(messageParts, ev.Content)
-				stepIndex++
-				d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
-					Index:    stepIndex,
-					Phase:    "generation",
-					StepType: "message",
-					Icon:     "💬",
-					Title:    "Agent reply",
-					Content:  ev.Content,
-				})
 			}
+			stepIndex++
+			title := "Agent reply"
+			d.TimelineSteps = append(d.TimelineSteps, TimelineStep{
+				Index:    stepIndex,
+				Phase:    "generation",
+				StepType: "message",
+				Icon:     "💬",
+				Title:    title,
+				Content:  ev.Content,
+			})
 		}
 	}
 

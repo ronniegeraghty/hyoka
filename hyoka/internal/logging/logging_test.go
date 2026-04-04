@@ -130,3 +130,73 @@ func TestSetupLogFile(t *testing.T) {
 	// Restore silent logger
 	slog.SetDefault(silentLogger())
 }
+
+func TestGeneratorLogger(t *testing.T) {
+	var buf bytes.Buffer
+	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
+
+	l := GeneratorLogger("my-prompt", "my-config", "claude-opus-4.6", 2)
+	l.Info("generation started")
+
+	out := buf.String()
+	for _, want := range []string{
+		"prompt=my-prompt",
+		"config=my-config",
+		"role=generator",
+		"model=claude-opus-4.6",
+		"worker=2",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("log output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
+func TestReviewLogger(t *testing.T) {
+	var buf bytes.Buffer
+	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
+
+	l := ReviewLogger("my-prompt", "my-config", "gemini-3-pro")
+	l.Info("review started")
+
+	out := buf.String()
+	for _, want := range []string{
+		"prompt=my-prompt",
+		"config=my-config",
+		"role=reviewer",
+		"model=gemini-3-pro",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("log output missing %q\ngot: %s", want, out)
+		}
+	}
+	if strings.Contains(out, "worker=") {
+		t.Errorf("ReviewLogger should not include worker field, got: %s", out)
+	}
+}
+
+func TestConsolidatorLogger(t *testing.T) {
+	var buf bytes.Buffer
+	h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
+	defer slog.SetDefault(silentLogger())
+
+	l := ConsolidatorLogger("my-prompt", "my-config", "claude-opus-4.6")
+	l.Info("consolidation started")
+
+	out := buf.String()
+	for _, want := range []string{
+		"prompt=my-prompt",
+		"config=my-config",
+		"role=consolidator",
+		"model=claude-opus-4.6",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("log output missing %q\ngot: %s", want, out)
+		}
+	}
+}

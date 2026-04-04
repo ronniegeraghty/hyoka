@@ -38,7 +38,8 @@ func Setup(opts Options) (closer func(), err error) {
 		if err != nil {
 			return nil, fmt.Errorf("opening log file %s: %w", opts.FilePath, err)
 		}
-		w = f
+		// Write to both file and stderr so debug output appears on console too.
+		w = io.MultiWriter(f, os.Stderr)
 		closer = func() { f.Close() }
 	}
 
@@ -69,6 +70,37 @@ func WithPhase(l *slog.Logger, phase string) *slog.Logger {
 // WithTurn returns a copy of the logger with a turn field.
 func WithTurn(l *slog.Logger, turn int) *slog.Logger {
 	return l.With("turn", turn)
+}
+
+// GeneratorLogger returns a logger for the code generation agent.
+func GeneratorLogger(prompt, config, model string, worker int) *slog.Logger {
+	return slog.With(
+		"prompt", prompt,
+		"config", config,
+		"role", "generator",
+		"model", model,
+		"worker", worker,
+	)
+}
+
+// ReviewLogger returns a logger for a review panel member.
+func ReviewLogger(prompt, config, model string) *slog.Logger {
+	return slog.With(
+		"prompt", prompt,
+		"config", config,
+		"role", "reviewer",
+		"model", model,
+	)
+}
+
+// ConsolidatorLogger returns a logger for the review consolidation agent.
+func ConsolidatorLogger(prompt, config, model string) *slog.Logger {
+	return slog.With(
+		"prompt", prompt,
+		"config", config,
+		"role", "consolidator",
+		"model", model,
+	)
 }
 
 // resolveLevel converts flag values into a slog.Level, honouring the

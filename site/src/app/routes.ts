@@ -23,7 +23,7 @@ export const router = createBrowserRouter([
       { path: "runs/:runId", Component: RunDetailPage },
       { path: "prompts", Component: PromptsPage },
       { path: "prompts/:promptId", Component: PromptDetailPage },
-      { path: "eval/:promptId/:configName", Component: EvalDetailPage },
+      { path: "runs/:runId/eval/:promptId/:configName", Component: EvalDetailPage },
     ],
   },
 ]);

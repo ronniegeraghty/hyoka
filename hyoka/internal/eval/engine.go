@@ -498,7 +498,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	debugPrefix := task.Prompt.ID + "/" + task.Config.Name
 	// Structured logger with eval context fields (#42)
-	lg := logging.EvalLogger(task.Prompt.ID, task.Config.Name, "generation", 0)
+	lg := logging.GeneratorLogger(task.Prompt.ID, task.Config.Name, task.Config.EffectiveModel(), 0)
 	start := time.Now()
 
 	evalReport := &report.EvalReport{
@@ -799,6 +799,7 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		evalCriteria := e.mergedCriteria(task.Prompt)
 
 		if e.panelReviewer != nil {
+			e.panelReviewer.SetPromptContext(task.Prompt.ID, task.Config.Name)
 			models := e.panelReviewer.Models()
 			rlg.Debug("Starting review panel")
 			sendEvent(progress.EventToolStart, fmt.Sprintf("Review panel: %v", models))
@@ -820,6 +821,9 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 					"max_score", consolidated.MaxScore)
 			}
 		} else if e.reviewer != nil {
+			if cr, ok := e.reviewer.(*review.CopilotReviewer); ok {
+				cr.SetPromptContext(task.Prompt.ID, task.Config.Name)
+			}
 			rlg.Debug("Starting single review session")
 			sendEvent(progress.EventToolStart, "Single model review")
 			reviewResult, err := e.reviewer.Review(ctx, task.Prompt.PromptText, reviewWorkDir, referenceDir, evalCriteria)

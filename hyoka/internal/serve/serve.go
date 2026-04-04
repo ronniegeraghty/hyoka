@@ -2,9 +2,9 @@
 package serve
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"log/slog"
 	"net"
 	"net/http"
@@ -12,24 +12,30 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-)
 
-// RunInfo holds summary metadata about a single evaluation run.
-type RunInfo struct {
-	RunID     string `json:"run_id"`
-	Timestamp string `json:"timestamp"`
-	Total     int    `json:"total_evaluations"`
-	Passed    int    `json:"passed"`
-	Failed    int    `json:"failed"`
-	Errors    int    `json:"errors"`
-	Duration  float64 `json:"duration_seconds"`
-	HasHTML   bool   `json:"-"`
-}
+	"github.com/ronniegeraghty/hyoka/internal/prompt"
+)
 
 // Options configures the serve command.
 type Options struct {
 	ReportsDir string
+	DocsDir    string
+	SiteDir    string
+	PromptsDir string
 	Port       int
+}
+
+// DocInfo holds metadata about a documentation file.
+type DocInfo struct {
+	Slug    string `json:"slug"`
+	Title   string `json:"title"`
+	Content string `json:"content,omitempty"`
+}
+
+// internalDocs lists documentation files that should be excluded from the API.
+var internalDocs = map[string]bool{
+	"cleanup-plan":   true,
+	"eval-tool-plan": true,
 }
 
 // Start launches a local HTTP server for browsing reports.
@@ -44,39 +50,23 @@ func Start(opts Options) error {
 	}
 	opts.ReportsDir = abs
 
-	mux := http.NewServeMux()
+	if opts.DocsDir != "" {
+		if d, err := filepath.Abs(opts.DocsDir); err == nil {
+			opts.DocsDir = d
+		}
+	}
+	if opts.SiteDir != "" {
+		if d, err := filepath.Abs(opts.SiteDir); err == nil {
+			opts.SiteDir = d
+		}
+	}
+	if opts.PromptsDir != "" {
+		if d, err := filepath.Abs(opts.PromptsDir); err == nil {
+			opts.PromptsDir = d
+		}
+	}
 
-	// Index page listing all runs
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		runs, err := listRuns(opts.ReportsDir)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error listing runs: %v", err), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := indexTemplate.Execute(w, runs); err != nil {
-			slog.Error("Template execution failed", "error", err)
-		}
-	})
-
-	// API endpoint for run list
-	mux.HandleFunc("/api/runs", func(w http.ResponseWriter, r *http.Request) {
-		runs, err := listRuns(opts.ReportsDir)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(runs)
-	})
-
-	// Serve static report files (HTML, JSON, MD, etc.)
-	fileServer := http.FileServer(http.Dir(opts.ReportsDir))
-	mux.Handle("/reports/", http.StripPrefix("/reports/", fileServer))
+	mux := buildMux(opts)
 
 	addr := fmt.Sprintf(":%d", opts.Port)
 	listener, err := net.Listen("tcp", addr)
@@ -88,162 +78,339 @@ func Start(opts Options) error {
 	url := fmt.Sprintf("http://localhost:%d", actualPort)
 	fmt.Printf("🌐 Serving evaluation reports at %s\n", url)
 	fmt.Printf("   Reports directory: %s\n", opts.ReportsDir)
+	if opts.SiteDir != "" {
+		fmt.Printf("   Site directory:    %s\n", opts.SiteDir)
+	}
+	if opts.DocsDir != "" {
+		fmt.Printf("   Docs directory:    %s\n", opts.DocsDir)
+	}
+	if opts.PromptsDir != "" {
+		fmt.Printf("   Prompts directory: %s\n", opts.PromptsDir)
+	}
 	fmt.Printf("   Press Ctrl+C to stop\n\n")
 
-	return http.Serve(listener, mux)
+	return http.Serve(listener, corsMiddleware(mux))
 }
 
-func listRuns(reportsDir string) ([]RunInfo, error) {
+// buildMux creates the HTTP handler with all routes.
+func buildMux(opts Options) *http.ServeMux {
+	mux := http.NewServeMux()
+
+	// --- API: runs ---
+	mux.HandleFunc("/api/runs", func(w http.ResponseWriter, r *http.Request) {
+		handleAPIRuns(w, r, opts.ReportsDir)
+	})
+	mux.HandleFunc("/api/runs/", func(w http.ResponseWriter, r *http.Request) {
+		handleAPIRunDetail(w, r, opts.ReportsDir)
+	})
+
+	// --- API: docs ---
+	if opts.DocsDir != "" {
+		mux.HandleFunc("/api/docs", func(w http.ResponseWriter, r *http.Request) {
+			handleAPIDocs(w, r, opts.DocsDir)
+		})
+		mux.HandleFunc("/api/docs/", func(w http.ResponseWriter, r *http.Request) {
+			handleAPIDocDetail(w, r, opts.DocsDir)
+		})
+	}
+
+	// --- API: prompts ---
+	if opts.PromptsDir != "" {
+		mux.HandleFunc("/api/prompts", func(w http.ResponseWriter, r *http.Request) {
+			handleAPIPrompts(w, r, opts.PromptsDir)
+		})
+		mux.HandleFunc("/api/prompts/", func(w http.ResponseWriter, r *http.Request) {
+			handleAPIPromptDetail(w, r, opts.PromptsDir)
+		})
+	}
+
+	// --- Static file serving for raw report files ---
+	reportFS := http.FileServer(http.Dir(opts.ReportsDir))
+	mux.Handle("/reports/", http.StripPrefix("/reports/", reportFS))
+
+	// --- SPA fallback / site serving ---
+	mux.HandleFunc("/", spaHandler(opts.SiteDir))
+
+	return mux
+}
+
+// corsMiddleware adds CORS headers to all responses for dev-server compatibility.
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// --- Runs API handlers ---
+
+func handleAPIRuns(w http.ResponseWriter, _ *http.Request, reportsDir string) {
+	runs, err := listRunSummaries(reportsDir)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, runs)
+}
+
+func handleAPIRunDetail(w http.ResponseWriter, r *http.Request, reportsDir string) {
+	// Route: /api/runs/{runId} or /api/runs/{runId}/eval?path=...
+	rest := strings.TrimPrefix(r.URL.Path, "/api/runs/")
+	if rest == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	parts := strings.SplitN(rest, "/", 2)
+	runID := parts[0]
+
+	// /api/runs/{runId}/eval?path=...
+	if len(parts) == 2 && parts[1] == "eval" {
+		handleAPIEval(w, r, reportsDir, runID)
+		return
+	}
+
+	// /api/runs/{runId} — return full summary.json
+	if len(parts) == 1 {
+		summaryPath := filepath.Join(reportsDir, runID, "summary.json")
+		serveJSONFile(w, r, summaryPath)
+		return
+	}
+
+	http.NotFound(w, r)
+}
+
+func handleAPIEval(w http.ResponseWriter, r *http.Request, reportsDir, runID string) {
+	relPath := r.URL.Query().Get("path")
+	if relPath == "" {
+		http.Error(w, `missing "path" query parameter`, http.StatusBadRequest)
+		return
+	}
+
+	// Prevent directory traversal
+	cleaned := filepath.Clean(relPath)
+	if strings.Contains(cleaned, "..") {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+
+	fullPath := filepath.Join(reportsDir, runID, cleaned)
+	serveJSONFile(w, r, fullPath)
+}
+
+// --- Docs API handlers ---
+
+func handleAPIDocs(w http.ResponseWriter, _ *http.Request, docsDir string) {
+	docs, err := listDocs(docsDir)
+	if err != nil {
+		slog.Error("listing docs", "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, docs)
+}
+
+func handleAPIDocDetail(w http.ResponseWriter, r *http.Request, docsDir string) {
+	slug := strings.TrimPrefix(r.URL.Path, "/api/docs/")
+	if slug == "" || strings.Contains(slug, "/") || strings.Contains(slug, "..") {
+		http.NotFound(w, r)
+		return
+	}
+
+	if internalDocs[slug] {
+		http.NotFound(w, r)
+		return
+	}
+
+	filePath := filepath.Join(docsDir, slug+".md")
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	title := extractMarkdownTitle(string(content))
+	doc := DocInfo{
+		Slug:    slug,
+		Title:   title,
+		Content: string(content),
+	}
+	writeJSON(w, doc)
+}
+
+// --- Prompts API handlers ---
+
+func handleAPIPrompts(w http.ResponseWriter, _ *http.Request, promptsDir string) {
+	prompts, err := prompt.LoadPrompts(promptsDir)
+	if err != nil {
+		slog.Error("loading prompts", "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, prompts)
+}
+
+func handleAPIPromptDetail(w http.ResponseWriter, r *http.Request, promptsDir string) {
+	slug := strings.TrimPrefix(r.URL.Path, "/api/prompts/")
+	if slug == "" || strings.Contains(slug, "..") {
+		http.NotFound(w, r)
+		return
+	}
+
+	prompts, err := prompt.LoadPrompts(promptsDir)
+	if err != nil {
+		slog.Error("loading prompts", "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	for _, p := range prompts {
+		if p.ID == slug {
+			writeJSON(w, p)
+			return
+		}
+	}
+
+	http.NotFound(w, r)
+}
+
+// --- SPA handler ---
+
+func spaHandler(siteDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// If no site directory configured, return a minimal fallback
+		if siteDir == "" {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, "Site directory not configured. Use --site-dir to point to the built React site.")
+			return
+		}
+
+		// Try to serve static file from site dir
+		filePath := filepath.Join(siteDir, filepath.Clean(r.URL.Path))
+		if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, filePath)
+			return
+		}
+
+		// SPA fallback: serve index.html for client-side routing
+		indexPath := filepath.Join(siteDir, "index.html")
+		if _, err := os.Stat(indexPath); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, indexPath)
+	}
+}
+
+// --- Data helpers ---
+
+// listRunSummaries reads run directories and returns their full summary.json content.
+func listRunSummaries(reportsDir string) ([]json.RawMessage, error) {
 	entries, err := os.ReadDir(reportsDir)
 	if err != nil {
 		return nil, fmt.Errorf("reading reports dir: %w", err)
 	}
 
-	var runs []RunInfo
+	type summaryEntry struct {
+		runID string
+		data  json.RawMessage
+	}
+
+	var items []summaryEntry
 	for _, e := range entries {
 		if !e.IsDir() || e.Name() == "trends" {
 			continue
 		}
-		run := RunInfo{RunID: e.Name()}
 
-		// Try to load summary.json for richer metadata
 		summaryPath := filepath.Join(reportsDir, e.Name(), "summary.json")
-		if data, err := os.ReadFile(summaryPath); err == nil {
-			var summary struct {
-				Timestamp string  `json:"timestamp"`
-				Total     int     `json:"total_evaluations"`
-				Passed    int     `json:"passed"`
-				Failed    int     `json:"failed"`
-				Errors    int     `json:"errors"`
-				Duration  float64 `json:"duration_seconds"`
-			}
-			if err := json.Unmarshal(data, &summary); err == nil {
-				run.Timestamp = summary.Timestamp
-				run.Total = summary.Total
-				run.Passed = summary.Passed
-				run.Failed = summary.Failed
-				run.Errors = summary.Errors
-				run.Duration = summary.Duration
-			}
+		data, err := os.ReadFile(summaryPath)
+		if err != nil {
+			// Include a minimal entry for runs without summary.json
+			minimal, _ := json.Marshal(map[string]string{"run_id": e.Name()})
+			items = append(items, summaryEntry{runID: e.Name(), data: minimal})
+			continue
 		}
-
-		// Check if HTML summary exists
-		htmlPath := filepath.Join(reportsDir, e.Name(), "summary.html")
-		if _, err := os.Stat(htmlPath); err == nil {
-			run.HasHTML = true
-		}
-
-		runs = append(runs, run)
+		items = append(items, summaryEntry{runID: e.Name(), data: data})
 	}
 
 	// Sort newest first
-	sort.Slice(runs, func(i, j int) bool {
-		return runs[i].RunID > runs[j].RunID
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].runID > items[j].runID
 	})
 
-	return runs, nil
-}
-
-// formatDuration formats seconds into a human-readable string.
-func formatDuration(seconds float64) string {
-	if seconds == 0 {
-		return "-"
+	result := make([]json.RawMessage, len(items))
+	for i, item := range items {
+		result[i] = item.data
 	}
-	if seconds < 60 {
-		return fmt.Sprintf("%.1fs", seconds)
+	return result, nil
+}
+
+// listDocs reads the docs directory and returns metadata for each public doc.
+func listDocs(docsDir string) ([]DocInfo, error) {
+	entries, err := os.ReadDir(docsDir)
+	if err != nil {
+		return nil, fmt.Errorf("reading docs dir: %w", err)
 	}
-	m := int(seconds) / 60
-	s := int(seconds) % 60
-	return fmt.Sprintf("%dm%ds", m, s)
+
+	var docs []DocInfo
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+
+		slug := strings.TrimSuffix(e.Name(), ".md")
+		if internalDocs[slug] {
+			continue
+		}
+
+		content, err := os.ReadFile(filepath.Join(docsDir, e.Name()))
+		if err != nil {
+			continue
+		}
+
+		docs = append(docs, DocInfo{
+			Slug:  slug,
+			Title: extractMarkdownTitle(string(content)),
+		})
+	}
+
+	return docs, nil
 }
 
-var funcMap = template.FuncMap{
-	"formatDuration": formatDuration,
-	"passRate": func(passed, total int) string {
-		if total == 0 {
-			return "-"
+// extractMarkdownTitle returns the text of the first `# ` heading, or the slug.
+func extractMarkdownTitle(content string) string {
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "# ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "# "))
 		}
-		return fmt.Sprintf("%.0f%%", float64(passed)/float64(total)*100)
-	},
-	"statusClass": func(passed, failed, total int) string {
-		if total == 0 {
-			return "pending"
-		}
-		if failed == 0 {
-			return "success"
-		}
-		if passed == 0 {
-			return "failure"
-		}
-		return "partial"
-	},
-	"trimPrefix": strings.TrimPrefix,
+	}
+	return ""
 }
 
-var indexTemplate = template.Must(template.New("index").Funcs(funcMap).Parse(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="30">
-<title>hyoka — Evaluation Reports</title>
-<style>
-  :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --green: #3fb950; --red: #f85149; --yellow: #d29922; --blue: #58a6ff; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 2rem; }
-  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-  .subtitle { color: var(--muted); margin-bottom: 2rem; }
-  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 6px; overflow: hidden; }
-  th { text-align: left; padding: 0.75rem 1rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
-  td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(88, 166, 255, 0.04); }
-  a { color: var(--blue); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
-  .badge.success { background: rgba(63, 185, 80, 0.15); color: var(--green); }
-  .badge.failure { background: rgba(248, 81, 73, 0.15); color: var(--red); }
-  .badge.partial { background: rgba(210, 153, 34, 0.15); color: var(--yellow); }
-  .badge.pending { background: rgba(139, 148, 158, 0.15); color: var(--muted); }
-  .score { font-variant-numeric: tabular-nums; }
-  .empty { text-align: center; padding: 3rem; color: var(--muted); }
-</style>
-</head>
-<body>
-<h1>hyoka — Evaluation Reports</h1>
-<p class="subtitle">{{len .}} evaluation run{{if ne (len .) 1}}s{{end}}</p>
-{{if .}}
-<table>
-  <thead>
-    <tr>
-      <th>Run ID</th>
-      <th>Timestamp</th>
-      <th>Evals</th>
-      <th>Passed</th>
-      <th>Failed</th>
-      <th>Pass Rate</th>
-      <th>Duration</th>
-      <th>Report</th>
-    </tr>
-  </thead>
-  <tbody>
-    {{range .}}
-    <tr>
-      <td><code>{{.RunID}}</code></td>
-      <td>{{if .Timestamp}}{{.Timestamp}}{{else}}<span style="color:var(--muted)">-</span>{{end}}</td>
-      <td class="score">{{if .Total}}{{.Total}}{{else}}-{{end}}</td>
-      <td class="score" style="color:var(--green)">{{if .Total}}{{.Passed}}{{else}}-{{end}}</td>
-      <td class="score" style="color:var(--red)">{{if .Total}}{{.Failed}}{{else}}-{{end}}</td>
-      <td><span class="badge {{statusClass .Passed .Failed .Total}}">{{passRate .Passed .Total}}</span></td>
-      <td>{{formatDuration .Duration}}</td>
-      <td>{{if .HasHTML}}<a href="/reports/{{.RunID}}/summary.html">View</a>{{else}}<span style="color:var(--muted)">—</span>{{end}}</td>
-    </tr>
-    {{end}}
-  </tbody>
-</table>
-{{else}}
-<div class="empty">No evaluation runs found.</div>
-{{end}}
-</body>
-</html>
-`))
+// --- JSON helpers ---
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Error("encoding JSON response", "error", err)
+	}
+}
+
+func serveJSONFile(w http.ResponseWriter, _ *http.Request, path string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
+}

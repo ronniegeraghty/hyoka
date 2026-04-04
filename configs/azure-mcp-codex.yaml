@@ -11,7 +11,7 @@ configs:
       azure:
         type: local
         command: npx
-        args: ["-y", "@azure/mcp@latest"]
+        args: ["-y", "@azure/mcp@latest", "server", "start"]
         tools: ["*"]
     reviewer_skill_directories:
       - "./skills/reviewer"

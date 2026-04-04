@@ -157,7 +157,7 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 	var mu sync.Mutex
 	debugPrefix := p.ID + "/" + cfg.Name
 	// Structured logger for this eval session (#42)
-	lg := logging.EvalLogger(p.ID, cfg.Name, "generation", 0)
+	lg := logging.GeneratorLogger(p.ID, cfg.Name, cfg.EffectiveModel(), 0)
 
 	// Capture turn counter for expanded events
 	var turnCounter int
@@ -465,15 +465,20 @@ func (e *CopilotSDKEvaluator) Evaluate(ctx context.Context, p *prompt.Prompt, cf
 		case copilot.SessionEventTypeSubagentCompleted, copilot.SessionEventTypeSubagentFailed:
 			lg.Debug("Subagent event", "type", string(event.Type))
 		default:
-			content := ""
-			if event.Data.Content != nil {
-				content = truncateStr(*event.Data.Content, 100)
+			// Only log unhandled event types that carry content; skip
+			// noisy infrastructure events (hooks, permissions, session
+			// metadata) that have no actionable information.
+			if event.Data.Content != nil && *event.Data.Content != "" {
+				lg.Debug("SDK event", "type", string(event.Type), "content", truncateStr(*event.Data.Content, 100))
 			}
-			lg.Debug("SDK event", "type", string(event.Type), "content", content)
 		}
 	}
 
-	slog.Info("Creating Copilot session", "model", cfg.EffectiveModel(), "skills", len(sessionCfg.SkillDirectories), "work_dir", workDir)
+	lg.Info("Creating Copilot session",
+		"skills", len(sessionCfg.SkillDirectories),
+		"mcp_servers", len(sessionCfg.MCPServers),
+		"work_dir", workDir,
+	)
 	session, err := client.CreateSession(genCtx, sessionCfg)
 	if err != nil {
 		return &EvalResult{
@@ -721,12 +726,25 @@ func (e *CopilotSDKEvaluator) buildSessionConfig(cfg *config.ToolConfig, workDir
 	if len(mcpServers) > 0 {
 		sc.MCPServers = make(map[string]copilot.MCPServerConfig, len(mcpServers))
 		for name, srv := range mcpServers {
-			sc.MCPServers[name] = copilot.MCPServerConfig{
+			mcpCfg := copilot.MCPServerConfig{
 				"type":    srv.Type,
 				"command": srv.Command,
 				"args":    srv.Args,
 			}
+			if len(srv.Tools) > 0 {
+				mcpCfg["tools"] = srv.Tools
+			}
+			sc.MCPServers[name] = mcpCfg
+			slog.Info("MCP server configured",
+				"name", name,
+				"type", srv.Type,
+				"command", srv.Command,
+				"args", srv.Args,
+				"tools", srv.Tools,
+			)
 		}
+	} else {
+		slog.Debug("No MCP servers configured")
 	}
 
 	return sc

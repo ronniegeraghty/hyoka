@@ -1,21 +1,86 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router";
-import { getAllPrompts } from "../data/mock-data";
-import { Search, Filter, ChevronRight } from "lucide-react";
+import { fetchPrompts, fetchRuns, type PromptInfo } from "../data/api";
+import type { RunSummary } from "../data/types";
+import { Search, ChevronRight, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
 
+interface PromptWithStats {
+  prompt_id: string;
+  metadata: {
+    service: string;
+    language: string;
+    difficulty: string;
+    plane: string;
+    tags: string[];
+    category: string;
+    sdk_package: string;
+  };
+  evalCount: number;
+  passRate: number;
+}
+
 export function PromptsPage() {
-  const allPrompts = useMemo(() => getAllPrompts(), []);
+  const [allPrompts, setAllPrompts] = useState<PromptWithStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterService, setFilterService] = useState("all");
   const [filterLang, setFilterLang] = useState("all");
   const [filterDifficulty, setFilterDifficulty] = useState("all");
   const [filterPlane, setFilterPlane] = useState("all");
 
-  const services = [...new Set(allPrompts.map(p => p.metadata.service))].sort();
-  const langs = [...new Set(allPrompts.map(p => p.metadata.language))].sort();
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [prompts, runs] = await Promise.all([fetchPrompts(), fetchRuns()]);
+        if (cancelled) return;
+
+        // Compute eval stats per prompt from runs
+        const promptStats = new Map<string, { evals: number; passed: number }>();
+        for (const run of runs) {
+          for (const result of run.results || []) {
+            const key = result.prompt_id;
+            const stats = promptStats.get(key) || { evals: 0, passed: 0 };
+            stats.evals++;
+            if (result.success) stats.passed++;
+            promptStats.set(key, stats);
+          }
+        }
+
+        const merged: PromptWithStats[] = prompts.map((p: PromptInfo) => ({
+          prompt_id: p.id,
+          metadata: {
+            service: p.service,
+            language: p.language,
+            difficulty: p.difficulty,
+            plane: p.plane,
+            tags: p.tags || [],
+            category: p.category,
+            sdk_package: p.sdk_package,
+          },
+          evalCount: promptStats.get(p.id)?.evals || 0,
+          passRate: promptStats.get(p.id)?.evals
+            ? Math.round((promptStats.get(p.id)!.passed / promptStats.get(p.id)!.evals) * 100)
+            : 0,
+        }));
+
+        setAllPrompts(merged);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load prompts");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const services = useMemo(() => [...new Set(allPrompts.map(p => p.metadata.service))].sort(), [allPrompts]);
+  const langs = useMemo(() => [...new Set(allPrompts.map(p => p.metadata.language))].sort(), [allPrompts]);
 
   const filtered = allPrompts.filter(p => {
     if (search && !p.prompt_id.toLowerCase().includes(search.toLowerCase())) return false;
@@ -25,6 +90,24 @@ export function PromptsPage() {
     if (filterPlane !== "all" && p.metadata.plane !== filterPlane) return false;
     return true;
   });
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-6 py-4 text-red-400" style={{ fontSize: 14 }}>
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] px-4 py-8 sm:px-6" style={{ fontFamily: "'Inter', sans-serif" }}>

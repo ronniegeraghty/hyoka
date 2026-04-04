@@ -1,3 +1,8 @@
+---
+name: prompt-authoring
+description: Expert guidance for authoring evaluation prompts for hyoka, the Azure SDK Prompt Evaluation Tool. Use when creating, reviewing, or improving .prompt.md files that test AI agent code generation quality.
+---
+
 # Prompt Authoring Skill
 
 You are an expert at authoring evaluation prompts for the **Azure SDK Prompt Evaluation Tool** (`hyoka`). You help users create well-structured `.prompt.md` files that test AI agent code generation quality.

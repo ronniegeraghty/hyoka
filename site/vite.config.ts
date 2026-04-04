@@ -17,6 +17,13 @@ export default defineConfig({
     },
   },
 
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8080',
+      '/reports': 'http://localhost:8080',
+    },
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })
