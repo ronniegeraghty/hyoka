@@ -192,22 +192,17 @@ func (e *Engine) loadCriteria() {
 	slog.Info("Loaded attribute-matched criteria", "sets", len(sets), "dir", e.opts.CriteriaDir)
 }
 
-// mergedCriteria returns the combined Tier 2 + Tier 3 evaluation criteria
-// text for the given prompt.
-func (e *Engine) mergedCriteria(p *prompt.Prompt) string {
-	attrs := criteria.PromptAttrs{
-		Language: p.Language(),
-		Service:  p.Service(),
-		Plane:    p.Plane(),
-		Category: p.Category(),
-		SDK:      p.SDKPackage(),
+// matchedCriteria returns all Tier 2 criteria whose "when" conditions match
+// the prompt's properties.
+func (e *Engine) matchedCriteria(p *prompt.Prompt) []criteria.Criterion {
+	props := map[string]string{
+		"language": p.Language(),
+		"service":  p.Service(),
+		"plane":    p.Plane(),
+		"category": p.Category(),
+		"sdk":      p.SDKPackage(),
 	}
-	matched := criteria.MatchingCriteria(e.criteriaSets, attrs)
-	merged := criteria.MergeCriteria(matched, p.EvaluationCriteria)
-	if merged == "" {
-		return p.EvaluationCriteria
-	}
-	return merged
+	return criteria.MatchingCriteria(e.criteriaSets, props)
 }
 
 // SetPanelReviewer configures a multi-model review panel.
@@ -830,8 +825,24 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			referenceDir = task.Prompt.ReferenceAnswer
 		}
 
-		// Merge tiered evaluation criteria (#30)
-		evalCriteria := e.mergedCriteria(task.Prompt)
+		// Collect matching evaluation criteria (#30, #104)
+		matched := e.matchedCriteria(task.Prompt)
+		evalCriteria := task.Prompt.EvaluationCriteria
+		if len(matched) > 0 {
+			var b strings.Builder
+			for i, c := range matched {
+				fmt.Fprintf(&b, "%d. **%s**", i+1, c.Name)
+				if c.Description != "" {
+					fmt.Fprintf(&b, " — %s", strings.TrimSpace(c.Description))
+				}
+				b.WriteString("\n")
+			}
+			if evalCriteria != "" {
+				evalCriteria = b.String() + "\n" + evalCriteria
+			} else {
+				evalCriteria = b.String()
+			}
+		}
 
 		// Create reviewer for this specific config using the factory (#92)
 		var reviewer review.Reviewer

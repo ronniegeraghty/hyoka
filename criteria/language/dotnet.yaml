@@ -1,4 +1,4 @@
-match:
+when:
   language: dotnet
 criteria:
   - name: NuGet Package References

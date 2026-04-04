@@ -1,4 +1,4 @@
-match:
+when:
   language: java
 criteria:
   - name: Maven/Gradle Dependency Declaration

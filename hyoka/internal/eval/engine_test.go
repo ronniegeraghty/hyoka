@@ -668,7 +668,7 @@ func TestCriteriaMergedIntoReview(t *testing.T) {
 	criteriaDir := t.TempDir()
 	os.MkdirAll(filepath.Join(criteriaDir, "language"), 0755)
 	os.WriteFile(filepath.Join(criteriaDir, "language", "go.yaml"), []byte(`
-match:
+when:
   language: go
 criteria:
   - name: Uses DefaultAzureCredential
