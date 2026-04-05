@@ -292,3 +292,147 @@ func TestBuildSessionConfig_EmptySystemPrompt(t *testing.T) {
 		t.Errorf("expected model 'gpt-4', got %q", sc.Model)
 	}
 }
+
+// --- Integration tests: YAML config → prompt properties → session config tools ---
+
+func TestIntegration_YAMLConfigToSessionTools(t *testing.T) {
+	yamlData := `
+configs:
+  - name: integration-test
+    description: "Integration test config"
+    generator:
+      model: gpt-4
+      tools:
+        - name: create
+        - name: edit
+        - name: azure_mcp
+          when:
+            language: python
+        - name: dotnet_tools
+          when:
+            language: dotnet
+            service: identity
+      excluded_tools:
+        - web_fetch
+`
+	cf, err := config.Parse([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	if len(cf.Configs) != 1 {
+		t.Fatalf("expected 1 config, got %d", len(cf.Configs))
+	}
+	cfg := &cf.Configs[0]
+
+	tests := []struct {
+		name          string
+		prompt        *prompt.Prompt
+		wantAvail     []string
+		wantExcluded  []string
+	}{
+		{
+			name:          "python prompt gets azure_mcp",
+			prompt:        &prompt.Prompt{Properties: map[string]string{"language": "python", "service": "identity"}},
+			wantAvail:     []string{"create", "edit", "azure_mcp"},
+			wantExcluded:  []string{"web_fetch"},
+		},
+		{
+			name:          "dotnet+identity prompt gets dotnet_tools",
+			prompt:        &prompt.Prompt{Properties: map[string]string{"language": "dotnet", "service": "identity"}},
+			wantAvail:     []string{"create", "edit", "dotnet_tools"},
+			wantExcluded:  []string{"web_fetch"},
+		},
+		{
+			name:          "dotnet+storage prompt gets only unconditional",
+			prompt:        &prompt.Prompt{Properties: map[string]string{"language": "dotnet", "service": "storage"}},
+			wantAvail:     []string{"create", "edit"},
+			wantExcluded:  []string{"web_fetch"},
+		},
+		{
+			name:          "go prompt gets only unconditional",
+			prompt:        &prompt.Prompt{Properties: map[string]string{"language": "go", "service": "key-vault"}},
+			wantAvail:     []string{"create", "edit"},
+			wantExcluded:  []string{"web_fetch"},
+		},
+	}
+
+	e := &CopilotSDKEvaluator{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			props := mergePromptProperties(tt.prompt)
+			sc := e.buildSessionConfig(cfg, "/workspace/test", "", props)
+
+			if len(sc.AvailableTools) != len(tt.wantAvail) {
+				t.Fatalf("AvailableTools: got %v, want %v", sc.AvailableTools, tt.wantAvail)
+			}
+			for i, tool := range tt.wantAvail {
+				if sc.AvailableTools[i] != tool {
+					t.Errorf("AvailableTools[%d] = %q, want %q", i, sc.AvailableTools[i], tool)
+				}
+			}
+
+			if len(sc.ExcludedTools) != len(tt.wantExcluded) {
+				t.Fatalf("ExcludedTools: got %v, want %v", sc.ExcludedTools, tt.wantExcluded)
+			}
+			for i, tool := range tt.wantExcluded {
+				if sc.ExcludedTools[i] != tool {
+					t.Errorf("ExcludedTools[%d] = %q, want %q", i, sc.ExcludedTools[i], tool)
+				}
+			}
+		})
+	}
+}
+
+func TestIntegration_LegacyYAMLFallback(t *testing.T) {
+	yamlData := `
+configs:
+  - name: legacy-test
+    description: "Legacy format test"
+    generator:
+      model: gpt-4
+      available_tools:
+        - create
+        - edit
+        - bash
+      excluded_tools:
+        - web_fetch
+`
+	cf, err := config.Parse([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	cfg := &cf.Configs[0]
+
+	e := &CopilotSDKEvaluator{}
+	props := mergePromptProperties(&prompt.Prompt{Properties: map[string]string{"language": "python", "service": "identity"}})
+	sc := e.buildSessionConfig(cfg, "/workspace/test", "", props)
+
+	if len(sc.AvailableTools) != 3 {
+		t.Fatalf("expected 3 AvailableTools from legacy format, got %d: %v", len(sc.AvailableTools), sc.AvailableTools)
+	}
+	if len(sc.ExcludedTools) != 1 || sc.ExcludedTools[0] != "web_fetch" {
+		t.Errorf("expected ExcludedTools [web_fetch], got %v", sc.ExcludedTools)
+	}
+}
+
+func TestIntegration_DuplicateToolEntries(t *testing.T) {
+	e := &CopilotSDKEvaluator{}
+	cfg := &config.ToolConfig{
+		Name: "test",
+		Generator: &config.GeneratorConfig{
+			Model: "gpt-4",
+			Tools: []config.ToolEntry{
+				{Name: "create"},
+				{Name: "create", When: map[string]string{"language": "python"}},
+				{Name: "edit"},
+			},
+		},
+	}
+	sc := e.buildSessionConfig(cfg, "/workspace/test", "", map[string]string{"language": "python"})
+	if len(sc.AvailableTools) != 2 {
+		t.Fatalf("expected 2 tools after dedup, got %d: %v", len(sc.AvailableTools), sc.AvailableTools)
+	}
+	if sc.AvailableTools[0] != "create" || sc.AvailableTools[1] != "edit" {
+		t.Errorf("expected [create edit], got %v", sc.AvailableTools)
+	}
+}
