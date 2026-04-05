@@ -1,21 +1,22 @@
 ---
 id: key-vault-dp-go-crud
-service: key-vault
-plane: data-plane
-language: go
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the Go SDK?
-sdk_package: github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets
-doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets
+properties:
+  service: key-vault
+  plane: data-plane
+  language: go
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, update, and delete secrets in Azure Key Vault using the Go SDK?
+
+    '
+  sdk_package: github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets
+  doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - secrets
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- secrets
+- crud
+- getting-started
 ---
 
 # CRUD Secrets: Azure Key Vault (Go)

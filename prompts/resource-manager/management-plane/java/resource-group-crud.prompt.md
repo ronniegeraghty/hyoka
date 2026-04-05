@@ -1,22 +1,23 @@
 ---
 id: resource-manager-mp-java-rg-crud
-service: resource-manager
-plane: management-plane
-language: java
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, list, update, and delete Azure Resource Groups
-  using the Java management SDK?
-sdk_package: azure-resourcemanager-resources
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/resourcemanager-resources-readme
+properties:
+  service: resource-manager
+  plane: management-plane
+  language: java
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, list, update, and delete Azure Resource Groups using the Java management SDK?
+
+    '
+  sdk_package: azure-resourcemanager-resources
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/resourcemanager-resources-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - resource-groups
-  - management-plane
-  - provisioning
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- resource-groups
+- management-plane
+- provisioning
+- getting-started
 ---
 
 # Resource Group Management: Azure Resource Manager (Java)

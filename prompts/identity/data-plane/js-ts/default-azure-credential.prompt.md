@@ -1,21 +1,22 @@
 ---
 id: identity-dp-js-ts-default-credential
-service: identity
-plane: data-plane
-language: js-ts
-category: auth
-difficulty: basic
-description: >
-  Can a developer set up DefaultAzureCredential for Azure SDK clients
-  using the JavaScript/TypeScript SDK?
-sdk_package: "@azure/identity"
-doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/identity-readme
+properties:
+  service: identity
+  plane: data-plane
+  language: js-ts
+  category: auth
+  difficulty: basic
+  description: 'Can a developer set up DefaultAzureCredential for Azure SDK clients using the JavaScript/TypeScript SDK?
+
+    '
+  sdk_package: '@azure/identity'
+  doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/identity-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - default-azure-credential
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- default-azure-credential
+- getting-started
 ---
 
 # DefaultAzureCredential: Azure Identity (JavaScript/TypeScript)

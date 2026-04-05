@@ -1,21 +1,22 @@
 ---
 id: identity-dp-dotnet-default-credential
-service: identity
-plane: data-plane
-language: dotnet
-category: auth
-difficulty: basic
-description: >
-  Can a developer set up DefaultAzureCredential for Azure SDK clients
-  using the .NET SDK?
-sdk_package: Azure.Identity
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/identity-readme
+properties:
+  service: identity
+  plane: data-plane
+  language: dotnet
+  category: auth
+  difficulty: basic
+  description: 'Can a developer set up DefaultAzureCredential for Azure SDK clients using the .NET SDK?
+
+    '
+  sdk_package: Azure.Identity
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/identity-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - default-azure-credential
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- default-azure-credential
+- getting-started
 ---
 
 # DefaultAzureCredential: Azure Identity (.NET)

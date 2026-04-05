@@ -1,21 +1,22 @@
 ---
 id: key-vault-dp-java-crud
-service: key-vault
-plane: data-plane
-language: java
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the Java SDK?
-sdk_package: azure-security-keyvault-secrets
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/security-keyvault-secrets-readme
+properties:
+  service: key-vault
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, update, and delete secrets in Azure Key Vault using the Java SDK?
+
+    '
+  sdk_package: azure-security-keyvault-secrets
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/security-keyvault-secrets-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - secrets
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- secrets
+- crud
+- getting-started
 ---
 
 # CRUD Secrets: Azure Key Vault (Java)

@@ -1,21 +1,23 @@
 ---
 id: storage-mp-js-ts-account-mgmt
-service: storage
-plane: management-plane
-language: js-ts
-category: provisioning
-difficulty: intermediate
-description: >
-  Can a developer create, configure, and manage Azure Storage Accounts
-  using the JavaScript/TypeScript management SDK?
-sdk_package: "@azure/arm-storage"
-doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/arm-storage-readme
+properties:
+  service: storage
+  plane: management-plane
+  language: js-ts
+  category: provisioning
+  difficulty: intermediate
+  description: 'Can a developer create, configure, and manage Azure Storage Accounts using the JavaScript/TypeScript management
+    SDK?
+
+    '
+  sdk_package: '@azure/arm-storage'
+  doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/arm-storage-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - storage-account
-  - management-plane
-  - provisioning
-created: 2025-07-28
-author: ronniegeraghty
+- storage-account
+- management-plane
+- provisioning
 ---
 
 # Storage Account Management: Azure Storage (JavaScript/TypeScript)

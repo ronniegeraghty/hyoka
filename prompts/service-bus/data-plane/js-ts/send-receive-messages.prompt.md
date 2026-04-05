@@ -1,22 +1,24 @@
 ---
 id: service-bus-dp-js-ts-crud
-service: service-bus
-plane: data-plane
-language: js-ts
-category: crud
-difficulty: intermediate
-description: >
-  Can a developer send and receive messages using Azure Service Bus
-  queues and topics with the JavaScript/TypeScript SDK?
-sdk_package: "@azure/service-bus"
-doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/service-bus-readme
+properties:
+  service: service-bus
+  plane: data-plane
+  language: js-ts
+  category: crud
+  difficulty: intermediate
+  description: 'Can a developer send and receive messages using Azure Service Bus queues and topics with the JavaScript/TypeScript
+    SDK?
+
+    '
+  sdk_package: '@azure/service-bus'
+  doc_url: https://learn.microsoft.com/en-us/javascript/api/overview/azure/service-bus-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - service-bus
-  - messaging
-  - queues
-  - topics
-created: 2025-07-28
-author: ronniegeraghty
+- service-bus
+- messaging
+- queues
+- topics
 ---
 
 # Send and Receive Messages: Azure Service Bus (JavaScript/TypeScript)

@@ -1,28 +1,29 @@
 ---
 id: identity-dp-java-credential-chain
-service: identity
-plane: data-plane
-language: java
-category: auth
-difficulty: intermediate
-description: >
-  Can an agent build environment-specific Azure credential chains (dev, CI,
-  production) using ChainedTokenCredential, with managed identity, workload
-  identity, CAE support, and environment auto-detection?
-sdk_package: com.azure:azure-identity
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme
+properties:
+  service: identity
+  plane: data-plane
+  language: java
+  category: auth
+  difficulty: intermediate
+  description: 'Can an agent build environment-specific Azure credential chains (dev, CI, production) using ChainedTokenCredential,
+    with managed identity, workload identity, CAE support, and environment auto-detection?
+
+    '
+  sdk_package: com.azure:azure-identity
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme
+  created: '2026-03-25'
+  author: JonathanGiles, samvaity
 tags:
-  - identity
-  - chained-credential
-  - managed-identity
-  - workload-identity
-  - cae
-  - environment-detection
-  - azure-pipelines
-  - async
-  - reactor
-created: 2026-03-25
-author: JonathanGiles, samvaity
+- identity
+- chained-credential
+- managed-identity
+- workload-identity
+- cae
+- environment-detection
+- azure-pipelines
+- async
+- reactor
 ---
 
 # Credential Chain Builder: Azure Identity (Java)

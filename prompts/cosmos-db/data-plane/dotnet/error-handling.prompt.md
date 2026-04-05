@@ -1,22 +1,24 @@
 ---
 id: cosmos-db-dp-dotnet-error-handling
-service: cosmos-db
-plane: data-plane
-language: dotnet
-category: error-handling
-difficulty: intermediate
-description: >
-  Can a developer handle Cosmos DB errors including
-  throttling (429), conflicts (409), and not-found (404) in .NET?
-sdk_package: Microsoft.Azure.Cosmos
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/microsoft.azure.cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: dotnet
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can a developer handle Cosmos DB errors including throttling (429), conflicts (409), and not-found (404) in
+    .NET?
+
+    '
+  sdk_package: Microsoft.Azure.Cosmos
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/microsoft.azure.cosmos-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - error-handling
-  - exceptions
-  - throttling
-  - request-units
-created: 2025-07-27
-author: ronniegeraghty
+- error-handling
+- exceptions
+- throttling
+- request-units
 ---
 
 # Error Handling: Azure Cosmos DB (.NET)

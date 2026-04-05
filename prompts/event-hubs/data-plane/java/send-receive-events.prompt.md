@@ -1,22 +1,23 @@
 ---
 id: event-hubs-dp-java-streaming
-service: event-hubs
-plane: data-plane
-language: java
-category: streaming
-difficulty: intermediate
-description: >
-  Can a developer send and receive events using Azure Event Hubs
-  with the Java SDK?
-sdk_package: azure-messaging-eventhubs
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-eventhubs-readme
+properties:
+  service: event-hubs
+  plane: data-plane
+  language: java
+  category: streaming
+  difficulty: intermediate
+  description: 'Can a developer send and receive events using Azure Event Hubs with the Java SDK?
+
+    '
+  sdk_package: azure-messaging-eventhubs
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-eventhubs-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - event-hubs
-  - streaming
-  - producer
-  - consumer
-created: 2025-07-28
-author: ronniegeraghty
+- event-hubs
+- streaming
+- producer
+- consumer
 ---
 
 # Send and Receive Events: Azure Event Hubs (Java)

@@ -1,21 +1,22 @@
 ---
 id: storage-mp-go-account-mgmt
-service: storage
-plane: management-plane
-language: go
-category: provisioning
-difficulty: intermediate
-description: >
-  Can a developer create, configure, and manage Azure Storage Accounts
-  using the Go management SDK?
-sdk_package: github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
-doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
+properties:
+  service: storage
+  plane: management-plane
+  language: go
+  category: provisioning
+  difficulty: intermediate
+  description: 'Can a developer create, configure, and manage Azure Storage Accounts using the Go management SDK?
+
+    '
+  sdk_package: github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
+  doc_url: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - storage-account
-  - management-plane
-  - provisioning
-created: 2025-07-28
-author: ronniegeraghty
+- storage-account
+- management-plane
+- provisioning
 ---
 
 # Storage Account Management: Azure Storage (Go)

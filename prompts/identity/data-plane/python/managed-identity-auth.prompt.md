@@ -1,21 +1,22 @@
 ---
 id: identity-dp-python-managed-identity
-service: identity
-plane: data-plane
-language: python
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer use Managed Identity to authenticate Azure SDK clients
-  using the Python SDK?
-sdk_package: azure-identity
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme
+properties:
+  service: identity
+  plane: data-plane
+  language: python
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer use Managed Identity to authenticate Azure SDK clients using the Python SDK?
+
+    '
+  sdk_package: azure-identity
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - managed-identity
-  - azure-hosted
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- managed-identity
+- azure-hosted
 ---
 
 # Managed Identity Authentication: Azure Identity (Python)

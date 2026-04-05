@@ -1,22 +1,24 @@
 ---
 id: cosmos-db-dp-python-error-handling
-service: cosmos-db
-plane: data-plane
-language: python
-category: error-handling
-difficulty: intermediate
-description: >
-  Can a developer handle Cosmos DB errors including
-  throttling (429), conflicts (409), and not-found (404) in Python?
-sdk_package: azure-cosmos
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: python
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can a developer handle Cosmos DB errors including throttling (429), conflicts (409), and not-found (404) in
+    Python?
+
+    '
+  sdk_package: azure-cosmos
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - error-handling
-  - exceptions
-  - throttling
-  - request-units
-created: 2025-07-27
-author: ronniegeraghty
+- error-handling
+- exceptions
+- throttling
+- request-units
 ---
 
 # Error Handling: Azure Cosmos DB (Python)

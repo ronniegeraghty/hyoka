@@ -1,22 +1,24 @@
 ---
 id: storage-mp-dotnet-polling
-service: storage
-plane: management-plane
-language: dotnet
-category: polling
-difficulty: intermediate
-description: >
-  Can a developer use the LRO polling pattern to create a Storage Account
-  and wait for completion using the .NET management SDK?
-sdk_package: Azure.ResourceManager.Storage
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager.storage-readme
+properties:
+  service: storage
+  plane: management-plane
+  language: dotnet
+  category: polling
+  difficulty: intermediate
+  description: 'Can a developer use the LRO polling pattern to create a Storage Account and wait for completion using the
+    .NET management SDK?
+
+    '
+  sdk_package: Azure.ResourceManager.Storage
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager.storage-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - polling
-  - lro
-  - long-running-operation
-  - management-plane
-created: 2025-07-27
-author: ronniegeraghty
+- polling
+- lro
+- long-running-operation
+- management-plane
 ---
 
 # Polling/LRO: Create Storage Account (.NET)

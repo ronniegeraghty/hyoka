@@ -1,21 +1,22 @@
 ---
 id: storage-dp-cpp-crud
-service: storage
-plane: data-plane
-language: cpp
-category: crud
-difficulty: basic
-description: >
-  Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the C++ SDK?
-sdk_package: azure-storage-blobs-cpp
-doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/storage/azure-storage-blobs
+properties:
+  service: storage
+  plane: data-plane
+  language: cpp
+  category: crud
+  difficulty: basic
+  description: 'Can a developer upload, download, list, and delete blobs in Azure Blob Storage using the C++ SDK?
+
+    '
+  sdk_package: azure-storage-blobs-cpp
+  doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/storage/azure-storage-blobs
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - blobs
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- blobs
+- crud
+- getting-started
 ---
 
 # CRUD Blobs: Azure Blob Storage (C++)

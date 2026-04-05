@@ -1,26 +1,27 @@
 ---
 id: storage-dp-java-blob-event-notifier
-service: storage
-plane: data-plane
-language: java
-category: streaming
-difficulty: intermediate
-description: >
-  Can an agent generate a Blob Storage event processor using Event Grid, supporting
-  both EventGridEvent and CloudEvents 1.0 schemas, event routing by type, blob
-  subject parsing, custom event publishing, and race condition handling?
-sdk_package: com.azure:azure-messaging-eventgrid
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-eventgrid-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: java
+  category: streaming
+  difficulty: intermediate
+  description: 'Can an agent generate a Blob Storage event processor using Event Grid, supporting both EventGridEvent and
+    CloudEvents 1.0 schemas, event routing by type, blob subject parsing, custom event publishing, and race condition handling?
+
+    '
+  sdk_package: com.azure:azure-messaging-eventgrid
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-eventgrid-readme
+  created: '2026-03-25'
+  author: JonathanGiles, samvaity
 tags:
-  - event-grid
-  - blob-storage
-  - cloud-events
-  - event-routing
-  - async
-  - reactor
-  - multi-service
-created: 2026-03-25
-author: JonathanGiles, samvaity
+- event-grid
+- blob-storage
+- cloud-events
+- event-routing
+- async
+- reactor
+- multi-service
 ---
 
 # Blob Event Notifier: Azure Event Grid + Blob Storage (Java)

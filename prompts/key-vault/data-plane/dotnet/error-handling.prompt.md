@@ -1,22 +1,24 @@
 ---
 id: key-vault-dp-dotnet-error-handling
-service: key-vault
-plane: data-plane
-language: dotnet
-category: error-handling
-difficulty: intermediate
-description: >
-  Can a developer handle Key Vault errors including
-  access denied (403), secret not found (404), and throttling (429) in .NET?
-sdk_package: Azure.Security.KeyVault.Secrets
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/security.keyvault.secrets-readme
+properties:
+  service: key-vault
+  plane: data-plane
+  language: dotnet
+  category: error-handling
+  difficulty: intermediate
+  description: 'Can a developer handle Key Vault errors including access denied (403), secret not found (404), and throttling
+    (429) in .NET?
+
+    '
+  sdk_package: Azure.Security.KeyVault.Secrets
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/security.keyvault.secrets-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - error-handling
-  - exceptions
-  - access-policy
-  - throttling
-created: 2025-07-27
-author: ronniegeraghty
+- error-handling
+- exceptions
+- access-policy
+- throttling
 ---
 
 # Error Handling: Azure Key Vault Secrets (.NET)

@@ -1,21 +1,22 @@
 ---
 id: storage-dp-rust-crud
-service: storage
-plane: data-plane
-language: rust
-category: crud
-difficulty: basic
-description: >
-  Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the Rust SDK?
-sdk_package: azure_storage_blob
-doc_url: https://github.com/Azure/azure-sdk-for-rust/tree/main/sdk/storage/azure_storage_blobs
+properties:
+  service: storage
+  plane: data-plane
+  language: rust
+  category: crud
+  difficulty: basic
+  description: 'Can a developer upload, download, list, and delete blobs in Azure Blob Storage using the Rust SDK?
+
+    '
+  sdk_package: azure_storage_blob
+  doc_url: https://github.com/Azure/azure-sdk-for-rust/tree/main/sdk/storage/azure_storage_blobs
+  created: '2026-03-26'
+  author: larryo
 tags:
-  - blobs
-  - crud
-  - getting-started
-created: 2026-03-26
-author: larryo
+- blobs
+- crud
+- getting-started
 ---
 
 # CRUD Blobs: Azure Blob Storage (Rust)

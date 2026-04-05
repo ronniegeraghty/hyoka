@@ -1,22 +1,24 @@
 ---
 id: cosmos-db-dp-python-retries
-service: cosmos-db
-plane: data-plane
-language: python
-category: retries
-difficulty: advanced
-description: >
-  Can a developer configure custom retry policies for Azure Cosmos DB
-  including 429 throttle handling and connection retry in Python?
-sdk_package: azure-cosmos
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: python
+  category: retries
+  difficulty: advanced
+  description: 'Can a developer configure custom retry policies for Azure Cosmos DB including 429 throttle handling and connection
+    retry in Python?
+
+    '
+  sdk_package: azure-cosmos
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - retries
-  - retry-policy
-  - throttling
-  - request-units
-created: 2025-07-27
-author: ronniegeraghty
+- retries
+- retry-policy
+- throttling
+- request-units
 ---
 
 # Retry Configuration: Azure Cosmos DB (Python)

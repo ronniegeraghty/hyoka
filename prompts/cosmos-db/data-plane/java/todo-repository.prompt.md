@@ -1,29 +1,30 @@
 ---
 id: cosmos-db-dp-java-todo-repository
-service: cosmos-db
-plane: data-plane
-language: java
-category: crud
-difficulty: intermediate
-description: >
-  Can an agent generate a Cosmos DB CRUD repository with optimistic concurrency
-  (ETags), parameterized queries, page-by-page pagination, TTL configuration,
-  custom indexing policy, and RU cost logging?
-sdk_package: com.azure:azure-cosmos
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: intermediate
+  description: 'Can an agent generate a Cosmos DB CRUD repository with optimistic concurrency (ETags), parameterized queries,
+    page-by-page pagination, TTL configuration, custom indexing policy, and RU cost logging?
+
+    '
+  sdk_package: com.azure:azure-cosmos
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/cosmos-readme
+  created: '2026-03-25'
+  author: JonathanGiles, samvaity
 tags:
-  - cosmos-db
-  - etag
-  - optimistic-concurrency
-  - pagination
-  - parameterized-query
-  - ttl
-  - indexing-policy
-  - request-charge
-  - async
-  - reactor
-created: 2026-03-25
-author: JonathanGiles, samvaity
+- cosmos-db
+- etag
+- optimistic-concurrency
+- pagination
+- parameterized-query
+- ttl
+- indexing-policy
+- request-charge
+- async
+- reactor
 ---
 
 # ToDo Repository: Azure Cosmos DB (Java)

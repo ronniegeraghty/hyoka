@@ -1,27 +1,28 @@
 ---
 id: service-bus-dp-java-order-processor
-service: service-bus
-plane: data-plane
-language: java
-category: streaming
-difficulty: intermediate
-description: >
-  Can an agent generate a Service Bus order processing system with batch sending,
-  scheduled delivery, dead-letter queue handling, session-aware processing, and
-  proper error categorization?
-sdk_package: com.azure:azure-messaging-servicebus
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-servicebus-readme
+properties:
+  service: service-bus
+  plane: data-plane
+  language: java
+  category: streaming
+  difficulty: intermediate
+  description: 'Can an agent generate a Service Bus order processing system with batch sending, scheduled delivery, dead-letter
+    queue handling, session-aware processing, and proper error categorization?
+
+    '
+  sdk_package: com.azure:azure-messaging-servicebus
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-servicebus-readme
+  created: '2026-03-25'
+  author: JonathanGiles, samvaity
 tags:
-  - service-bus
-  - batch-sending
-  - scheduled-delivery
-  - dead-letter-queue
-  - session-aware
-  - correlation
-  - async
-  - reactor
-created: 2026-03-25
-author: JonathanGiles, samvaity
+- service-bus
+- batch-sending
+- scheduled-delivery
+- dead-letter-queue
+- session-aware
+- correlation
+- async
+- reactor
 ---
 
 # Order Processor: Azure Service Bus (Java)

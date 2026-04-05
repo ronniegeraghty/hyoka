@@ -1,22 +1,24 @@
 ---
 id: key-vault-mp-python-polling
-service: key-vault
-plane: management-plane
-language: python
-category: polling
-difficulty: intermediate
-description: >
-  Can a developer use the LRO polling pattern to create a Key Vault
-  and wait for completion using the Python management SDK?
-sdk_package: azure-mgmt-keyvault
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/mgmt-keyvault-readme
+properties:
+  service: key-vault
+  plane: management-plane
+  language: python
+  category: polling
+  difficulty: intermediate
+  description: 'Can a developer use the LRO polling pattern to create a Key Vault and wait for completion using the Python
+    management SDK?
+
+    '
+  sdk_package: azure-mgmt-keyvault
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/mgmt-keyvault-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - polling
-  - lro
-  - long-running-operation
-  - management-plane
-created: 2025-07-27
-author: ronniegeraghty
+- polling
+- lro
+- long-running-operation
+- management-plane
 ---
 
 # Polling/LRO: Create Key Vault (Python)

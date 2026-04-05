@@ -1,22 +1,23 @@
 ---
 id: service-bus-dp-java-crud
-service: service-bus
-plane: data-plane
-language: java
-category: crud
-difficulty: intermediate
-description: >
-  Can a developer send and receive messages using Azure Service Bus
-  queues and topics with the Java SDK?
-sdk_package: azure-messaging-servicebus
-doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-servicebus-readme
+properties:
+  service: service-bus
+  plane: data-plane
+  language: java
+  category: crud
+  difficulty: intermediate
+  description: 'Can a developer send and receive messages using Azure Service Bus queues and topics with the Java SDK?
+
+    '
+  sdk_package: azure-messaging-servicebus
+  doc_url: https://learn.microsoft.com/en-us/java/api/overview/azure/messaging-servicebus-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - service-bus
-  - messaging
-  - queues
-  - topics
-created: 2025-07-28
-author: ronniegeraghty
+- service-bus
+- messaging
+- queues
+- topics
 ---
 
 # Send and Receive Messages: Azure Service Bus (Java)

@@ -1,21 +1,22 @@
 ---
 id: identity-dp-cpp-service-principal
-service: identity
-plane: data-plane
-language: cpp
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer authenticate with a Service Principal (client secret)
-  using the C++ SDK?
-sdk_package: azure-identity-cpp
-doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
+properties:
+  service: identity
+  plane: data-plane
+  language: cpp
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer authenticate with a Service Principal (client secret) using the C++ SDK?
+
+    '
+  sdk_package: azure-identity-cpp
+  doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - service-principal
-  - client-secret
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- service-principal
+- client-secret
 ---
 
 # Service Principal Authentication: Azure Identity (C++)

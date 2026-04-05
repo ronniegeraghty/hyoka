@@ -1,21 +1,22 @@
 ---
 id: key-vault-dp-dotnet-pagination
-service: key-vault
-plane: data-plane
-language: dotnet
-category: pagination
-difficulty: intermediate
-description: >
-  Can a developer paginate through a large list of Key Vault secrets
-  using the .NET SDK?
-sdk_package: Azure.Security.KeyVault.Secrets
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/security.keyvault.secrets-readme
+properties:
+  service: key-vault
+  plane: data-plane
+  language: dotnet
+  category: pagination
+  difficulty: intermediate
+  description: 'Can a developer paginate through a large list of Key Vault secrets using the .NET SDK?
+
+    '
+  sdk_package: Azure.Security.KeyVault.Secrets
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/security.keyvault.secrets-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - pagination
-  - list-secrets
-  - async
-created: 2025-07-27
-author: ronniegeraghty
+- pagination
+- list-secrets
+- async
 ---
 
 # Pagination: List Key Vault Secrets (.NET)

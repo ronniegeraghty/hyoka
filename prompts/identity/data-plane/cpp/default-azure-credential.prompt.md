@@ -1,21 +1,22 @@
 ---
 id: identity-dp-cpp-default-credential
-service: identity
-plane: data-plane
-language: cpp
-category: auth
-difficulty: basic
-description: >
-  Can a developer set up DefaultAzureCredential for Azure SDK clients
-  using the C++ SDK?
-sdk_package: azure-identity-cpp
-doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
+properties:
+  service: identity
+  plane: data-plane
+  language: cpp
+  category: auth
+  difficulty: basic
+  description: 'Can a developer set up DefaultAzureCredential for Azure SDK clients using the C++ SDK?
+
+    '
+  sdk_package: azure-identity-cpp
+  doc_url: https://github.com/Azure/azure-sdk-for-cpp/tree/main/sdk/identity/azure-identity
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - default-azure-credential
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- default-azure-credential
+- getting-started
 ---
 
 # DefaultAzureCredential: Azure Identity (C++)

@@ -1,22 +1,24 @@
 ---
 id: key-vault-mp-dotnet-polling
-service: key-vault
-plane: management-plane
-language: dotnet
-category: polling
-difficulty: intermediate
-description: >
-  Can a developer use the LRO polling pattern to create a Key Vault
-  and wait for completion using the .NET management SDK?
-sdk_package: Azure.ResourceManager.KeyVault
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager.keyvault-readme
+properties:
+  service: key-vault
+  plane: management-plane
+  language: dotnet
+  category: polling
+  difficulty: intermediate
+  description: 'Can a developer use the LRO polling pattern to create a Key Vault and wait for completion using the .NET management
+    SDK?
+
+    '
+  sdk_package: Azure.ResourceManager.KeyVault
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager.keyvault-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - polling
-  - lro
-  - long-running-operation
-  - management-plane
-created: 2025-07-27
-author: ronniegeraghty
+- polling
+- lro
+- long-running-operation
+- management-plane
 ---
 
 # Polling/LRO: Create Key Vault (.NET)

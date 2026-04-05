@@ -1,21 +1,22 @@
 ---
 id: identity-dp-rust-managed-identity
-service: identity
-plane: data-plane
-language: rust
-category: auth
-difficulty: intermediate
-description: >
-  Can a developer use Managed Identity to authenticate Azure SDK clients
-  using the Rust SDK?
-sdk_package: azure_identity
-doc_url: https://docs.rs/azure_identity/latest/azure_identity/
+properties:
+  service: identity
+  plane: data-plane
+  language: rust
+  category: auth
+  difficulty: intermediate
+  description: 'Can a developer use Managed Identity to authenticate Azure SDK clients using the Rust SDK?
+
+    '
+  sdk_package: azure_identity
+  doc_url: https://docs.rs/azure_identity/latest/azure_identity/
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - authentication
-  - managed-identity
-  - azure-hosted
-created: 2025-07-28
-author: ronniegeraghty
+- authentication
+- managed-identity
+- azure-hosted
 ---
 
 # Managed Identity Authentication: Azure Identity (Rust)

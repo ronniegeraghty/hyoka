@@ -1,22 +1,23 @@
 ---
 id: storage-dp-dotnet-batch
-service: storage
-plane: data-plane
-language: dotnet
-category: batch
-difficulty: advanced
-description: >
-  Can a developer perform batch blob operations including bulk delete
-  and bulk set-tier using the .NET SDK?
-sdk_package: Azure.Storage.Blobs
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: dotnet
+  category: batch
+  difficulty: advanced
+  description: 'Can a developer perform batch blob operations including bulk delete and bulk set-tier using the .NET SDK?
+
+    '
+  sdk_package: Azure.Storage.Blobs
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - batch
-  - bulk-operations
-  - delete
-  - set-tier
-created: 2025-07-27
-author: ronniegeraghty
+- batch
+- bulk-operations
+- delete
+- set-tier
 ---
 
 # Batch Operations: Azure Blob Storage (.NET)

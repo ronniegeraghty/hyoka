@@ -1,21 +1,22 @@
 ---
 id: storage-dp-python-crud
-service: storage
-plane: data-plane
-language: python
-category: crud
-difficulty: basic
-description: >
-  Can a developer upload, download, list, and delete blobs in Azure Blob Storage
-  using the Python SDK?
-sdk_package: azure-storage-blob
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/storage-blob-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: python
+  category: crud
+  difficulty: basic
+  description: 'Can a developer upload, download, list, and delete blobs in Azure Blob Storage using the Python SDK?
+
+    '
+  sdk_package: azure-storage-blob
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/storage-blob-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - blob
-  - crud
-  - getting-started
-created: 2025-07-27
-author: ronniegeraghty
+- blob
+- crud
+- getting-started
 ---
 
 # CRUD Blobs: Azure Blob Storage (Python)

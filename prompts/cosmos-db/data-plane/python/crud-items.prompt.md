@@ -1,22 +1,23 @@
 ---
 id: cosmos-db-dp-python-crud
-service: cosmos-db
-plane: data-plane
-language: python
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, query, and delete items in an Azure Cosmos DB
-  container using the Python SDK?
-sdk_package: azure-cosmos
-doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
+properties:
+  service: cosmos-db
+  plane: data-plane
+  language: python
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, query, and delete items in an Azure Cosmos DB container using the Python SDK?
+
+    '
+  sdk_package: azure-cosmos
+  doc_url: https://learn.microsoft.com/en-us/python/api/overview/azure/cosmos-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - cosmos-db
-  - nosql
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- cosmos-db
+- nosql
+- crud
+- getting-started
 ---
 
 # CRUD Items: Azure Cosmos DB (Python)

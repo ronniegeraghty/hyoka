@@ -1,21 +1,22 @@
 ---
 id: storage-mp-dotnet-account-mgmt
-service: storage
-plane: management-plane
-language: dotnet
-category: provisioning
-difficulty: intermediate
-description: >
-  Can a developer create, configure, and manage Azure Storage Accounts
-  using the .NET management SDK?
-sdk_package: Azure.ResourceManager.Storage
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager.storage-readme
+properties:
+  service: storage
+  plane: management-plane
+  language: dotnet
+  category: provisioning
+  difficulty: intermediate
+  description: 'Can a developer create, configure, and manage Azure Storage Accounts using the .NET management SDK?
+
+    '
+  sdk_package: Azure.ResourceManager.Storage
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/resourcemanager.storage-readme
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - storage-account
-  - management-plane
-  - provisioning
-created: 2025-07-28
-author: ronniegeraghty
+- storage-account
+- management-plane
+- provisioning
 ---
 
 # Storage Account Management: Azure Storage (.NET)

@@ -1,22 +1,24 @@
 ---
 id: storage-dp-dotnet-retries
-service: storage
-plane: data-plane
-language: dotnet
-category: retries
-difficulty: advanced
-description: >
-  Can a developer configure custom retry policies for Azure Blob Storage
-  including exponential backoff and per-operation timeouts in .NET?
-sdk_package: Azure.Storage.Blobs
-doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
+properties:
+  service: storage
+  plane: data-plane
+  language: dotnet
+  category: retries
+  difficulty: advanced
+  description: 'Can a developer configure custom retry policies for Azure Blob Storage including exponential backoff and per-operation
+    timeouts in .NET?
+
+    '
+  sdk_package: Azure.Storage.Blobs
+  doc_url: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/storage.blobs-readme
+  created: '2025-07-27'
+  author: ronniegeraghty
 tags:
-  - retries
-  - retry-policy
-  - resilience
-  - exponential-backoff
-created: 2025-07-27
-author: ronniegeraghty
+- retries
+- retry-policy
+- resilience
+- exponential-backoff
 ---
 
 # Retry Configuration: Azure Blob Storage (.NET)

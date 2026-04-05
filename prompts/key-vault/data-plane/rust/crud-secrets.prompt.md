@@ -1,21 +1,22 @@
 ---
 id: key-vault-dp-rust-crud
-service: key-vault
-plane: data-plane
-language: rust
-category: crud
-difficulty: basic
-description: >
-  Can a developer create, read, update, and delete secrets in Azure Key Vault
-  using the Rust SDK?
-sdk_package: azure_security_keyvault_secrets
-doc_url: https://docs.rs/azure_security_keyvault_secrets/latest/azure_security_keyvault_secrets/
+properties:
+  service: key-vault
+  plane: data-plane
+  language: rust
+  category: crud
+  difficulty: basic
+  description: 'Can a developer create, read, update, and delete secrets in Azure Key Vault using the Rust SDK?
+
+    '
+  sdk_package: azure_security_keyvault_secrets
+  doc_url: https://docs.rs/azure_security_keyvault_secrets/latest/azure_security_keyvault_secrets/
+  created: '2025-07-28'
+  author: ronniegeraghty
 tags:
-  - secrets
-  - crud
-  - getting-started
-created: 2025-07-28
-author: ronniegeraghty
+- secrets
+- crud
+- getting-started
 ---
 
 # CRUD Secrets: Azure Key Vault (Rust)

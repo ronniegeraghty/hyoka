@@ -1,20 +1,22 @@
 ---
 id: storage-dp-python-mcp-best-practices
-service: storage
-plane: data-plane
-language: python
-category: best-practices
-difficulty: basic
-description: >
-  Can the agent use the Azure MCP best practices tool
-  to generate Azure Blob Storage code following official guidance?
-sdk_package: azure-storage-blob
+properties:
+  service: storage
+  plane: data-plane
+  language: python
+  category: best-practices
+  difficulty: basic
+  description: 'Can the agent use the Azure MCP best practices tool to generate Azure Blob Storage code following official
+    guidance?
+
+    '
+  sdk_package: azure-storage-blob
+  created: '2026-04-02'
+  author: ronniegeraghty
 tags:
-  - mcp
-  - best-practices
-  - getting-started
-created: 2026-04-02
-author: ronniegeraghty
+- mcp
+- best-practices
+- getting-started
 ---
 
 # Azure Blob Storage Best Practices (Python)
