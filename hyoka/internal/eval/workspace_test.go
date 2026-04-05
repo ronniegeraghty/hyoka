@@ -1,9 +1,11 @@
 package eval
 
 import (
-"os"
-"path/filepath"
-"testing"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/ronniegeraghty/hyoka/internal/prompt"
 )
 
 func TestSnapshotDir_CapturesFilesAndDirs(t *testing.T) {
@@ -219,5 +221,112 @@ func TestJunkDirsIsDefaultIgnoreDirs(t *testing.T) {
 		if !DefaultIgnoreDirs[k] {
 			t.Errorf("DefaultIgnoreDirs missing key %q from junkDirs", k)
 		}
+	}
+}
+
+func TestCopyDir_CopiesFilesAndSubdirs(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	os.WriteFile(filepath.Join(src, "main.py"), []byte("print('hello')"), 0644)
+	os.MkdirAll(filepath.Join(src, "sub", "deep"), 0755)
+	os.WriteFile(filepath.Join(src, "sub", "deep", "util.py"), []byte("# util"), 0644)
+
+	if err := copyDir(src, dst); err != nil {
+		t.Fatalf("copyDir failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dst, "main.py"))
+	if err != nil {
+		t.Fatal("main.py not copied")
+	}
+	if string(data) != "print('hello')" {
+		t.Errorf("unexpected content: %q", data)
+	}
+
+	data, err = os.ReadFile(filepath.Join(dst, "sub", "deep", "util.py"))
+	if err != nil {
+		t.Fatal("sub/deep/util.py not copied")
+	}
+	if string(data) != "# util" {
+		t.Errorf("unexpected content: %q", data)
+	}
+}
+
+func TestCopyDir_SkipsHiddenDirs(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	os.MkdirAll(filepath.Join(src, ".git"), 0755)
+	os.WriteFile(filepath.Join(src, ".git", "config"), []byte("git config"), 0644)
+	os.WriteFile(filepath.Join(src, "main.py"), []byte("code"), 0644)
+
+	if err := copyDir(src, dst); err != nil {
+		t.Fatalf("copyDir failed: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dst, ".git")); err == nil {
+		t.Error(".git directory should not be copied")
+	}
+	if _, err := os.Stat(filepath.Join(dst, "main.py")); err != nil {
+		t.Error("main.py should be copied")
+	}
+}
+
+func TestCopyDir_MissingSrcReturnsError(t *testing.T) {
+	dst := t.TempDir()
+	err := copyDir("/nonexistent/path/to/starter", dst)
+	if err == nil {
+		t.Fatal("expected error for nonexistent source")
+	}
+}
+
+func TestCopyDir_EmptyDirectory(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	if err := copyDir(src, dst); err != nil {
+		t.Fatalf("copyDir on empty dir failed: %v", err)
+	}
+
+	files, err := listFiles(dst)
+	if err != nil {
+		t.Fatalf("listFiles failed: %v", err)
+	}
+	if len(files) != 0 {
+		t.Errorf("expected 0 files, got %d: %v", len(files), files)
+	}
+}
+
+func TestResolveStarterDir_Relative(t *testing.T) {
+	p := &prompt.Prompt{
+		StarterProject: "./starter/",
+		FilePath:       "/home/user/prompts/storage/blob.prompt.md",
+	}
+	got := resolveStarterDir(p)
+	want := "/home/user/prompts/storage/starter"
+	if got != want {
+		t.Errorf("resolveStarterDir = %q, want %q", got, want)
+	}
+}
+
+func TestResolveStarterDir_Absolute(t *testing.T) {
+	p := &prompt.Prompt{
+		StarterProject: "/absolute/starter",
+		FilePath:       "/home/user/prompts/blob.prompt.md",
+	}
+	got := resolveStarterDir(p)
+	if got != "/absolute/starter" {
+		t.Errorf("resolveStarterDir = %q, want /absolute/starter", got)
+	}
+}
+
+func TestResolveStarterDir_NoFilePath(t *testing.T) {
+	p := &prompt.Prompt{
+		StarterProject: "starter/",
+	}
+	got := resolveStarterDir(p)
+	if got != "starter/" {
+		t.Errorf("resolveStarterDir = %q, want starter/", got)
 	}
 }

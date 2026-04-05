@@ -3,6 +3,8 @@ package validate
 
 import (
 "fmt"
+"os"
+"path/filepath"
 "sort"
 "strings"
 
@@ -138,6 +140,36 @@ addErr(fmt.Sprintf("id %q must start with %q", p.ID, expectedPrefix))
 // Must have ## Prompt section with content
 if p.PromptText == "" {
 addErr("missing or empty ## Prompt section")
+}
+
+// Starter project path validation
+if p.StarterProject != "" {
+starterDir := p.StarterProject
+if !filepath.IsAbs(starterDir) && p.FilePath != "" {
+starterDir = filepath.Join(filepath.Dir(p.FilePath), starterDir)
+}
+info, statErr := os.Stat(starterDir)
+if statErr != nil {
+addErr(fmt.Sprintf("starter_project %q: path does not exist", p.StarterProject))
+} else if !info.IsDir() {
+addErr(fmt.Sprintf("starter_project %q: not a directory", p.StarterProject))
+} else {
+entries, readErr := os.ReadDir(starterDir)
+if readErr != nil {
+addErr(fmt.Sprintf("starter_project %q: cannot read directory", p.StarterProject))
+} else {
+hasFiles := false
+for _, e := range entries {
+if !strings.HasPrefix(e.Name(), ".") {
+hasFiles = true
+break
+}
+}
+if !hasFiles {
+addErr(fmt.Sprintf("starter_project %q: directory is empty", p.StarterProject))
+}
+}
+}
 }
 
 return errs
