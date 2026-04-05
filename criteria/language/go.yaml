@@ -1,4 +1,4 @@
-match:
+when:
   language: go
 criteria:
   - name: Module Dependencies

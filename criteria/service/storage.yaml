@@ -1,4 +1,4 @@
-match:
+when:
   service: storage
 criteria:
   - name: Storage Account URL Format

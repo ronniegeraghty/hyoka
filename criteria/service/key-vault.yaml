@@ -1,4 +1,4 @@
-match:
+when:
   service: key-vault
 criteria:
   - name: Secret/Key/Certificate Client Separation
