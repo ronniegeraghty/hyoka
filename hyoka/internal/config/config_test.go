@@ -624,6 +624,56 @@ func TestValidateRejectsNilGenerator(t *testing.T) {
 	}
 }
 
+func TestParseSystemPrompt(t *testing.T) {
+	data := []byte(`
+configs:
+  - name: with-system-prompt
+    description: "Config with system prompts"
+    generator:
+      model: "claude-opus-4.6"
+      system_prompt: "You are an Azure SDK expert."
+    reviewer:
+      models:
+        - "gpt-4.1"
+      system_prompt: "Review code for Azure best practices."
+`)
+	cfg, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := cfg.Configs[0]
+	if c.Generator.SystemPrompt != "You are an Azure SDK expert." {
+		t.Errorf("expected generator system_prompt 'You are an Azure SDK expert.', got %q", c.Generator.SystemPrompt)
+	}
+	if c.Reviewer.SystemPrompt != "Review code for Azure best practices." {
+		t.Errorf("expected reviewer system_prompt 'Review code for Azure best practices.', got %q", c.Reviewer.SystemPrompt)
+	}
+}
+
+func TestParseSystemPromptOmitted(t *testing.T) {
+	data := []byte(`
+configs:
+  - name: no-system-prompt
+    description: "Config without system prompts"
+    generator:
+      model: "gpt-4"
+    reviewer:
+      models:
+        - "gpt-4.1"
+`)
+	cfg, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := cfg.Configs[0]
+	if c.Generator.SystemPrompt != "" {
+		t.Errorf("expected empty generator system_prompt, got %q", c.Generator.SystemPrompt)
+	}
+	if c.Reviewer.SystemPrompt != "" {
+		t.Errorf("expected empty reviewer system_prompt, got %q", c.Reviewer.SystemPrompt)
+	}
+}
+
 func TestValidateRejectsEmptyGeneratorModel(t *testing.T) {
 	cf := &ConfigFile{
 		Configs: []ToolConfig{
