@@ -52,11 +52,10 @@ func (p *Prompt) Created() string     { return p.Properties["created"] }
 func (p *Prompt) Author() string      { return p.Properties["author"] }
 
 // Filter defines criteria for selecting prompts.
+// Filters is a map of property key to value pairs; all must match.
+// Tags and PromptID are handled separately.
 type Filter struct {
-Service  string
-Plane    string
-Language string
-Category string
+Filters  map[string]string
 Tags     []string
 PromptID string
 }
@@ -66,17 +65,10 @@ func (p *Prompt) Matches(f Filter) bool {
 if f.PromptID != "" && p.ID != f.PromptID {
 return false
 }
-if f.Service != "" && p.Service() != f.Service {
+for key, value := range f.Filters {
+if p.Property(key) != value {
 return false
 }
-if f.Plane != "" && p.Plane() != f.Plane {
-return false
-}
-if f.Language != "" && p.Language() != f.Language {
-return false
-}
-if f.Category != "" && p.Category() != f.Category {
-return false
 }
 if len(f.Tags) > 0 {
 tagSet := make(map[string]bool, len(p.Tags))

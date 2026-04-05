@@ -149,15 +149,15 @@ func TestFilterPrompts(t *testing.T) {
 		expected int
 	}{
 		{"no filter", Filter{}, 3},
-		{"by service", Filter{Service: "storage"}, 2},
-		{"by language", Filter{Language: "dotnet"}, 1},
-		{"by plane", Filter{Plane: "data-plane"}, 2},
-		{"by category", Filter{Category: "authentication"}, 2},
+		{"by service", Filter{Filters: map[string]string{"service": "storage"}}, 2},
+		{"by language", Filter{Filters: map[string]string{"language": "dotnet"}}, 1},
+		{"by plane", Filter{Filters: map[string]string{"plane": "data-plane"}}, 2},
+		{"by category", Filter{Filters: map[string]string{"category": "authentication"}}, 2},
 		{"by tags", Filter{Tags: []string{"blob"}}, 2},
 		{"by multiple tags", Filter{Tags: []string{"blob", "identity"}}, 1},
 		{"by prompt ID", Filter{PromptID: "p2"}, 1},
-		{"combined filters", Filter{Service: "storage", Language: "dotnet"}, 1},
-		{"no match", Filter{Service: "cosmos"}, 0},
+		{"combined filters", Filter{Filters: map[string]string{"service": "storage", "language": "dotnet"}}, 1},
+		{"no match", Filter{Filters: map[string]string{"service": "cosmos"}}, 0},
 	}
 
 	for _, tt := range tests {
@@ -165,6 +165,72 @@ func TestFilterPrompts(t *testing.T) {
 			result := FilterPrompts(prompts, tt.filter)
 			if len(result) != tt.expected {
 				t.Errorf("expected %d results, got %d", tt.expected, len(result))
+			}
+		})
+	}
+}
+
+func TestFilterPromptsGenericFilter(t *testing.T) {
+	prompts := []*Prompt{
+		{ID: "p1", Properties: map[string]string{"service": "storage", "language": "dotnet", "difficulty": "beginner", "author": "alice"}},
+		{ID: "p2", Properties: map[string]string{"service": "keyvault", "language": "python", "difficulty": "advanced", "author": "bob"}},
+		{ID: "p3", Properties: map[string]string{"service": "storage", "language": "java", "difficulty": "beginner", "author": "bob"}},
+	}
+
+	tests := []struct {
+		name     string
+		filter   Filter
+		expected int
+	}{
+		{"by difficulty", Filter{Filters: map[string]string{"difficulty": "beginner"}}, 2},
+		{"by author", Filter{Filters: map[string]string{"author": "bob"}}, 2},
+		{"combined generic and alias", Filter{Filters: map[string]string{"service": "storage", "difficulty": "beginner"}}, 2},
+		{"all three", Filter{Filters: map[string]string{"service": "storage", "difficulty": "beginner", "author": "alice"}}, 1},
+		{"unknown key returns empty", Filter{Filters: map[string]string{"nonexistent": "val"}}, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FilterPrompts(prompts, tt.filter)
+			if len(result) != tt.expected {
+				t.Errorf("expected %d results, got %d", tt.expected, len(result))
+			}
+		})
+	}
+}
+
+func TestPromptProperty(t *testing.T) {
+	p := &Prompt{
+		Properties: map[string]string{
+			"service":     "storage",
+			"plane":       "data-plane",
+			"language":    "dotnet",
+			"category":    "authentication",
+			"difficulty":  "beginner",
+			"author":      "alice",
+			"sdk_package": "Azure.Storage.Blobs",
+		},
+	}
+
+	tests := []struct {
+		key      string
+		expected string
+	}{
+		{"service", "storage"},
+		{"plane", "data-plane"},
+		{"language", "dotnet"},
+		{"category", "authentication"},
+		{"difficulty", "beginner"},
+		{"author", "alice"},
+		{"sdk_package", "Azure.Storage.Blobs"},
+		{"unknown", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			got := p.Property(tt.key)
+			if got != tt.expected {
+				t.Errorf("Property(%q) = %q, want %q", tt.key, got, tt.expected)
 			}
 		})
 	}
