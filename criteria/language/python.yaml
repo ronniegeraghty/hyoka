@@ -1,23 +1,28 @@
 when:
   language: python
-criteria:
+graders:
   - name: Correct Package Imports
-    description: >
+    weight: 1.0
+    prompt: >
       Imports use the latest azure-sdk-for-python package structure
       (azure.*), not deprecated packages.
   - name: DefaultAzureCredential Usage
-    description: >
+    weight: 1.0
+    prompt: >
       Authentication uses DefaultAzureCredential from azure-identity,
       not connection strings or hardcoded keys.
   - name: Context Manager for Clients
-    description: >
+    weight: 1.0
+    prompt: >
       Azure SDK clients that support context managers are used with
       `with` statements or explicitly closed.
   - name: Async Client Usage
-    description: >
+    weight: 1.0
+    prompt: >
       If async operations are requested, code uses the async client
       variant with proper await patterns.
   - name: Proper Exception Handling
-    description: >
+    weight: 1.0
+    prompt: >
       Azure SDK exceptions (HttpResponseError and subclasses) are
       caught and handled appropriately.

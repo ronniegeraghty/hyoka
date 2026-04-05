@@ -1,182 +1,263 @@
 package criteria
 
 import (
-"io"
-"log/slog"
-"os"
-"path/filepath"
-"testing"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
 )
 
 func TestMain(m *testing.M) {
-slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError + 1})))
-os.Exit(m.Run())
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError + 1})))
+	os.Exit(m.Run())
 }
 
-func TestMatchesAll(t *testing.T) {
-cs := CriteriaSet{When: map[string]string{"language": "java", "service": "keyvault"}}
-props := map[string]string{"language": "java", "service": "keyvault", "plane": "data-plane"}
-if !cs.Matches(props) {
-t.Error("expected match")
-}
-}
-
-func TestMatchesCaseInsensitive(t *testing.T) {
-cs := CriteriaSet{When: map[string]string{"language": "Java"}}
-props := map[string]string{"language": "java"}
-if !cs.Matches(props) {
-t.Error("expected case-insensitive match")
-}
+func TestMatchesWhenAllFields(t *testing.T) {
+	when := map[string]string{"language": "java", "service": "keyvault"}
+	props := map[string]string{"language": "java", "service": "keyvault", "plane": "data-plane"}
+	if !matchesWhen(when, props) {
+		t.Error("expected match")
+	}
 }
 
-func TestMatchesNoMatch(t *testing.T) {
-cs := CriteriaSet{When: map[string]string{"language": "python"}}
-props := map[string]string{"language": "java"}
-if cs.Matches(props) {
-t.Error("expected no match")
-}
-}
-
-func TestMatchesEmptyWhen(t *testing.T) {
-cs := CriteriaSet{}
-props := map[string]string{"language": "java", "service": "storage"}
-if !cs.Matches(props) {
-t.Error("empty when should match everything")
-}
+func TestMatchesWhenCaseInsensitive(t *testing.T) {
+	when := map[string]string{"language": "Java"}
+	props := map[string]string{"language": "java"}
+	if !matchesWhen(when, props) {
+		t.Error("expected case-insensitive match")
+	}
 }
 
-func TestMatchesPartialFields(t *testing.T) {
-tests := []struct {
-name    string
-when    map[string]string
-props   map[string]string
-matches bool
-}{
-{"service only match", map[string]string{"service": "keyvault"}, map[string]string{"service": "keyvault", "language": "go"}, true},
-{"service only no match", map[string]string{"service": "keyvault"}, map[string]string{"service": "storage", "language": "go"}, false},
-{"plane match", map[string]string{"plane": "data-plane"}, map[string]string{"plane": "data-plane"}, true},
-{"category match", map[string]string{"category": "auth"}, map[string]string{"category": "auth"}, true},
-{"sdk match", map[string]string{"sdk": "azure-identity"}, map[string]string{"sdk": "azure-identity"}, true},
-{"multi-field partial fail", map[string]string{"language": "java", "service": "storage"}, map[string]string{"language": "java", "service": "keyvault"}, false},
-{"custom property match", map[string]string{"framework": "spring"}, map[string]string{"framework": "spring", "language": "java"}, true},
-{"missing property no match", map[string]string{"framework": "spring"}, map[string]string{"language": "java"}, false},
+func TestMatchesWhenNoMatch(t *testing.T) {
+	when := map[string]string{"language": "python"}
+	props := map[string]string{"language": "java"}
+	if matchesWhen(when, props) {
+		t.Error("expected no match")
+	}
 }
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-cs := CriteriaSet{When: tt.when}
-if got := cs.Matches(tt.props); got != tt.matches {
-t.Errorf("expected %v, got %v", tt.matches, got)
+
+func TestMatchesWhenEmpty(t *testing.T) {
+	when := map[string]string{}
+	props := map[string]string{"language": "java", "service": "storage"}
+	if !matchesWhen(when, props) {
+		t.Error("empty when map should match everything")
+	}
 }
-})
-}
+
+func TestMatchesWhenPartialFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		when    map[string]string
+		props   map[string]string
+		matches bool
+	}{
+		{"service only match", map[string]string{"service": "keyvault"}, map[string]string{"service": "keyvault", "language": "go"}, true},
+		{"service only no match", map[string]string{"service": "keyvault"}, map[string]string{"service": "storage", "language": "go"}, false},
+		{"plane match", map[string]string{"plane": "data-plane"}, map[string]string{"plane": "data-plane"}, true},
+		{"category match", map[string]string{"category": "auth"}, map[string]string{"category": "auth"}, true},
+		{"sdk match", map[string]string{"sdk": "azure-identity"}, map[string]string{"sdk": "azure-identity"}, true},
+		{"multi-field partial fail", map[string]string{"language": "java", "service": "storage"}, map[string]string{"language": "java", "service": "keyvault"}, false},
+		{"missing prop key", map[string]string{"language": "go"}, map[string]string{"service": "storage"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := matchesWhen(tt.when, tt.props); got != tt.matches {
+				t.Errorf("expected %v, got %v", tt.matches, got)
+			}
+		})
+	}
 }
 
 func TestLoadDir(t *testing.T) {
-dir := t.TempDir()
+	dir := t.TempDir()
 
-javaFile := filepath.Join(dir, "language", "java.yaml")
-os.MkdirAll(filepath.Dir(javaFile), 0755)
-os.WriteFile(javaFile, []byte(`
+	javaFile := filepath.Join(dir, "language", "java.yaml")
+	os.MkdirAll(filepath.Dir(javaFile), 0755)
+	os.WriteFile(javaFile, []byte(`
 when:
   language: java
-criteria:
+graders:
   - name: Builder Pattern
-    description: SDK clients use builder pattern.
+    weight: 1.0
+    prompt: SDK clients use builder pattern.
   - name: Try-With-Resources
-    description: AutoCloseable clients use try-with-resources.
+    weight: 1.0
+    prompt: AutoCloseable clients use try-with-resources.
 `), 0644)
 
-kvFile := filepath.Join(dir, "service", "keyvault.yaml")
-os.MkdirAll(filepath.Dir(kvFile), 0755)
-os.WriteFile(kvFile, []byte(`
+	kvFile := filepath.Join(dir, "service", "keyvault.yaml")
+	os.MkdirAll(filepath.Dir(kvFile), 0755)
+	os.WriteFile(kvFile, []byte(`
 when:
   service: keyvault
-criteria:
+graders:
   - name: Vault URI Format
-    description: Uses parameterized vault URI.
+    weight: 1.0
+    prompt: Uses parameterized vault URI.
 `), 0644)
 
-sets, err := LoadDir(dir)
-if err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if len(sets) != 2 {
-t.Fatalf("expected 2 criteria sets, got %d", len(sets))
-}
+	configs, err := LoadDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(configs) != 2 {
+		t.Fatalf("expected 2 grader configs, got %d", len(configs))
+	}
 }
 
 func TestLoadDirSkipsInvalid(t *testing.T) {
-dir := t.TempDir()
-os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte("not: valid: yaml: ["), 0644)
-os.WriteFile(filepath.Join(dir, "empty.yaml"), []byte("when:\n  language: go\ncriteria: []\n"), 0644)
-os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("not a yaml file"), 0644)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte("not: valid: yaml: ["), 0644)
+	os.WriteFile(filepath.Join(dir, "empty.yaml"), []byte("when:\n  language: go\ngraders: []\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("not a yaml file"), 0644)
 
-sets, err := LoadDir(dir)
-if err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if len(sets) != 0 {
-t.Errorf("expected 0 valid sets, got %d", len(sets))
-}
+	configs, err := LoadDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(configs) != 0 {
+		t.Errorf("expected 0 valid configs, got %d", len(configs))
+	}
 }
 
 func TestLoadDirNonexistent(t *testing.T) {
-_, err := LoadDir("/nonexistent/path")
-if err == nil {
-t.Error("expected error for nonexistent directory")
-}
-}
-
-func TestMatchingCriteria(t *testing.T) {
-sets := []CriteriaSet{
-{
-When:     map[string]string{"language": "java"},
-Criteria: []Criterion{{Name: "Builder Pattern"}, {Name: "Try-With-Resources"}},
-},
-{
-When:     map[string]string{"service": "keyvault"},
-Criteria: []Criterion{{Name: "Vault URI"}},
-},
-{
-When:     map[string]string{"language": "python"},
-Criteria: []Criterion{{Name: "Async Usage"}},
-},
+	_, err := LoadDir("/nonexistent/path")
+	if err == nil {
+		t.Error("expected error for nonexistent directory")
+	}
 }
 
-got := MatchingCriteria(sets, map[string]string{"language": "java", "service": "keyvault"})
-if len(got) != 3 {
-t.Fatalf("expected 3 matching criteria, got %d", len(got))
+func TestMatchingGraders(t *testing.T) {
+	configs := []GraderConfig{
+		{
+			When:    map[string]string{"language": "java"},
+			Graders: []GraderEntry{{Name: "Builder Pattern", Weight: 1.0}, {Name: "Try-With-Resources", Weight: 1.0}},
+		},
+		{
+			When:    map[string]string{"service": "keyvault"},
+			Graders: []GraderEntry{{Name: "Vault URI", Weight: 1.0}},
+		},
+		{
+			When:    map[string]string{"language": "python"},
+			Graders: []GraderEntry{{Name: "Async Usage", Weight: 1.0}},
+		},
+	}
+
+	got := MatchingGraders(configs, map[string]string{"language": "java", "service": "keyvault"})
+	if len(got) != 3 {
+		t.Fatalf("expected 3 matching graders, got %d", len(got))
+	}
+
+	got = MatchingGraders(configs, map[string]string{"language": "python", "service": "storage"})
+	if len(got) != 1 {
+		t.Fatalf("expected 1 matching grader, got %d", len(got))
+	}
+
+	got = MatchingGraders(configs, map[string]string{"language": "go", "service": "storage"})
+	if len(got) != 0 {
+		t.Errorf("expected 0 matching graders, got %d", len(got))
+	}
 }
 
-got = MatchingCriteria(sets, map[string]string{"language": "python", "service": "storage"})
-if len(got) != 1 {
-t.Fatalf("expected 1 matching criterion, got %d", len(got))
+func TestFormatGraders(t *testing.T) {
+	graders := []GraderEntry{
+		{Name: "Builder Pattern", Weight: 1.0, Prompt: "Use builder pattern for clients."},
+		{Name: "Error Handling", Weight: 1.0},
+	}
+	result := FormatGraders(graders)
+	if !strings.Contains(result, "1. **Builder Pattern**") {
+		t.Errorf("expected formatted grader name, got %q", result)
+	}
+	if !strings.Contains(result, "Use builder pattern") {
+		t.Errorf("expected prompt text, got %q", result)
+	}
+	if !strings.Contains(result, "2. **Error Handling**") {
+		t.Errorf("expected second grader, got %q", result)
+	}
 }
 
-got = MatchingCriteria(sets, map[string]string{"language": "go", "service": "storage"})
-if len(got) != 0 {
-t.Errorf("expected 0 matching criteria, got %d", len(got))
-}
-}
-
-func TestMatchingCriteriaEmptyWhen(t *testing.T) {
-sets := []CriteriaSet{
-{
-Criteria: []Criterion{{Name: "Universal Rule"}},
-},
-{
-When:     map[string]string{"language": "python"},
-Criteria: []Criterion{{Name: "Python Only"}},
-},
+func TestFormatGradersEmpty(t *testing.T) {
+	if got := FormatGraders(nil); got != "" {
+		t.Errorf("expected empty string for nil graders, got %q", got)
+	}
 }
 
-got := MatchingCriteria(sets, map[string]string{"language": "java"})
-if len(got) != 1 || got[0].Name != "Universal Rule" {
-t.Errorf("expected only universal rule, got %v", got)
+func TestMergeCriteria(t *testing.T) {
+	graders := []GraderEntry{
+		{Name: "Builder Pattern", Weight: 1.0, Prompt: "Use builder."},
+	}
+	promptCriteria := "- Uses correct authentication method"
+
+	result := MergeCriteria(graders, promptCriteria)
+	if !strings.Contains(result, "Attribute-Matched") {
+		t.Error("expected Attribute-Matched header")
+	}
+	if !strings.Contains(result, "Prompt-Specific") {
+		t.Error("expected Prompt-Specific header")
+	}
+	if !strings.Contains(result, "Builder Pattern") {
+		t.Error("expected grader criterion")
+	}
+	if !strings.Contains(result, "authentication method") {
+		t.Error("expected prompt criteria text")
+	}
 }
 
-got = MatchingCriteria(sets, map[string]string{"language": "python"})
-if len(got) != 2 {
-t.Errorf("expected 2 criteria (universal + python), got %d", len(got))
+func TestMergeCriteriaGradersOnly(t *testing.T) {
+	graders := []GraderEntry{{Name: "Test", Weight: 1.0}}
+	result := MergeCriteria(graders, "")
+	if !strings.Contains(result, "Attribute-Matched") {
+		t.Error("expected grader content")
+	}
+	if strings.Contains(result, "Prompt-Specific") {
+		t.Error("should not contain prompt-specific header when prompt criteria is empty")
+	}
 }
+
+func TestMergeCriteriaPromptOnly(t *testing.T) {
+	result := MergeCriteria(nil, "some criteria")
+	if strings.Contains(result, "Attribute-Matched") {
+		t.Error("should not contain attribute-matched header when graders is empty")
+	}
+	if !strings.Contains(result, "Prompt-Specific") {
+		t.Error("expected prompt-specific header")
+	}
+}
+
+func TestMergeCriteriaBothEmpty(t *testing.T) {
+	result := MergeCriteria(nil, "")
+	if result != "" {
+		t.Errorf("expected empty result, got %q", result)
+	}
+}
+
+func TestGraderWeightPreserved(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "test.yaml"), []byte(`
+when:
+  language: go
+graders:
+  - name: Critical Check
+    weight: 2.0
+    prompt: Very important check.
+  - name: Minor Check
+    weight: 0.5
+    prompt: Less important.
+`), 0644)
+
+	configs, err := LoadDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(configs) != 1 {
+		t.Fatalf("expected 1 config, got %d", len(configs))
+	}
+	if configs[0].Graders[0].Weight != 2.0 {
+		t.Errorf("expected weight 2.0, got %f", configs[0].Graders[0].Weight)
+	}
+	if configs[0].Graders[1].Weight != 0.5 {
+		t.Errorf("expected weight 0.5, got %f", configs[0].Graders[1].Weight)
+	}
 }

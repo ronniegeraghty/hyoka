@@ -1,23 +1,28 @@
 when:
   language: go
-criteria:
+graders:
   - name: Module Dependencies
-    description: >
+    weight: 1.0
+    prompt: >
       Generated code includes correct Go module dependencies
       (go.mod) for all Azure SDK packages used.
   - name: DefaultAzureCredential Usage
-    description: >
+    weight: 1.0
+    prompt: >
       Authentication uses azidentity.NewDefaultAzureCredential,
       not connection strings or hardcoded keys.
   - name: Error Handling
-    description: >
+    weight: 1.0
+    prompt: >
       All Azure SDK method calls check returned errors and handle
       them appropriately (no ignored errors).
   - name: Client Close/Cleanup
-    description: >
+    weight: 1.0
+    prompt: >
       HTTP clients and response bodies are properly closed to
       prevent resource leaks.
   - name: Correct azcore/azidentity Imports
-    description: >
+    weight: 1.0
+    prompt: >
       Imports use the latest azure-sdk-for-go v2 packages
       (github.com/Azure/azure-sdk-for-go/sdk/*).
