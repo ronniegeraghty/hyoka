@@ -483,6 +483,134 @@ func WriteSummaryMarkdown(s *RunSummary, outputDir string) (string, error) {
 		b.WriteString("\n")
 	}
 
+	// Per-prompt criteria comparison across configs (like evaluation-results.md reference format)
+	if len(matrix.Configs) > 1 {
+		b.WriteString("## Criteria Comparison\n\n")
+
+		for _, pid := range matrix.Prompts {
+			fmt.Fprintf(&b, "### %s\n\n", pid)
+
+			// Collect criteria from all configs for this prompt
+			type criteriaEntry struct {
+				name    string
+				results map[string]string // config → "✅"/"❌"/"—"
+				reasons map[string]string // config → reason
+			}
+			criteriaMap := make(map[string]*criteriaEntry)
+			var criteriaOrder []string
+
+			for _, r := range s.Results {
+				if r.PromptID != pid || r.Review == nil {
+					continue
+				}
+				for _, c := range r.Review.Scores.Criteria {
+					entry, exists := criteriaMap[c.Name]
+					if !exists {
+						entry = &criteriaEntry{
+							name:    c.Name,
+							results: make(map[string]string),
+							reasons: make(map[string]string),
+						}
+						criteriaMap[c.Name] = entry
+						criteriaOrder = append(criteriaOrder, c.Name)
+					}
+					if c.Passed {
+						entry.results[r.ConfigName] = "✅"
+					} else {
+						entry.results[r.ConfigName] = "❌"
+					}
+					if c.Reason != "" {
+						entry.reasons[r.ConfigName] = c.Reason
+					}
+				}
+			}
+
+			if len(criteriaOrder) > 0 {
+				// Header
+				b.WriteString("| Criteria |")
+				for _, cfg := range matrix.Configs {
+					// Shorten config name for readability
+					short := cfg
+					if idx := strings.LastIndex(cfg, "/"); idx >= 0 {
+						short = cfg[:idx]
+					}
+					fmt.Fprintf(&b, " %s |", short)
+				}
+				b.WriteString("\n|----------|")
+				for range matrix.Configs {
+					b.WriteString("------|")
+				}
+				b.WriteString("\n")
+
+				// Rows
+				for _, name := range criteriaOrder {
+					entry := criteriaMap[name]
+					fmt.Fprintf(&b, "| %s |", name)
+					for _, cfg := range matrix.Configs {
+						result, ok := entry.results[cfg]
+						if !ok {
+							result = "—"
+						}
+						fmt.Fprintf(&b, " %s |", result)
+					}
+					b.WriteString("\n")
+				}
+				b.WriteString("\n")
+
+				// Issues and strengths per config
+				for _, r := range s.Results {
+					if r.PromptID != pid || r.Review == nil {
+						continue
+					}
+					if len(r.Review.Strengths) > 0 || len(r.Review.Issues) > 0 {
+						short := r.ConfigName
+						if idx := strings.LastIndex(short, "/"); idx >= 0 {
+							short = short[:idx]
+						}
+						fmt.Fprintf(&b, "**%s:**\n", short)
+						for _, s := range r.Review.Strengths {
+							fmt.Fprintf(&b, "- ✅ %s\n", s)
+						}
+						for _, iss := range r.Review.Issues {
+							fmt.Fprintf(&b, "- ❌ %s\n", iss)
+						}
+						b.WriteString("\n")
+					}
+				}
+			}
+		}
+	}
+
+	// Tool & Skill Usage by Config
+	if len(matrix.Configs) > 0 {
+		b.WriteString("## Tool & Skill Usage by Config\n\n")
+		b.WriteString("| Config | Tools Used | MCP Calls | Skills Invoked | Duration |\n")
+		b.WriteString("|--------|-----------|-----------|----------------|----------|\n")
+		for _, r := range s.Results {
+			tools := "—"
+			if len(r.ToolCalls) > 0 {
+				tools = strings.Join(r.ToolCalls, ", ")
+			}
+			mcpCount := 0
+			var skillNames []string
+			if r.Environment != nil {
+				skillNames = r.Environment.SkillsInvoked
+			}
+			for _, ev := range r.SessionEvents {
+				if ev.MCPServerName != "" || ev.MCPToolName != "" {
+					mcpCount++
+				}
+			}
+			skillStr := "—"
+			if len(skillNames) > 0 {
+				skillStr = strings.Join(skillNames, ", ")
+			}
+			fmt.Fprintf(&b, "| %s | %s | %d | %s | %.1fs |\n",
+				r.ConfigName, tools, mcpCount, skillStr, r.Duration)
+		}
+		b.WriteString("\n")
+	}
+
 	if err := os.WriteFile(summaryPath, []byte(b.String()), 0644); err != nil {
 		return "", fmt.Errorf("writing markdown summary: %w", err)
 	}
