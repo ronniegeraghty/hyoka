@@ -721,10 +721,17 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 			}
 		}
 	}
+	// Resolve tools for reporting — mirrors the resolution in buildSessionConfig.
+	var reportAvailableTools []string
+	if len(task.Config.Generator.Tools) > 0 {
+		reportAvailableTools = config.ResolveTools(task.Config.Generator.Tools, mergePromptProperties(task.Prompt))
+	} else {
+		reportAvailableTools = task.Config.Generator.AvailableTools
+	}
 	env := &report.EnvironmentInfo{
 		Model:            task.Config.Generator.Model,
 		SkillDirectories: skillDirectories,
-		AvailableTools:   task.Config.Generator.AvailableTools,
+		AvailableTools:   reportAvailableTools,
 		ExcludedTools:    task.Config.Generator.ExcludedTools,
 		SafetyBoundaries: true,
 		AllowCloud:       false,
