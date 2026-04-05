@@ -527,9 +527,16 @@ func TestAPIPromptDetailEndpoint(t *testing.T) {
 	if p["id"] != "test-prompt-one" {
 		t.Errorf("expected id test-prompt-one, got %v", p["id"])
 	}
-	if p["service"] != "identity" {
-		t.Errorf("expected service identity, got %v", p["service"])
+	props, ok := p["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("expected properties map in response")
 	}
+	if props["service"] != "identity" {
+		t.Errorf("expected service identity, got %v", props["service"])
+	}
+
+
+
 }
 
 func TestAPIPromptDetailNotFound(t *testing.T) {

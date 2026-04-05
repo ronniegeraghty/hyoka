@@ -97,9 +97,9 @@ errs = append(errs, ValidationError{File: p.FilePath, Message: msg})
 
 // Required fields (id is already enforced by parser, but check anyway)
 requiredFields := map[string]string{
-"id": p.ID, "service": p.Service, "plane": p.Plane,
-"language": p.Language, "category": p.Category, "difficulty": p.Difficulty,
-"description": p.Description, "created": p.Created, "author": p.Author,
+"id": p.ID, "service": p.Service(), "plane": p.Plane(),
+"language": p.Language(), "category": p.Category(), "difficulty": p.Difficulty(),
+"description": p.Description(), "created": p.Created(), "author": p.Author(),
 }
 for field, val := range requiredFields {
 if val == "" {
@@ -108,27 +108,27 @@ addErr(fmt.Sprintf("missing required field: %s", field))
 }
 
 // Enum validation
-if p.Service != "" && !validServicesMap[p.Service] {
-addErr(fmt.Sprintf("invalid service %q; must be one of: %s", p.Service, joinKeys(validServicesMap)))
+if p.Service() != "" && !validServicesMap[p.Service()] {
+addErr(fmt.Sprintf("invalid service %q; must be one of: %s", p.Service(), joinKeys(validServicesMap)))
 }
-if p.Plane != "" && !validPlanesMap[p.Plane] {
-addErr(fmt.Sprintf("invalid plane %q; must be one of: %s", p.Plane, joinKeys(validPlanesMap)))
+if p.Plane() != "" && !validPlanesMap[p.Plane()] {
+addErr(fmt.Sprintf("invalid plane %q; must be one of: %s", p.Plane(), joinKeys(validPlanesMap)))
 }
-if p.Language != "" && !validLanguagesMap[p.Language] {
-addErr(fmt.Sprintf("invalid language %q; must be one of: %s", p.Language, joinKeys(validLanguagesMap)))
+if p.Language() != "" && !validLanguagesMap[p.Language()] {
+addErr(fmt.Sprintf("invalid language %q; must be one of: %s", p.Language(), joinKeys(validLanguagesMap)))
 }
-if p.Category != "" && !validCategoriesMap[p.Category] {
-addErr(fmt.Sprintf("invalid category %q; must be one of: %s", p.Category, joinKeys(validCategoriesMap)))
+if p.Category() != "" && !validCategoriesMap[p.Category()] {
+addErr(fmt.Sprintf("invalid category %q; must be one of: %s", p.Category(), joinKeys(validCategoriesMap)))
 }
-if p.Difficulty != "" && !validDifficultiesMap[p.Difficulty] {
-addErr(fmt.Sprintf("invalid difficulty %q; must be one of: %s", p.Difficulty, joinKeys(validDifficultiesMap)))
+if p.Difficulty() != "" && !validDifficultiesMap[p.Difficulty()] {
+addErr(fmt.Sprintf("invalid difficulty %q; must be one of: %s", p.Difficulty(), joinKeys(validDifficultiesMap)))
 }
 
 // ID naming convention: {service}-{dp|mp}-{language}-
-if p.Service != "" && p.Plane != "" && p.Language != "" {
-abbrev := planeAbbrev[p.Plane]
+if p.Service() != "" && p.Plane() != "" && p.Language() != "" {
+abbrev := planeAbbrev[p.Plane()]
 if abbrev != "" {
-expectedPrefix := fmt.Sprintf("%s-%s-%s-", p.Service, abbrev, p.Language)
+expectedPrefix := fmt.Sprintf("%s-%s-%s-", p.Service(), abbrev, p.Language())
 if !strings.HasPrefix(p.ID, expectedPrefix) {
 addErr(fmt.Sprintf("id %q must start with %q", p.ID, expectedPrefix))
 }

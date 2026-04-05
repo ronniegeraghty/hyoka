@@ -196,11 +196,11 @@ func (e *Engine) loadCriteria() {
 // text for the given prompt.
 func (e *Engine) mergedCriteria(p *prompt.Prompt) string {
 	attrs := criteria.PromptAttrs{
-		Language: p.Language,
-		Service:  p.Service,
-		Plane:    p.Plane,
-		Category: p.Category,
-		SDK:      p.SDKPackage,
+		Language: p.Language(),
+		Service:  p.Service(),
+		Plane:    p.Plane(),
+		Category: p.Category(),
+		SDK:      p.SDKPackage(),
 	}
 	matched := criteria.MatchingCriteria(e.criteriaSets, attrs)
 	merged := criteria.MergeCriteria(matched, p.EvaluationCriteria)
@@ -530,13 +530,13 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 		ConfigName: task.Config.Name,
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
 		PromptMeta: map[string]any{
-			"service":     task.Prompt.Service,
-			"plane":       task.Prompt.Plane,
-			"language":    task.Prompt.Language,
-			"category":    task.Prompt.Category,
-			"description": task.Prompt.Description,
-			"difficulty":  task.Prompt.Difficulty,
-			"sdk_package": task.Prompt.SDKPackage,
+			"service":     task.Prompt.Service(),
+			"plane":       task.Prompt.Plane(),
+			"language":    task.Prompt.Language(),
+			"category":    task.Prompt.Category(),
+			"description": task.Prompt.Description(),
+			"difficulty":  task.Prompt.Difficulty(),
+			"sdk_package": task.Prompt.SDKPackage(),
 		},
 		ConfigUsed: map[string]any{
 			"name":  task.Config.Name,
@@ -928,13 +928,13 @@ func (e *Engine) runSingleEval(ctx context.Context, task EvalTask, runID string,
 
 	// Write HTML report
 	if _, err := report.WriteHTMLReport(evalReport, e.opts.OutputDir, runID,
-		task.Prompt.Service, task.Prompt.Plane, task.Prompt.Language, task.Prompt.Category); err != nil {
+		task.Prompt.Service(), task.Prompt.Plane(), task.Prompt.Language(), task.Prompt.Category()); err != nil {
 		lg.Error("Failed to write HTML report", "error", err)
 	}
 
 	// Write Markdown report
 	if _, err := report.WriteMarkdownReport(evalReport, e.opts.OutputDir, runID,
-		task.Prompt.Service, task.Prompt.Plane, task.Prompt.Language, task.Prompt.Category); err != nil {
+		task.Prompt.Service(), task.Prompt.Plane(), task.Prompt.Language(), task.Prompt.Category()); err != nil {
 		lg.Error("Failed to write Markdown report", "error", err)
 	}
 

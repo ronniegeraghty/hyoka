@@ -65,26 +65,26 @@ func Generate(promptsDir string) (*Manifest, error) {
 
 		entry := PromptEntry{
 			ID:          p.ID,
-			Service:     p.Service,
-			Plane:       p.Plane,
-			Language:    p.Language,
-			Category:    p.Category,
-			Difficulty:  p.Difficulty,
-			Description: p.Description,
+			Service:     p.Service(),
+			Plane:       p.Plane(),
+			Language:    p.Language(),
+			Category:    p.Category(),
+			Difficulty:  p.Difficulty(),
+			Description: p.Description(),
 			Path:        relPath,
-			Created:     p.Created,
-			Author:      p.Author,
-			SDKPackage:  p.SDKPackage,
-			DocURL:      p.DocURL,
+			Created:     p.Created(),
+			Author:      p.Author(),
+			SDKPackage:  p.SDKPackage(),
+			DocURL:      p.DocURL(),
 		}
 		if len(p.Tags) > 0 {
 			entry.Tags = p.Tags
 		}
 		entries = append(entries, entry)
 
-		serviceSet[p.Service] = true
-		languageSet[p.Language] = true
-		categorySet[p.Category] = true
+		serviceSet[p.Service()] = true
+		languageSet[p.Language()] = true
+		categorySet[p.Category()] = true
 	}
 
 	sort.Slice(entries, func(i, j int) bool {

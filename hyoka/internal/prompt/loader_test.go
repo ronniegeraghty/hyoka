@@ -51,17 +51,17 @@ func TestParsePromptFile(t *testing.T) {
 	if p.ID != "storage-auth-dotnet" {
 		t.Errorf("expected ID 'storage-auth-dotnet', got %q", p.ID)
 	}
-	if p.Service != "storage" {
-		t.Errorf("expected service 'storage', got %q", p.Service)
+	if p.Service() != "storage" {
+		t.Errorf("expected service 'storage', got %q", p.Service())
 	}
-	if p.Plane != "data-plane" {
-		t.Errorf("expected plane 'data-plane', got %q", p.Plane)
+	if p.Plane() != "data-plane" {
+		t.Errorf("expected plane 'data-plane', got %q", p.Plane())
 	}
-	if p.Language != "dotnet" {
-		t.Errorf("expected language 'dotnet', got %q", p.Language)
+	if p.Language() != "dotnet" {
+		t.Errorf("expected language 'dotnet', got %q", p.Language())
 	}
-	if p.Category != "authentication" {
-		t.Errorf("expected category 'authentication', got %q", p.Category)
+	if p.Category() != "authentication" {
+		t.Errorf("expected category 'authentication', got %q", p.Category())
 	}
 	if len(p.Tags) != 3 {
 		t.Errorf("expected 3 tags, got %d", len(p.Tags))
@@ -138,9 +138,9 @@ func TestLoadPrompts(t *testing.T) {
 
 func TestFilterPrompts(t *testing.T) {
 	prompts := []*Prompt{
-		{ID: "p1", Service: "storage", Language: "dotnet", Plane: "data-plane", Category: "authentication", Tags: []string{"blob", "identity"}},
-		{ID: "p2", Service: "keyvault", Language: "python", Plane: "data-plane", Category: "encryption", Tags: []string{"keys"}},
-		{ID: "p3", Service: "storage", Language: "java", Plane: "management-plane", Category: "authentication", Tags: []string{"blob"}},
+		{ID: "p1", Properties: map[string]string{"service": "storage", "language": "dotnet", "plane": "data-plane", "category": "authentication"}, Tags: []string{"blob", "identity"}},
+		{ID: "p2", Properties: map[string]string{"service": "keyvault", "language": "python", "plane": "data-plane", "category": "encryption"}, Tags: []string{"keys"}},
+		{ID: "p3", Properties: map[string]string{"service": "storage", "language": "java", "plane": "management-plane", "category": "authentication"}, Tags: []string{"blob"}},
 	}
 
 	tests := []struct {
@@ -312,23 +312,23 @@ t.Fatalf("unexpected error: %v", err)
 if p.ID != "storage-auth-dotnet" {
 t.Errorf("expected ID 'storage-auth-dotnet', got %q", p.ID)
 }
-if p.Service != "storage" {
-t.Errorf("expected service 'storage', got %q", p.Service)
+if p.Service() != "storage" {
+t.Errorf("expected service 'storage', got %q", p.Service())
 }
-if p.Plane != "data-plane" {
-t.Errorf("expected plane 'data-plane', got %q", p.Plane)
+if p.Plane() != "data-plane" {
+t.Errorf("expected plane 'data-plane', got %q", p.Plane())
 }
-if p.Language != "dotnet" {
-t.Errorf("expected language 'dotnet', got %q", p.Language)
+if p.Language() != "dotnet" {
+t.Errorf("expected language 'dotnet', got %q", p.Language())
 }
-if p.Category != "authentication" {
-t.Errorf("expected category 'authentication', got %q", p.Category)
+if p.Category() != "authentication" {
+t.Errorf("expected category 'authentication', got %q", p.Category())
 }
-if p.Difficulty != "beginner" {
-t.Errorf("expected difficulty 'beginner', got %q", p.Difficulty)
+if p.Difficulty() != "beginner" {
+t.Errorf("expected difficulty 'beginner', got %q", p.Difficulty())
 }
-if p.SDKPackage != "Azure.Storage.Blobs" {
-t.Errorf("expected sdk_package 'Azure.Storage.Blobs', got %q", p.SDKPackage)
+if p.SDKPackage() != "Azure.Storage.Blobs" {
+t.Errorf("expected sdk_package 'Azure.Storage.Blobs', got %q", p.SDKPackage())
 }
 if len(p.Tags) != 3 {
 t.Errorf("expected 3 tags, got %d", len(p.Tags))
@@ -358,12 +358,17 @@ t.Fatal("expected error for missing ID")
 }
 }
 
-func TestParsePromptYAMLInvalidField(t *testing.T) {
-content := []byte("id: test\nunknown_field: bad\nprompt_text: hello\n")
-_, err := ParsePromptYAML(content, "bad.prompt.yaml")
-if err == nil {
-t.Fatal("expected error for unknown field with KnownFields(true)")
-}
+func TestParsePromptYAMLUnknownFieldIgnored(t *testing.T) {
+	// Unknown fields are silently ignored since KnownFields is no longer enforced.
+	// This supports forward-compatible frontmatter with arbitrary properties.
+	content := []byte("id: test\nunknown_field: bad\nprompt_text: hello\n")
+	p, err := ParsePromptYAML(content, "ok.prompt.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.ID != "test" {
+		t.Errorf("expected ID 'test', got %q", p.ID)
+	}
 }
 
 func TestLoadPromptsYAML(t *testing.T) {
