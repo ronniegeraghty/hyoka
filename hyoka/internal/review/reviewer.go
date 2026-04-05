@@ -30,6 +30,7 @@ type CopilotReviewer struct {
 	maxSessionActions int
 	skillDirectories  []string
 	sessionTimeout    time.Duration
+	systemPrompt      string
 }
 
 // NewCopilotReviewer creates a reviewer backed by the given Copilot client.
@@ -49,6 +50,12 @@ func (r *CopilotReviewer) SetSkillDirectories(dirs []string) {
 // SendAndWait call. Zero means use the default (10 minutes).
 func (r *CopilotReviewer) SetSessionTimeout(d time.Duration) {
 	r.sessionTimeout = d
+}
+
+// SetSystemPrompt configures a custom system prompt for the review session.
+// An empty string means no system prompt is sent.
+func (r *CopilotReviewer) SetSystemPrompt(prompt string) {
+	r.systemPrompt = prompt
 }
 
 // Review creates a separate Copilot session, sends the review prompt, and parses results.
@@ -175,18 +182,21 @@ func (r *CopilotReviewer) Review(ctx context.Context, originalPrompt string, wor
 
 	slog.Info("Starting review session", "model", r.model, "skills", len(r.skillDirectories), "work_dir", workDir)
 	slog.Debug("Creating review session", "model", r.model)
-	session, err := r.client.CreateSession(reviewCtx, &copilot.SessionConfig{
-		Model: r.model,
-		SystemMessage: &copilot.SystemMessageConfig{
-			Mode:    "append",
-			Content: "You are a code review judge evaluating another AI agent's work. Actively verify the code: attempt to build it, check if SDK packages are the latest versions, and test any claims. Score each criterion as pass/fail per the rubric. Respond with ONLY valid JSON. No markdown, no explanation.",
-		},
+	sessionCfg := &copilot.SessionConfig{
+		Model:               r.model,
 		ConfigDir:           configDir,
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		SkillDirectories:    r.skillDirectories,
 		OnEvent:             eventHandler,
-	})
+	}
+	if r.systemPrompt != "" {
+		sessionCfg.SystemMessage = &copilot.SystemMessageConfig{
+			Mode:    "append",
+			Content: r.systemPrompt,
+		}
+	}
+	session, err := r.client.CreateSession(reviewCtx, sessionCfg)
 	if err != nil {
 		slog.Error("Failed to create review session", "model", r.model, "error", err)
 		return nil, fmt.Errorf("creating review session: %w", err)
@@ -290,6 +300,7 @@ type PanelReviewer struct {
 	maxSessionActions int
 	skillDirectories  []string
 	sessionTimeout    time.Duration
+	systemPrompt      string
 }
 
 // NewPanelReviewer creates a panel reviewer that runs multiple models concurrently.
@@ -311,6 +322,12 @@ func (p *PanelReviewer) SetSkillDirectories(dirs []string) {
 // SendAndWait call. Zero means use the default (10 minutes).
 func (p *PanelReviewer) SetSessionTimeout(d time.Duration) {
 	p.sessionTimeout = d
+}
+
+// SetSystemPrompt configures a custom system prompt for all review sessions.
+// An empty string means no system prompt is sent.
+func (p *PanelReviewer) SetSystemPrompt(prompt string) {
+	p.systemPrompt = prompt
 }
 
 // Models returns the list of reviewer models.
@@ -523,18 +540,21 @@ func (p *PanelReviewer) runSingleReview(ctx context.Context, model string, revie
 
 	slog.Info("Starting review session", "model", model, "skills", len(p.skillDirectories), "work_dir", workDir)
 	slog.Debug("Creating review session", "model", model)
-	session, err := client.CreateSession(reviewCtx, &copilot.SessionConfig{
-		Model: model,
-		SystemMessage: &copilot.SystemMessageConfig{
-			Mode:    "append",
-			Content: "You are a code review judge evaluating another AI agent's work. Actively verify the code: attempt to build it, check if SDK packages are the latest versions, and test any claims. Score each criterion as pass/fail per the rubric. Respond with ONLY valid JSON. No markdown, no explanation.",
-		},
+	sessionCfg := &copilot.SessionConfig{
+		Model:               model,
 		ConfigDir:           configDir,
 		WorkingDirectory:    workDir,
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		SkillDirectories:    p.skillDirectories,
 		OnEvent:             eventHandler,
-	})
+	}
+	if p.systemPrompt != "" {
+		sessionCfg.SystemMessage = &copilot.SystemMessageConfig{
+			Mode:    "append",
+			Content: p.systemPrompt,
+		}
+	}
+	session, err := client.CreateSession(reviewCtx, sessionCfg)
 	if err != nil {
 		return nil, fmt.Errorf("creating review session for %s: %w", model, err)
 	}

@@ -885,3 +885,34 @@ func TestPanelReviewerImplementsReviewer(t *testing.T) {
 func TestCopilotReviewerImplementsReviewer(t *testing.T) {
 	var _ Reviewer = &CopilotReviewer{}
 }
+
+func TestCopilotReviewer_SetSystemPrompt(t *testing.T) {
+	r := NewCopilotReviewer(nil, "claude-sonnet-4.5", 50)
+
+	if r.systemPrompt != "" {
+		t.Errorf("expected empty default systemPrompt, got %q", r.systemPrompt)
+	}
+
+	r.SetSystemPrompt("You are a strict reviewer.")
+	if r.systemPrompt != "You are a strict reviewer." {
+		t.Errorf("expected custom systemPrompt, got %q", r.systemPrompt)
+	}
+
+	r.SetSystemPrompt("")
+	if r.systemPrompt != "" {
+		t.Errorf("expected empty systemPrompt after clear, got %q", r.systemPrompt)
+	}
+}
+
+func TestPanelReviewer_SetSystemPrompt(t *testing.T) {
+	p := NewPanelReviewer(nil, []string{"model-a", "model-b"}, 50)
+
+	if p.systemPrompt != "" {
+		t.Errorf("expected empty default systemPrompt, got %q", p.systemPrompt)
+	}
+
+	p.SetSystemPrompt("You are a review judge.")
+	if p.systemPrompt != "You are a review judge." {
+		t.Errorf("expected custom systemPrompt, got %q", p.systemPrompt)
+	}
+}

@@ -417,8 +417,10 @@ func runCmd() *cobra.Command {
 					// Create reviewer factory that builds a reviewer per config (#92)
 					reviewerFactory = func(cfg *config.ToolConfig) (review.Reviewer, *review.PanelReviewer, error) {
 						var reviewerModels []string
-						if cfg.Reviewer != nil && len(cfg.Reviewer.Models) > 0 {
+						var reviewerSystemPrompt string
+						if cfg.Reviewer != nil {
 							reviewerModels = cfg.Reviewer.Models
+							reviewerSystemPrompt = cfg.Reviewer.SystemPrompt
 						}
 						if len(reviewerModels) == 0 {
 							return nil, nil, nil
@@ -428,6 +430,9 @@ func runCmd() *cobra.Command {
 							// Multi-model panel
 							panelReviewer := review.NewPanelReviewer(clientOpts, reviewerModels, f.maxSessionActions)
 							panelReviewer.SetSessionTimeout(sessionTimeout)
+							if reviewerSystemPrompt != "" {
+								panelReviewer.SetSystemPrompt(reviewerSystemPrompt)
+							}
 							if len(reviewerSkillsDirs) > 0 {
 								panelReviewer.SetSkillDirectories(reviewerSkillsDirs)
 							}
@@ -442,6 +447,9 @@ func runCmd() *cobra.Command {
 						}
 						copilotReviewer := review.NewCopilotReviewer(reviewClient, reviewerModels[0], f.maxSessionActions)
 						copilotReviewer.SetSessionTimeout(sessionTimeout)
+						if reviewerSystemPrompt != "" {
+							copilotReviewer.SetSystemPrompt(reviewerSystemPrompt)
+						}
 						if len(reviewerSkillsDirs) > 0 {
 							copilotReviewer.SetSkillDirectories(reviewerSkillsDirs)
 						}
