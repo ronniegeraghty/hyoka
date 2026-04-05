@@ -1,6 +1,7 @@
 package prompt
 
-// Prompt represents a parsed .prompt.md file with frontmatter metadata and prompt text.
+// Prompt represents a parsed prompt file (.prompt.md, .prompt.yaml, or .prompt.yml)
+// with metadata and prompt text.
 type Prompt struct {
 	ID              string            `yaml:"id" json:"id"`
 	Service         string            `yaml:"service" json:"service"`
@@ -21,10 +22,12 @@ type Prompt struct {
 	ExpectedPkgs    []string          `yaml:"expected_packages" json:"expected_packages,omitempty"`
 	ExpectedTools   []string          `yaml:"expected_tools" json:"expected_tools,omitempty"`
 
-	// The prompt text extracted from the ## Prompt section
+	// The prompt text: extracted from ## Prompt section (.prompt.md)
+	// or from the prompt_text field (.prompt.yaml/.prompt.yml)
 	PromptText string `yaml:"-" json:"prompt_text"`
 
-	// The evaluation criteria text extracted from the ## Evaluation Criteria section
+	// The evaluation criteria: extracted from ## Evaluation Criteria section (.prompt.md)
+	// or from the evaluation_criteria field (.prompt.yaml/.prompt.yml)
 	EvaluationCriteria string `yaml:"-" json:"evaluation_criteria,omitempty"`
 
 	// Source file path

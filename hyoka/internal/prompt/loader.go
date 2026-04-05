@@ -9,9 +9,17 @@ import (
 	"strings"
 )
 
-// LoadPrompts walks the directory tree at root and loads all .prompt.md files.
-// Returns an error if the directory contains zero valid prompts, along with
-// near-miss suggestions for files that almost match the naming pattern.
+// isPromptFile returns true if the filename matches a supported prompt extension.
+func isPromptFile(name string) bool {
+	return strings.HasSuffix(name, ".prompt.md") ||
+		strings.HasSuffix(name, ".prompt.yaml") ||
+		strings.HasSuffix(name, ".prompt.yml")
+}
+
+// LoadPrompts walks the directory tree at root and loads all prompt files
+// (.prompt.md, .prompt.yaml, .prompt.yml). Returns an error if the directory
+// contains zero valid prompts, along with near-miss suggestions for files that
+// almost match the naming pattern.
 func LoadPrompts(root string) ([]*Prompt, error) {
 	slog.Debug("Scanning for prompts", "root", root)
 	var prompts []*Prompt
@@ -23,7 +31,8 @@ func LoadPrompts(root string) ([]*Prompt, error) {
 		if info.IsDir() {
 			return nil
 		}
-		if !strings.HasSuffix(info.Name(), ".prompt.md") {
+		name := info.Name()
+		if !isPromptFile(name) {
 			return nil
 		}
 
@@ -32,7 +41,12 @@ func LoadPrompts(root string) ([]*Prompt, error) {
 			return fmt.Errorf("reading %s: %w", path, err)
 		}
 
-		p, err := ParsePromptFile(data, path)
+		var p *Prompt
+		if strings.HasSuffix(name, ".prompt.yaml") || strings.HasSuffix(name, ".prompt.yml") {
+			p, err = ParsePromptYAML(data, path)
+		} else {
+			p, err = ParsePromptFile(data, path)
+		}
 		if err != nil {
 			return err
 		}
@@ -80,8 +94,8 @@ func ScanNearMisses(dir string) []string {
 		}
 		name := info.Name()
 
-		// Skip files that already match the correct pattern
-		if strings.HasSuffix(name, ".prompt.md") {
+		// Skip files that already match a correct prompt pattern
+		if isPromptFile(name) {
 			return nil
 		}
 
@@ -102,8 +116,8 @@ func ScanNearMisses(dir string) []string {
 			return nil
 		}
 
-		// Pattern: *.prompt.txt or *.prompt.* (right base, wrong extension)
-		if strings.Contains(name, ".prompt.") && !strings.HasSuffix(name, ".prompt.md") {
+		// Pattern: *.prompt.txt or other unsupported extensions
+		if strings.Contains(name, ".prompt.") && !isPromptFile(name) {
 			if !seen[rel] {
 				seen[rel] = true
 				nearMisses = append(nearMisses, rel)
